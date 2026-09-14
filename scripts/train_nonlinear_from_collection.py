@@ -8,10 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from vos_memory_inspector.paired_experiment import (
-    load_case_cache_pair,
-    run_paired_experiment,
-)
+from vos_memory_inspector.paired_experiment import run_paired_experiment
+from vos_memory_inspector.paired_state_cache import load_paired_state_cache
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -73,9 +71,9 @@ def main() -> None:
     if selection.get("schema_version") != "cmmt.paired_state_selection.v1":
         raise ValueError("unsupported paired-state selection manifest")
     paths = _split_paths(selection, args.cache_root.resolve())
-    train_pairs = [load_case_cache_pair(path) for path in paths["train"]]
+    train_pairs = [load_paired_state_cache(path)[:2] for path in paths["train"]]
     validation_pairs = [
-        load_case_cache_pair(path) for path in paths["validation"]
+        load_paired_state_cache(path)[:2] for path in paths["validation"]
     ]
     report = run_paired_experiment(
         train_pairs,

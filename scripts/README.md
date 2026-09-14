@@ -141,6 +141,7 @@ python scripts/prepare_paired_state_dataset.py \
   --target-checkpoint checkpoints/sam2.1_hiera_large.pt \
   --target-model-id sam2.1-hiera-large \
   --output-root outputs/paired_states/davis2017_train_rare_v1 \
+  --compact-root outputs/paired_states_compact/davis2017_train_rare_v1 \
   --run-directory outputs/paired_state_runs/davis2017_train_rare_v1 \
   --hot-cache-root /tmp/cmmt-phase3-hot
 ```
@@ -165,7 +166,7 @@ cmmt-paired-experiment \
 ```bash
 python scripts/train_nonlinear_from_collection.py \
   --selection-manifest outputs/paired_state_runs/davis2017_train_rare_v1/selection_manifest.json \
-  --cache-root outputs/paired_states/davis2017_train_rare_v1 \
+  --cache-root outputs/paired_states_compact/davis2017_train_rare_v1 \
   --device cuda --spatial-samples-per-pair 4096 \
   --epochs 120 --learning-rate 0.001 --hidden-dim 128 \
   --output-dir outputs/nonlinear_training/davis2017_train_rare_v1_mlp128

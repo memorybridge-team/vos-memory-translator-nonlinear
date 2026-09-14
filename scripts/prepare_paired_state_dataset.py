@@ -20,7 +20,9 @@ from vos_memory_inspector.baseline_sweep import (
     selection_manifest,
     write_json_atomic,
 )
+from vos_memory_inspector.case_cache import load_case_cache
 from vos_memory_inspector.evaluation_manifest import load_evaluation_manifest
+from vos_memory_inspector.paired_state_cache import write_paired_state_cache
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -40,6 +42,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--target-checkpoint", required=True, type=Path)
     parser.add_argument("--target-model-id", required=True)
     parser.add_argument("--output-root", required=True, type=Path)
+    parser.add_argument("--compact-root", type=Path)
     parser.add_argument("--run-directory", required=True, type=Path)
     parser.add_argument("--hot-cache-root", type=Path)
     parser.add_argument("--tag", action="append", default=[])
@@ -179,6 +182,7 @@ def main() -> None:
         return
 
     output_root = args.output_root.resolve()
+    compact_root = None if args.compact_root is None else args.compact_root.resolve()
     run_directory = args.run_directory.resolve()
     hot_cache_root = (
         None if args.hot_cache_root is None else args.hot_cache_root.resolve()
@@ -219,9 +223,24 @@ def main() -> None:
                 check=True,
             )
             state = "completed"
+        compact_cache = None
+        if compact_root is not None:
+            compact_cache = compact_root / split / f"{slug}.pt"
+            if not cache_checksum_matches(compact_cache):
+                full_payload = load_case_cache(cache)
+                write_paired_state_cache(
+                    compact_cache,
+                    source_canonical=full_payload["source_canonical"],
+                    target_canonical=full_payload["target_canonical"],
+                    metadata={
+                        **dict(full_payload["metadata"]),
+                        "source_case_cache": str(cache),
+                    },
+                )
         status["cases"][slug] = {
             "state": state,
             "paired_split": split,
+            "compact_cache": None if compact_cache is None else str(compact_cache),
             "updated_at": _utc_now(),
         }
         status["updated_at"] = _utc_now()
