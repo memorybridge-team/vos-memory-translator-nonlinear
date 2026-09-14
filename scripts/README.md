@@ -154,6 +154,7 @@ cmmt-paired-experiment \
   --train-case-cache outputs/paired_states/.../train/example.pt \
   --test-case-cache outputs/paired_states/.../validation/example.pt \
   --translator residual_mlp --hidden-dim 128 \
+  --device cuda --spatial-samples-per-pair 4096 \
   --output-dir outputs/nonlinear_training/example
 ```
 

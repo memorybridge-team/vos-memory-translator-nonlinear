@@ -367,13 +367,19 @@ class LinearStateTranslator(_LearnedStateTranslator):
         self.presence = nn.Linear(1, 1)
 
     def _feature_head(self, tensor: torch.Tensor) -> torch.Tensor:
-        return self.feature(tensor.to(dtype=self.feature.weight.dtype))
+        return self.feature(
+            tensor.to(device=self.feature.weight.device, dtype=self.feature.weight.dtype)
+        )
 
     def _pointer_head(self, tensor: torch.Tensor) -> torch.Tensor:
-        return self.pointer(tensor.to(dtype=self.pointer.weight.dtype))
+        return self.pointer(
+            tensor.to(device=self.pointer.weight.device, dtype=self.pointer.weight.dtype)
+        )
 
     def _presence_head(self, tensor: torch.Tensor) -> torch.Tensor:
-        return self.presence(tensor.to(dtype=self.presence.weight.dtype))
+        return self.presence(
+            tensor.to(device=self.presence.weight.device, dtype=self.presence.weight.dtype)
+        )
 
 
 class ResidualMLPStateTranslator(_LearnedStateTranslator):
@@ -411,18 +417,27 @@ class ResidualMLPStateTranslator(_LearnedStateTranslator):
         self.pointer_residual = source_spec.pointer_dim == target_spec.pointer_dim
 
     def _feature_head(self, tensor: torch.Tensor) -> torch.Tensor:
-        calibrated = tensor.to(dtype=self.feature[0].weight.dtype)
+        calibrated = tensor.to(
+            device=self.feature[0].weight.device,
+            dtype=self.feature[0].weight.dtype,
+        )
         output = self.feature(calibrated)
         return output + calibrated if self.feature_residual else output
 
     def _pointer_head(self, tensor: torch.Tensor) -> torch.Tensor:
-        calibrated = tensor.to(dtype=self.pointer[0].weight.dtype)
+        calibrated = tensor.to(
+            device=self.pointer[0].weight.device,
+            dtype=self.pointer[0].weight.dtype,
+        )
         output = self.pointer(calibrated)
         return output + calibrated if self.pointer_residual else output
 
     def _presence_head(self, tensor: torch.Tensor) -> torch.Tensor:
         # Scalar presence always has equal input/output shape, so calibration is residual.
-        calibrated = tensor.to(dtype=self.presence.weight.dtype)
+        calibrated = tensor.to(
+            device=self.presence.weight.device,
+            dtype=self.presence.weight.dtype,
+        )
         return self.presence(calibrated) + calibrated
 
     def to_payload(self) -> dict[str, Any]:
@@ -481,20 +496,90 @@ def fit_gradient_translator(
     *,
     epochs: int = 100,
     learning_rate: float = 1e-3,
+    device: str | torch.device = "cpu",
+    spatial_samples_per_pair: int | None = None,
 ) -> list[float]:
     pair_list = list(pairs)
     if not pair_list:
         raise ValueError("at least one paired state is required")
+    if spatial_samples_per_pair is not None and spatial_samples_per_pair < 1:
+        raise ValueError("spatial_samples_per_pair must be positive")
+    translator.to(device)
     optimizer = torch.optim.Adam(translator.parameters(), lr=learning_rate)
+    generator = torch.Generator(device="cpu").manual_seed(torch.initial_seed())
     history: list[float] = []
     translator.train()
     for _ in range(epochs):
         optimizer.zero_grad(set_to_none=True)
-        loss = torch.stack(
-            [state_mse_loss(translator(source), target) for source, target in pair_list]
-        ).mean()
+        if spatial_samples_per_pair is None:
+            losses = [state_mse_loss(translator(source), target) for source, target in pair_list]
+        else:
+            losses = [
+                _sampled_state_mse_loss(
+                    translator,
+                    source,
+                    target,
+                    spatial_samples=spatial_samples_per_pair,
+                    generator=generator,
+                )
+                for source, target in pair_list
+            ]
+        loss = torch.stack(losses).mean()
         loss.backward()
         optimizer.step()
         history.append(float(loss.detach().cpu()))
     translator.eval()
     return history
+
+
+def _sampled_state_mse_loss(
+    translator: _LearnedStateTranslator,
+    source: CanonicalState,
+    target: CanonicalState,
+    *,
+    spatial_samples: int,
+    generator: torch.Generator,
+) -> torch.Tensor:
+    """Estimate component-balanced state loss without materializing full MLP output."""
+
+    valid = _pair_guard(source, target)
+    source_spatial = _resample_spatial(
+        source.spatial_memory,
+        translator.target_spec.height,
+        translator.target_spec.width,
+    )
+    source_vectors = source_spatial.movedim(3, -1)[valid].reshape(
+        -1, translator.source_spec.feature_channels
+    )
+    target_vectors = target.spatial_memory.movedim(3, -1)[valid].reshape(
+        -1, translator.target_spec.feature_channels
+    )
+    sample_count = min(spatial_samples, source_vectors.shape[0])
+    indices = torch.randperm(
+        source_vectors.shape[0], generator=generator
+    )[:sample_count]
+    predicted_spatial = translator._feature_head(source_vectors[indices])
+    spatial_loss = F.mse_loss(
+        predicted_spatial,
+        target_vectors[indices].to(
+            device=predicted_spatial.device, dtype=predicted_spatial.dtype
+        ),
+    )
+
+    source_pointer = source.object_pointer[valid]
+    predicted_pointer = translator._pointer_head(source_pointer)
+    pointer_loss = F.mse_loss(
+        predicted_pointer,
+        target.object_pointer[valid].to(
+            device=predicted_pointer.device, dtype=predicted_pointer.dtype
+        ),
+    )
+    source_presence = source.presence_logits[valid]
+    predicted_presence = translator._presence_head(source_presence)
+    presence_loss = F.mse_loss(
+        predicted_presence,
+        target.presence_logits[valid].to(
+            device=predicted_presence.device, dtype=predicted_presence.dtype
+        ),
+    )
+    return spatial_loss + pointer_loss + presence_loss

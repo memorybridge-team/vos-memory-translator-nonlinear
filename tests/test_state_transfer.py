@@ -297,15 +297,19 @@ def test_paired_experiment_serializes_residual_mlp_contract(tmp_path: Path) -> N
         presence_logits=source.presence_logits + 0.2,
     )
 
-    run_paired_experiment(
+    report = run_paired_experiment(
         [(source, target)],
         [(source, target)],
         tmp_path,
         epochs=1,
         hidden_dim=6,
         translator_names=("residual_mlp",),
+        device="cpu",
+        spatial_samples_per_pair=3,
     )
 
+    assert report["training"]["device"] == "cpu"
+    assert report["training"]["spatial_samples_per_pair"] == 3
     saved = torch.load(
         tmp_path / "paired_translators.pt", map_location="cpu", weights_only=True
     )

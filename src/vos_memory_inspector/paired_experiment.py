@@ -277,6 +277,8 @@ def run_paired_experiment(
     ridge_lambda: float = 0.01,
     hidden_dim: int = 128,
     translator_names: tuple[str, ...] | None = None,
+    device: str = "cpu",
+    spatial_samples_per_pair: int | None = None,
 ) -> dict[str, Any]:
     """Fit/evaluate offline paired canonical state without claiming injection."""
 
@@ -298,6 +300,8 @@ def run_paired_experiment(
         "epochs": epochs,
         "learning_rate": learning_rate,
         "ridge_lambda": ridge_lambda,
+        "device": device,
+        "spatial_samples_per_pair": spatial_samples_per_pair,
     }
     if "direct" in selected:
         translators["direct"] = direct
@@ -308,7 +312,12 @@ def run_paired_experiment(
     if "linear" in selected:
         linear = LinearStateTranslator(source_spec, target_spec)
         linear_history = fit_gradient_translator(
-            linear, train_pairs, epochs=epochs, learning_rate=learning_rate
+            linear,
+            train_pairs,
+            epochs=epochs,
+            learning_rate=learning_rate,
+            device=device,
+            spatial_samples_per_pair=spatial_samples_per_pair,
         )
         translators["linear"] = linear
         training["linear_initial_loss"] = linear_history[0]
@@ -318,7 +327,12 @@ def run_paired_experiment(
             source_spec, target_spec, hidden_dim=hidden_dim
         )
         mlp_history = fit_gradient_translator(
-            mlp, train_pairs, epochs=epochs, learning_rate=learning_rate
+            mlp,
+            train_pairs,
+            epochs=epochs,
+            learning_rate=learning_rate,
+            device=device,
+            spatial_samples_per_pair=spatial_samples_per_pair,
         )
         translators["residual_mlp"] = mlp
         training["mlp_initial_loss"] = mlp_history[0]

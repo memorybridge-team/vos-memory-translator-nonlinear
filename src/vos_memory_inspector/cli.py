@@ -306,6 +306,12 @@ def paired_experiment_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--learning-rate", type=float, default=2e-2)
     parser.add_argument("--ridge-lambda", type=float, default=0.01)
     parser.add_argument("--hidden-dim", type=int, default=128)
+    parser.add_argument("--device", default="cpu")
+    parser.add_argument(
+        "--spatial-samples-per-pair",
+        type=int,
+        help="Sample this many valid spatial tokens per state and epoch.",
+    )
     parser.add_argument(
         "--translator",
         action="append",
@@ -340,6 +346,8 @@ def paired_experiment_main(argv: list[str] | None = None) -> None:
         ridge_lambda=args.ridge_lambda,
         hidden_dim=args.hidden_dim,
         translator_names=tuple(args.translator) or None,
+        device=args.device,
+        spatial_samples_per_pair=args.spatial_samples_per_pair,
     )
     print(json.dumps(report, indent=2))
 
