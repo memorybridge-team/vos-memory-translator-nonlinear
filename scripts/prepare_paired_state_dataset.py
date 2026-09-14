@@ -154,6 +154,8 @@ def main() -> None:
     selection = selection_manifest(
         manifest, cases, tags=tags, case_ids=args.case_id
     )
+    selection["schema_version"] = "cmmt.paired_state_selection.v1"
+    selection.pop("content_sha256", None)
     selection["video_level_split"] = {
         "seed": args.seed,
         "validation_fraction": args.validation_fraction,
@@ -164,6 +166,14 @@ def main() -> None:
         {**case, "paired_split": split_by_sequence[str(case["sequence"])]}
         for case in selection["cases"]
     ]
+    selection["split_case_counts"] = {
+        "train": sum(case["paired_split"] == "train" for case in selection["cases"]),
+        "validation": sum(
+            case["paired_split"] == "validation" for case in selection["cases"]
+        ),
+    }
+    canonical = json.dumps(selection, sort_keys=True, separators=(",", ":"))
+    selection["content_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     if args.dry_run:
         print(json.dumps(selection, indent=2))
         return
