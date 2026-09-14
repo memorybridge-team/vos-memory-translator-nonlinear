@@ -11,7 +11,7 @@ translator의 입력·출력 구조와 학습 경로가 실제 checkpoint state�
 ## 실행 환경과 데이터
 
 - GPU: RunPod NVIDIA A40, 표시 VRAM 46,068 MiB
-- 코드: `kim/exp-sam2-state-translator`, commit `e0f9466`
+- 코드: `main`으로 이관, commit `e0f9466`
 - SAM 2: 공식 checkout commit `2b90b9f5ceec907a1c18123530e92e794ad901a4`
 - Dataset: 공식 DAVIS 2017 trainval 480p, RunPod
   `/workspace/CMMT/data/DAVIS`
@@ -61,4 +61,3 @@ recovery length, latency와 VRAM으로 내려야 한다.
 3. 같은 held-out 영상에서 Large-native oracle, target reset, Last-Mask,
    replay-k를 포함해 미래 마스크 성능을 비교한다.
 4. gate가 동작하면 여러 train/val sequence와 여러 switch frame으로 확장한다.
-

@@ -15,7 +15,7 @@ presence를 직접 전달한 제한적 Pilot 결과다. 전체 DAVIS benchmark �
 
 아래에는 Git 저장 용량을 제한하기 위해 switch 직후, 중간, 어려운 재등장 구간의
 대표 4프레임만 남겼다. 모든 83프레임과 GT 비교는
-[공개 인터랙티브 갤러리](https://memorybridge-team.github.io/vos-memory-translator/experiments/2026-09-08-davis-handoff/)에서
+[공개 인터랙티브 갤러리](https://memorybridge-team.github.io/vos-memory-translator-nonlinear/experiments/2026-09-08-davis-handoff/)에서
 확인할 수 있다.
 
 ![frame 7](comparisons/frame_00007.png)

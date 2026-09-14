@@ -1,7 +1,7 @@
 # Cross-Model KV Cache Transfer 분석과 SAM 2 Memory Translator 구현 보고서
 
 작성일: 2026-08-25
-구현 기준 브랜치: `kim/exp-sam2-state-translator`
+구현 기준 브랜치: `main`
 SAM 2 고정 소스: `facebookresearch/sam2@2b90b9f5ceec907a1c18123530e92e794ad901a4`
 
 ## 1. 결론

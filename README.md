@@ -43,8 +43,8 @@ Translator의 일반화나 우월성은 아직 검증되지 않았습니다.
 
 ## 결과 직접 보기
 
-- [연구 결과 홈페이지](https://memorybridge-team.github.io/vos-memory-translator/)
-- [83프레임 인터랙티브 갤러리](https://memorybridge-team.github.io/vos-memory-translator/experiments/2026-09-08-davis-handoff/)
+- [연구 결과 홈페이지](https://memorybridge-team.github.io/vos-memory-translator-nonlinear/)
+- [83프레임 인터랙티브 갤러리](https://memorybridge-team.github.io/vos-memory-translator-nonlinear/experiments/2026-09-08-davis-handoff/)
 - [현재 정식 실험 계획](docs/experimental_plan.md)
 - [첫 DAVIS handoff pilot 보고서](reports/experiments/2026-09-08_davis_handoff_pilot/report.md)
 - [RunPod 실행 기록](reports/run_logs/2026-09-08_runpod.md)
@@ -102,9 +102,9 @@ git clone https://github.com/facebookresearch/sam2.git
 git -C sam2 checkout 2b90b9f5ceec907a1c18123530e92e794ad901a4
 python -m pip install -e ./sam2
 
-git clone https://github.com/memorybridge-team/vos-memory-translator.git
-cd vos-memory-translator
-git switch kim/exp-sam2-state-translator
+git clone https://github.com/memorybridge-team/vos-memory-translator-nonlinear.git
+cd vos-memory-translator-nonlinear
+git switch main
 python -m pip install -e ".[dev]"
 python -m pytest -q
 ```

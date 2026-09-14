@@ -102,8 +102,8 @@ inference만 보면 A40/A6000도 충분하다. 반면 SAM 2 전체 fine-tuning�
 
 ```bash
 cd /workspace
-git clone --branch kim/exp-sam2-state-translator \
-  https://github.com/memorybridge-team/vos-memory-translator.git CMMT
+git clone --branch main \
+  https://github.com/memorybridge-team/vos-memory-translator-nonlinear.git CMMT
 cd /workspace/CMMT
 bash scripts/runpod_bootstrap.sh /workspace/CMMT
 ```
@@ -112,7 +112,7 @@ bash scripts/runpod_bootstrap.sh /workspace/CMMT
 
 ```bash
 cd /workspace/CMMT
-git switch kim/exp-sam2-state-translator
+git switch main
 git pull --ff-only
 .venv/bin/python -m pytest -q
 ```
@@ -169,6 +169,6 @@ volume에 보관하고 Git에는 위치·hash·schema만 기록합니다.
 ## 현재 공개 Pilot
 
 2026-09-08 Tiny→Large DAVIS pilot의 전체 83-frame 결과는
-[GitHub Pages gallery](https://memorybridge-team.github.io/vos-memory-translator/experiments/2026-09-08-davis-handoff/)에서
+[GitHub Pages gallery](https://memorybridge-team.github.io/vos-memory-translator-nonlinear/experiments/2026-09-08-davis-handoff/)에서
 확인할 수 있습니다. 이는 한 영상·한 객체·한 switch의 제한적 pilot이며 전체
 DAVIS benchmark 결과가 아닙니다.

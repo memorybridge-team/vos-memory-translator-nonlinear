@@ -14,7 +14,7 @@ benchmark 성능을 주장하지 않는다.
 ## 재현 조건
 
 - RunPod GPU: NVIDIA A40, 46,068 MiB 표시 VRAM
-- CMMT code: branch `kim/exp-sam2-state-translator`, commit `18a1ecf`
+- CMMT code: branch `main`으로 이관, commit `18a1ecf`
 - Official SAM 2 checkout: `2b90b9f5ceec907a1c18123530e92e794ad901a4`
 - Official DAVIS evaluation: [`davisvideochallenge/davis2017-evaluation`](https://github.com/davisvideochallenge/davis2017-evaluation)
   commit `ac7c43fca936f9722837b7fbd337d284ba37004b`
@@ -70,7 +70,7 @@ ground-truth J&F가 최종 지표여야 한다.
 
 ## 산출물
 
-- 공개 검토 페이지: [전체 83-frame 인터랙티브 갤러리](https://memorybridge-team.github.io/vos-memory-translator/experiments/2026-09-08-davis-handoff/)
+- 공개 검토 페이지: [전체 83-frame 인터랙티브 갤러리](https://memorybridge-team.github.io/vos-memory-translator-nonlinear/experiments/2026-09-08-davis-handoff/)
 - 페이지에는 GT / Large-native / Direct / Ridge-hybrid 비교 영상, frame slider와
   frame별 J&F 그래프가 포함된다.
 
