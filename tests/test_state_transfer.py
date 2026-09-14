@@ -264,6 +264,58 @@ def test_mlp_residuals_are_only_enabled_for_equal_feature_dimensions() -> None:
     assert not grid_mismatch.feature_residual
 
 
+def test_residual_mlp_payload_roundtrip_preserves_predictions() -> None:
+    spec = StateSpec(3, 2, 2, 5)
+    translator = ResidualMLPStateTranslator(spec, spec, hidden_dim=7)
+    source = _state(
+        torch.randn(1, 1, 2, 3, 2, 2),
+        torch.randn(1, 1, 2, 5),
+        torch.randn(1, 1, 2, 1),
+    )
+
+    restored = ResidualMLPStateTranslator.from_payload(translator.to_payload())
+
+    assert restored.hidden_dim == 7
+    assert restored.source_spec == spec
+    assert restored.target_spec == spec
+    expected = translator.translate(source)
+    actual = restored.translate(source)
+    assert torch.allclose(actual.spatial_memory, expected.spatial_memory)
+    assert torch.allclose(actual.object_pointer, expected.object_pointer)
+    assert torch.allclose(actual.presence_logits, expected.presence_logits)
+
+
+def test_paired_experiment_serializes_residual_mlp_contract(tmp_path: Path) -> None:
+    source = _state(
+        torch.randn(1, 1, 2, 3, 2, 2),
+        torch.randn(1, 1, 2, 4),
+        torch.randn(1, 1, 2, 1),
+    )
+    target = source.with_continuous(
+        spatial_memory=source.spatial_memory * 1.1,
+        object_pointer=source.object_pointer * 0.9,
+        presence_logits=source.presence_logits + 0.2,
+    )
+
+    run_paired_experiment(
+        [(source, target)],
+        [(source, target)],
+        tmp_path,
+        epochs=1,
+        hidden_dim=6,
+        translator_names=("residual_mlp",),
+    )
+
+    saved = torch.load(
+        tmp_path / "paired_translators.pt", map_location="cpu", weights_only=True
+    )
+    payload = saved["residual_mlp"]
+    assert payload["schema_version"] == "cmmt.residual_mlp_translator.v1"
+    assert payload["hidden_dim"] == 6
+    assert payload["source_spec"] == source.spec.to_dict()
+    assert payload["target_spec"] == target.spec.to_dict()
+
+
 def test_paired_experiment_can_run_direct_and_ridge_only(tmp_path: Path) -> None:
     source = _state(
         torch.randn(1, 1, 2, 3, 2, 2),

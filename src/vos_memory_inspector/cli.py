@@ -16,6 +16,7 @@ from .evaluation_manifest import (
     write_evaluation_manifest,
 )
 from .paired_experiment import (
+    load_case_cache_pair,
     load_canonical_state,
     run_paired_experiment,
     run_synthetic_experiment,
@@ -30,7 +31,11 @@ from .roundtrip import (
     run_same_checkpoint_roundtrip,
 )
 from .state_inspector import inspect_state, write_inspection_report
-from .translators import RidgeDirectPresenceTranslator, RidgeStateTranslator
+from .translators import (
+    ResidualMLPStateTranslator,
+    RidgeDirectPresenceTranslator,
+    RidgeStateTranslator,
+)
 
 
 def _probe_parser() -> argparse.ArgumentParser:
@@ -293,6 +298,8 @@ def paired_experiment_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--train-target", action="append", type=Path, default=[])
     parser.add_argument("--test-source", action="append", type=Path, default=[])
     parser.add_argument("--test-target", action="append", type=Path, default=[])
+    parser.add_argument("--train-case-cache", action="append", type=Path, default=[])
+    parser.add_argument("--test-case-cache", action="append", type=Path, default=[])
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--epochs", type=int, default=120)
@@ -307,18 +314,22 @@ def paired_experiment_main(argv: list[str] | None = None) -> None:
         help="Translator to run; repeat as needed. Default: all.",
     )
     args = parser.parse_args(argv)
-    if len(args.train_source) != len(args.train_target) or not args.train_source:
-        parser.error("provide the same non-zero number of --train-source/--train-target")
-    if len(args.test_source) != len(args.test_target) or not args.test_source:
-        parser.error("provide the same non-zero number of --test-source/--test-target")
+    if len(args.train_source) != len(args.train_target):
+        parser.error("provide the same number of --train-source/--train-target")
+    if len(args.test_source) != len(args.test_target):
+        parser.error("provide the same number of --test-source/--test-target")
     train_pairs = [
         (load_canonical_state(source), load_canonical_state(target))
         for source, target in zip(args.train_source, args.train_target, strict=True)
     ]
+    train_pairs.extend(load_case_cache_pair(path) for path in args.train_case_cache)
     test_pairs = [
         (load_canonical_state(source), load_canonical_state(target))
         for source, target in zip(args.test_source, args.test_target, strict=True)
     ]
+    test_pairs.extend(load_case_cache_pair(path) for path in args.test_case_cache)
+    if not train_pairs or not test_pairs:
+        parser.error("provide at least one train pair and one test pair")
     report = run_paired_experiment(
         train_pairs,
         test_pairs,
@@ -422,7 +433,10 @@ def prepare_handoff_case_main(argv: list[str] | None = None) -> None:
 
 def cached_handoff_main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Run Direct or Ridge target continuation from a prepared case cache."
+        description=(
+            "Run Direct, Ridge, or residual-MLP target continuation from a "
+            "prepared case cache."
+        )
     )
     parser.add_argument("--case-cache", required=True, type=Path)
     parser.add_argument("--sam2-repo", required=True, type=Path)
@@ -431,7 +445,11 @@ def cached_handoff_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--target-model-id", required=True)
     parser.add_argument("--video-dir", required=True, type=Path)
     parser.add_argument("--annotation-dir", type=Path)
-    parser.add_argument("--translator", choices=("direct", "ridge"), default="direct")
+    parser.add_argument(
+        "--translator",
+        choices=("direct", "ridge", "residual_mlp"),
+        default="direct",
+    )
     parser.add_argument("--translator-artifact", type=Path)
     parser.add_argument(
         "--presence-policy", choices=("direct", "ridge"), default="direct"
@@ -464,6 +482,18 @@ def cached_handoff_main(argv: list[str] | None = None) -> None:
             translator = ridge
             translator_name = ridge.name
             candidate_label = "Ridge"
+    elif args.translator == "residual_mlp":
+        if args.translator_artifact is None:
+            parser.error("--translator-artifact is required for residual_mlp")
+        payload = __import__("torch").load(
+            args.translator_artifact, map_location="cpu", weights_only=True
+        )
+        mlp_payload = payload.get("residual_mlp") if isinstance(payload, dict) else None
+        if not isinstance(mlp_payload, dict):
+            parser.error("translator artifact does not contain a residual_mlp payload")
+        translator = ResidualMLPStateTranslator.from_payload(mlp_payload)
+        translator_name = translator.name
+        candidate_label = "Nonlinear Residual MLP"
     report = run_cached_translator_handoff(
         case_cache=args.case_cache,
         sam2_repo=args.sam2_repo,

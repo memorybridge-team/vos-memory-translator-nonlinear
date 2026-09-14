@@ -425,6 +425,38 @@ class ResidualMLPStateTranslator(_LearnedStateTranslator):
         calibrated = tensor.to(dtype=self.presence.weight.dtype)
         return self.presence(calibrated) + calibrated
 
+    def to_payload(self) -> dict[str, Any]:
+        """Serialize architecture metadata with CPU weights for safe reuse."""
+
+        return {
+            "schema_version": "cmmt.residual_mlp_translator.v1",
+            "translator": self.name,
+            "source_spec": self.source_spec.to_dict(),
+            "target_spec": self.target_spec.to_dict(),
+            "hidden_dim": self.hidden_dim,
+            "state_dict": {
+                name: value.detach().cpu() for name, value in self.state_dict().items()
+            },
+        }
+
+    @classmethod
+    def from_payload(cls, payload: Mapping[str, Any]) -> "ResidualMLPStateTranslator":
+        if payload.get("schema_version") != "cmmt.residual_mlp_translator.v1":
+            raise ValueError("unsupported residual MLP translator payload")
+        source_spec = StateSpec(**dict(payload["source_spec"]))
+        target_spec = StateSpec(**dict(payload["target_spec"]))
+        translator = cls(
+            source_spec,
+            target_spec,
+            hidden_dim=int(payload["hidden_dim"]),
+        )
+        state_dict = payload.get("state_dict")
+        if not isinstance(state_dict, Mapping):
+            raise TypeError("residual MLP payload state_dict must be a mapping")
+        translator.load_state_dict(dict(state_dict), strict=True)
+        translator.eval()
+        return translator
+
 
 def state_mse_loss(prediction: CanonicalState, target: CanonicalState) -> torch.Tensor:
     valid = _pair_guard(prediction, target)

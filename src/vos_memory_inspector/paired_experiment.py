@@ -10,6 +10,7 @@ from typing import Any
 import torch
 from torch.nn import functional as F
 
+from .case_cache import load_case_cache
 from .metrics import benchmark_translation, direct_improvement, evaluate_state
 from .state_schema import CanonicalState, StateSpec
 from .translators import (
@@ -121,6 +122,15 @@ def load_canonical_state(path: Path) -> CanonicalState:
         if len(candidates) == 1:
             return candidates[0].validate()
     raise TypeError(f"{path} does not contain exactly one CanonicalState")
+
+
+def load_case_cache_pair(path: Path) -> tuple[CanonicalState, CanonicalState]:
+    """Load the aligned Tiny/Large pair from a checksummed prepared case."""
+
+    payload = load_case_cache(path)
+    source = payload["source_canonical"].validate()
+    target = payload["target_canonical"].validate()
+    return source, target
 
 
 def _mean_evaluation(
@@ -355,10 +365,12 @@ def run_paired_experiment(
     ridge = translators.get("ridge")
     if ridge is not None:
         serialized["ridge"] = ridge.to_payload()
-    for name in ("linear", "residual_mlp"):
-        translator = translators.get(name)
-        if translator is not None:
-            serialized[name] = translator.state_dict()
+    linear = translators.get("linear")
+    if linear is not None:
+        serialized["linear"] = linear.state_dict()
+    mlp = translators.get("residual_mlp")
+    if mlp is not None:
+        serialized["residual_mlp"] = mlp.to_payload()
     torch.save(serialized, output_dir / "paired_translators.pt")
     _write_markdown_report(report, output_dir / "paired_report.md")
     return report

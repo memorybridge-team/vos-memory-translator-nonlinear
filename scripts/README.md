@@ -119,3 +119,54 @@ python scripts/backfill_temporal_metrics.py \
   --suite-root outputs/baseline_suites \
   --output-root outputs/rare_event_sweep
 ```
+
+Phase 3 nonlinear 학습용 paired state는 공식 DAVIS `train` split에서 별도로
+수집합니다. 아래 수집기는 rare-event case를 **sequence 단위**로 internal
+train/validation에 나누며, checksummed cache가 있으면 건너뜁니다. baseline suite는
+실행하지 않으므로 Source Tiny와 Target Large의 prefix state 계산에만 GPU를 씁니다.
+
+```bash
+cmmt-davis-build-manifest \
+  --root data/DAVIS --split train \
+  --output outputs/manifests/davis2017_train_phase3.json
+
+python scripts/prepare_paired_state_dataset.py \
+  --manifest outputs/manifests/davis2017_train_phase3.json \
+  --dataset-root data/DAVIS \
+  --sam2-repo .external/sam2 \
+  --source-config configs/sam2.1/sam2.1_hiera_t.yaml \
+  --source-checkpoint checkpoints/sam2.1_hiera_tiny.pt \
+  --source-model-id sam2.1-hiera-tiny \
+  --target-config configs/sam2.1/sam2.1_hiera_l.yaml \
+  --target-checkpoint checkpoints/sam2.1_hiera_large.pt \
+  --target-model-id sam2.1-hiera-large \
+  --output-root outputs/paired_states/davis2017_train_rare_v1 \
+  --run-directory outputs/paired_state_runs/davis2017_train_rare_v1 \
+  --hot-cache-root /tmp/cmmt-phase3-hot
+```
+
+수집된 cache에서 nonlinear Residual MLP만 학습할 때는 각 split의 `.pt`를
+`--train-case-cache`와 `--test-case-cache`로 반복 전달합니다. 생성되는
+`paired_translators.pt`에는 architecture contract와 weights가 함께 저장됩니다.
+
+```bash
+cmmt-paired-experiment \
+  --train-case-cache outputs/paired_states/.../train/example.pt \
+  --test-case-cache outputs/paired_states/.../validation/example.pt \
+  --translator residual_mlp --hidden-dim 128 \
+  --output-dir outputs/nonlinear_training/example
+```
+
+학습 artifact의 실제 downstream continuation은 다음과 같이 실행합니다.
+
+```bash
+cmmt-sam2-cached-handoff \
+  --case-cache outputs/paired_states/.../validation/example.pt \
+  --sam2-repo .external/sam2 \
+  --target-config configs/sam2.1/sam2.1_hiera_l.yaml \
+  --target-checkpoint checkpoints/sam2.1_hiera_large.pt \
+  --target-model-id sam2.1-hiera-large \
+  --video-dir data/DAVIS/JPEGImages/480p/example \
+  --translator residual_mlp \
+  --translator-artifact outputs/nonlinear_training/example/paired_translators.pt
+```
