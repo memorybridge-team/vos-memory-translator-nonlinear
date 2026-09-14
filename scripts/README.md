@@ -158,6 +158,19 @@ cmmt-paired-experiment \
   --output-dir outputs/nonlinear_training/example
 ```
 
+전체 collection은 긴 cache 목록을 직접 입력하지 않고 selection manifest로
+학습합니다. 이 실행기는 영상 단위 split을 그대로 재사용하고 모든 cache checksum을
+검사하며 입력 SHA-256을 최종 JSON에 기록합니다.
+
+```bash
+python scripts/train_nonlinear_from_collection.py \
+  --selection-manifest outputs/paired_state_runs/davis2017_train_rare_v1/selection_manifest.json \
+  --cache-root outputs/paired_states/davis2017_train_rare_v1 \
+  --device cuda --spatial-samples-per-pair 4096 \
+  --epochs 120 --learning-rate 0.001 --hidden-dim 128 \
+  --output-dir outputs/nonlinear_training/davis2017_train_rare_v1_mlp128
+```
+
 학습 artifact의 실제 downstream continuation은 다음과 같이 실행합니다.
 
 ```bash
