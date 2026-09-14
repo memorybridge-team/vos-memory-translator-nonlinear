@@ -9,6 +9,8 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
+from .temporal_evaluation import evaluate_temporal_handoff
+
 
 RARE_EVENT_TAGS = frozenset(
     {
@@ -139,6 +141,38 @@ def load_complete_suite(
     return summary
 
 
+def attach_temporal_metrics(
+    summary: Mapping[str, Any], suite_directory: str | Path
+) -> dict[str, Any]:
+    """Backfill temporal metrics from per-method DAVIS reports without inference."""
+
+    suite_directory = Path(suite_directory)
+    reports: dict[str, dict[str, Any]] = {}
+    for row in summary["methods"]:
+        method = str(row["method"])
+        report_path = suite_directory / method / "davis.json"
+        if not report_path.is_file():
+            raise FileNotFoundError(f"DAVIS report not found: {report_path}")
+        reports[method] = json.loads(report_path.read_text(encoding="utf-8"))
+    if "full_replay" not in reports:
+        raise ValueError("full_replay DAVIS report is required as temporal reference")
+
+    upgraded = dict(summary)
+    upgraded["schema_version"] = "cmmt.cached_baseline_suite.v2"
+    upgraded_methods = []
+    for raw_row in summary["methods"]:
+        row = dict(raw_row)
+        method = str(row["method"])
+        row["temporal"] = evaluate_temporal_handoff(
+            reports[method],
+            reports["full_replay"],
+            switch_frame=int(summary["switch_frame"]),
+        )
+        upgraded_methods.append(row)
+    upgraded["methods"] = upgraded_methods
+    return upgraded
+
+
 def aggregate_completed(
     cases: Sequence[Mapping[str, Any]], suite_root: str | Path
 ) -> dict[str, Any]:
@@ -178,6 +212,7 @@ def aggregate_completed(
                 "mean_wall_time_seconds": mean(
                     float(row["wall_time_seconds"]) for row in rows
                 ),
+                "temporal": _aggregate_temporal(rows),
             }
         )
     return {
@@ -186,6 +221,48 @@ def aggregate_completed(
         "completed_cases": len(completed),
         "completed_case_ids": [str(case["case_id"]) for case, _summary in completed],
         "methods": method_rows,
+    }
+
+
+def _aggregate_temporal(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any] | None:
+    temporal = [row.get("temporal") for row in rows]
+    if not temporal or any(value is None for value in temporal):
+        return None
+
+    def available_mean(values: Iterable[Any]) -> float | None:
+        numeric = [float(value) for value in values if value is not None]
+        return mean(numeric) if numeric else None
+
+    checkpoints = {}
+    for offset in ("1", "5", "20"):
+        checkpoints[offset] = {
+            "mean_candidate_J_and_F": available_mean(
+                value["checkpoint_scores"][offset]["candidate_J_and_F"]
+                for value in temporal
+            ),
+            "mean_reference_gap": available_mean(
+                value["checkpoint_scores"][offset]["reference_gap"]
+                for value in temporal
+            ),
+        }
+    recovered = [
+        value["recovery"]["frames_from_switch"]
+        for value in temporal
+        if value["recovery"]["frames_from_switch"] is not None
+    ]
+    return {
+        "checkpoint_scores": checkpoints,
+        "mean_switch_shock_first_5_visible": available_mean(
+            value["switch_shock"]["windows"]["5"]["mean_reference_gap"]
+            for value in temporal
+        ),
+        "identity_break_proxy_rate": mean(
+            1.0 if value["identity_break_proxy"]["occurred"] else 0.0
+            for value in temporal
+        ),
+        "recovery_rate": len(recovered) / len(temporal),
+        "mean_recovery_frames_when_recovered": available_mean(recovered),
+        "recovery_censored_cases": len(temporal) - len(recovered),
     }
 
 
@@ -210,6 +287,38 @@ def write_aggregate_reports(report: Mapping[str, Any], output_root: str | Path) 
                 visible=visible_text, **row
             )
         )
+    if report["methods"] and report["methods"][0].get("temporal") is not None:
+        lines.extend(
+            [
+                "",
+                "## Post-switch temporal metrics",
+                "",
+                "| Method | +1 J&F | +5 J&F | +20 J&F | Shock first 5 visible | Identity-loss rate | Recovery rate | Mean recovery frames |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for row in report["methods"]:
+            temporal = row["temporal"]
+
+            def value_text(value: Any) -> str:
+                return "n/a" if value is None else f"{float(value):.6f}"
+
+            checkpoints = temporal["checkpoint_scores"]
+            lines.append(
+                "| {label} | {plus1} | {plus5} | {plus20} | {shock} | "
+                "{identity:.3f} | {recovery:.3f} | {recovery_frames} |".format(
+                    label=row["label"],
+                    plus1=value_text(checkpoints["1"]["mean_candidate_J_and_F"]),
+                    plus5=value_text(checkpoints["5"]["mean_candidate_J_and_F"]),
+                    plus20=value_text(checkpoints["20"]["mean_candidate_J_and_F"]),
+                    shock=value_text(temporal["mean_switch_shock_first_5_visible"]),
+                    identity=temporal["identity_break_proxy_rate"],
+                    recovery=temporal["recovery_rate"],
+                    recovery_frames=value_text(
+                        temporal["mean_recovery_frames_when_recovered"]
+                    ),
+                )
+            )
     markdown = output_root / "aggregate.md"
     markdown.parent.mkdir(parents=True, exist_ok=True)
     markdown.write_text("\n".join(lines) + "\n", encoding="utf-8")

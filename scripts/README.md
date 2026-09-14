@@ -108,3 +108,14 @@ python scripts/build_baseline_suite_gallery.py \
   --object-id 1 \
   --output-dir outputs/pages/2026-09-10-bike-packing-baselines
 ```
+
+기존 suite에 per-method `davis.json`이 남아 있으면 SAM 2를 다시 실행하지 않고
+switch+1/5/20, switch shock, identity-loss proxy, recovery length를 backfill할 수
+있습니다.
+
+```bash
+python scripts/backfill_temporal_metrics.py \
+  --selection-manifest outputs/rare_event_sweep/selection_manifest.json \
+  --suite-root outputs/baseline_suites \
+  --output-root outputs/rare_event_sweep
+```

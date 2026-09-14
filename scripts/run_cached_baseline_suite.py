@@ -17,6 +17,7 @@ from vos_memory_inspector.roundtrip import (
     run_cached_baseline,
     run_cached_translator_handoff,
 )
+from vos_memory_inspector.temporal_evaluation import evaluate_temporal_handoff
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -120,6 +121,32 @@ def _write_summary(output_dir: Path, summary: dict[str, Any]) -> None:
     lines.extend(
         (
             "",
+            "## Post-switch temporal metrics",
+            "",
+            "| Method | +1 J&F | +5 J&F | +20 J&F | Shock first 5 visible | Identity-loss proxy | Recovery frames |",
+            "|---|---:|---:|---:|---:|---:|---:|",
+        )
+    )
+    for row in summary["methods"]:
+        temporal = row["temporal"]
+        checkpoints = temporal["checkpoint_scores"]
+
+        def checkpoint_text(offset: str) -> str:
+            value = checkpoints[offset]["candidate_J_and_F"]
+            return "n/a" if value is None else f"{value:.6f}"
+
+        shock = temporal["switch_shock"]["windows"]["5"]["mean_reference_gap"]
+        shock_text = "n/a" if shock is None else f"{shock:.6f}"
+        identity = "yes" if temporal["identity_break_proxy"]["occurred"] else "no"
+        recovery = temporal["recovery"]["frames_from_switch"]
+        recovery_text = "censored" if recovery is None else str(recovery)
+        lines.append(
+            f"| {row['label']} | {checkpoint_text('1')} | {checkpoint_text('5')} | "
+            f"{checkpoint_text('20')} | {shock_text} | {identity} | {recovery_text} |"
+        )
+    lines.extend(
+        (
+            "",
             "`target_reset` is a SAM 2 runtime proxy: an all-zero mask registers the "
             "object on the switch frame, but no source object information or temporal "
             "memory is transferred.",
@@ -194,6 +221,7 @@ def main() -> None:
         args.evaluation_repo
     )
     method_rows: list[dict[str, Any]] = []
+    davis_reports: dict[str, dict[str, Any]] = {}
     for method_id, report, method_dir in runs:
         frames = [
             int(row["frame"])
@@ -215,11 +243,20 @@ def main() -> None:
             sequence=report["video_id"],
         )
         write_davis_future_report(davis, method_dir / "davis.json")
+        davis_reports[method_id] = davis
         method_rows.append(_metric_row(method_id, report, davis))
+
+    reference = davis_reports["full_replay"]
+    for row in method_rows:
+        row["temporal"] = evaluate_temporal_handoff(
+            davis_reports[row["method"]],
+            reference,
+            switch_frame=int(runs[0][1]["switch_frame"]),
+        )
 
     first = runs[0][1]
     summary = {
-        "schema_version": "cmmt.cached_baseline_suite.v1",
+        "schema_version": "cmmt.cached_baseline_suite.v2",
         "scope": "one_video_object_switch_partial_davis",
         "warning": "This is not a full DAVIS benchmark result.",
         "sequence": first["video_id"],

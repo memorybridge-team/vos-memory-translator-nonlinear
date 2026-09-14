@@ -71,10 +71,11 @@ Large가 처리한 Full Replay를 같은 switch 이후 구간에서 비교했다
 
 ## 다음 gate
 
-- switch 직후 1/5 frame shock, identity break, recovery length를 동일 결과에서 계산한다.
+- switch+1/5/20, switch shock, single-object identity-loss proxy, recovery length의
+  정의와 구현은 2026-09-14에 고정했다. 기존 10-case suite의 per-method
+  `davis.json`에서 GPU 재추론 없이 backfill해 이 표를 보강한다.
 - 영상 단위 train/validation/test split을 고정하고 Tiny/Large paired state를 수집한다.
 - component별 Ridge와 작은 MLP Translator를 학습한다.
 - Translator를 Direct뿐 아니라 Last-Mask, Replay-2/4, Full Replay의 accuracy-cost
   Pareto frontier와 비교한다.
 - `translated state + short replay`를 정식 ablation으로 유지한다.
-

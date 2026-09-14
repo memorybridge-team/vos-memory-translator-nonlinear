@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from vos_memory_inspector.baseline_sweep import (
     REQUIRED_METHODS,
     aggregate_completed,
+    attach_temporal_metrics,
     case_slug,
     load_complete_suite,
     select_cases,
@@ -85,3 +88,37 @@ def test_complete_suite_validation_and_aggregate(tmp_path: Path) -> None:
     payload["sanity_checks"]["last_mask_equals_replay_1"] = False
     corrupted.write_text(json.dumps(payload), encoding="utf-8")
     assert load_complete_suite(corrupted.parent, first) is None
+
+
+def test_attach_and_aggregate_temporal_metrics(tmp_path: Path) -> None:
+    case = _case("a", "india", 1, 10, "reappearance")
+    suite = tmp_path / case_slug(case)
+    suite.mkdir(parents=True)
+    summary = _summary(case)
+    (suite / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+
+    for method in REQUIRED_METHODS:
+        method_dir = suite / method
+        method_dir.mkdir()
+        scores = [0.8, 0.8, 0.8] if method == "full_replay" else [0.0, 0.8, 0.8]
+        report = {
+            "frames": [
+                {
+                    "frame": frame,
+                    "ground_truth_present": True,
+                    "J_and_F": score,
+                }
+                for frame, score in zip(range(11, 14), scores, strict=True)
+            ]
+        }
+        (method_dir / "davis.json").write_text(
+            json.dumps(report), encoding="utf-8"
+        )
+
+    upgraded = attach_temporal_metrics(summary, suite)
+    assert upgraded["schema_version"] == "cmmt.cached_baseline_suite.v2"
+    (suite / "summary.json").write_text(json.dumps(upgraded), encoding="utf-8")
+    aggregate = aggregate_completed([case], tmp_path)
+    temporal = aggregate["methods"][0]["temporal"]
+    assert temporal["checkpoint_scores"]["1"]["mean_candidate_J_and_F"] == 0.0
+    assert temporal["mean_switch_shock_first_5_visible"] == pytest.approx(0.8 / 3)

@@ -10,12 +10,12 @@
                 │
                 ▼
 [1. state contract·주입·평가 파이프라인]               진행 중
-                │  └─ 전체/GT-visible J&F 완료
-                │     switch shock·recovery/identity 집계는 남음
+                │  └─ 전체/GT-visible J&F와 temporal metric 구현 완료
+                │     rare-event 10-case 원자료 backfill은 남음
                 ▼
 [2. 강한 baseline과 rare-event 분포]                   ◀ 현재 단계
                 │  └─ Direct/Reset/Last/Replay/Oracle 구현 완료
-                │     rare-event 10/10 완료, temporal metric 정리 중
+                │     rare-event 10/10 완료, temporal metric 재집계 대기
                 ▼
 [3. paired Tiny↔Large state 수집·Ridge/MLP 학습]        다음 단계
                 │
@@ -36,8 +36,9 @@
 Last-Mask 0.319945, Replay-2 0.425541, Replay-4 0.623753, Full Replay 0.483535였다.
 Replay-4가 평균상 가장 강했지만 `kite-surf` 재등장에서는 Full Replay만 성공했고,
 `lab-coat`에서는 반대로 Full Replay가 실패하고 Replay-4가 성공했다. 다음 실행은
-동일 결과에서 switch shock·identity break·recovery length를 집계한 뒤, video-level
-split을 고정하고 paired state 수집과 Ridge/MLP Translator 학습으로 넘어간다.
+동일 결과의 원본 `davis.json`에서 switch shock·identity-loss proxy·recovery length를
+GPU 추론 없이 backfill한 뒤, video-level split을 고정하고 paired state 수집과
+Ridge/MLP Translator 학습으로 넘어간다.
 
 ## 최종 연구 질문
 
@@ -56,6 +57,19 @@ occlusion recovery, latency, FLOPs, VRAM과 전송량으로 판정한다.
 - future frame별 J, F, J&F와 switch+1/5/20 성능을 저장한다.
 - 모든 실행은 config, checkpoint hash, upstream commit, seed, runtime과 산출물 경로를 남긴다.
 - GT / target-native / candidate 비교 영상, slider gallery, frame별 metric 그래프를 자동 생성한다.
+
+Temporal metric은 다음과 같이 고정한다.
+
+- `switch+1/5/20`: switch에서 정확히 1/5/20 frame 뒤의 candidate J&F와
+  target-native 대비 gap. 영상 끝을 넘으면 `n/a`로 기록한다.
+- `switch shock@N`: 처음 N개 GT-visible post-switch observation에서
+  `target-native J&F - candidate J&F`의 평균.
+- `recovery length`: target-native J&F가 0.5 이상인 구간에서 candidate가
+  target-native보다 0.05 이내인 상태를 GT-visible observation 3개 연속 유지하기
+  시작한 frame까지의 거리. 끝까지 충족하지 못하면 censored로 기록한다.
+- `identity-loss proxy`: target-native J&F는 0.5 이상인데 candidate J&F가 0.1
+  이하인 상태가 GT-visible observation 2개 이상 연속인 경우. 단일-object DAVIS의
+  추적 상실 proxy이며, multi-object ID switch와 같은 지표로 주장하지 않는다.
 
 ## Phase 2 — 필수 baseline 완성
 
