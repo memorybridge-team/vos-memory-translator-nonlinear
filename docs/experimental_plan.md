@@ -17,7 +17,7 @@
                 │  └─ Direct/Reset/Last/Replay/Oracle 구현 완료
                 │     rare-event 10/10 완료, temporal metric 재집계 대기
                 ▼
-[3. paired Tiny↔Large state 수집·Ridge/MLP 학습]        다음 단계
+[3. paired Tiny↔Large state 수집·nonlinear 학습]       다음 단계
                 │
                 ▼
 [4. held-out 일반화·통계·양방향·반복 switch]
@@ -38,7 +38,7 @@ Replay-4가 평균상 가장 강했지만 `kite-surf` 재등장에서는 Full Re
 `lab-coat`에서는 반대로 Full Replay가 실패하고 Replay-4가 성공했다. 다음 실행은
 동일 결과의 원본 `davis.json`에서 switch shock·identity-loss proxy·recovery length를
 GPU 추론 없이 backfill한 뒤, video-level split을 고정하고 paired state 수집과
-Ridge/MLP Translator 학습으로 넘어간다.
+nonlinear Translator 학습으로 넘어간다.
 
 ## 최종 연구 질문
 
@@ -61,7 +61,8 @@ occlusion recovery, latency, FLOPs, VRAM과 전송량으로 판정한다.
 Temporal metric은 다음과 같이 고정한다.
 
 - `switch+1/5/20`: switch에서 정확히 1/5/20 frame 뒤의 candidate J&F와
-  target-native 대비 gap. 영상 끝을 넘으면 `n/a`로 기록한다.
+  target-native 대비 gap. 전체값과 GT-visible값을 분리하며 보고서의 대표값은
+  GT-visible이다. 영상 끝을 넘거나 해당 offset에 visible case가 없으면 `n/a`다.
 - `switch shock@N`: 처음 N개 GT-visible post-switch observation에서
   `target-native J&F - candidate J&F`의 평균.
 - `recovery length`: target-native J&F가 0.5 이상인 구간에서 candidate가
@@ -80,20 +81,26 @@ Temporal metric은 다음과 같이 고정한다.
 3. Replay-1/3/5/10 및 필요 시 더 긴 k
 4. Full Replay / Target-native Oracle
 5. Direct Transfer
-6. Ridge Translator
-7. 작은 component-wise MLP Translator
-8. Translation + Short Replay
+6. 작은 component-wise MLP Translator
+7. attention/gating을 포함한 nonlinear Translator
+8. Nonlinear Translation + Short Replay
 
 정확도와 비용을 따로 순위화하지 않고 accuracy–latency Pareto frontier로 비교한다.
 
-## Phase 3 — paired-state 데이터 확대와 학습
+## Phase 3 — paired-state 데이터 확대와 nonlinear 학습
 
 - 학습 split의 여러 sequence와 switch point에서 Tiny state `b_t`와 Large-native
   state `a_t`를 수집한다.
 - video 단위로 train/validation/test를 분리해 frame leakage를 막는다.
 - spatial memory, object pointer, presence를 component별로 정규화·번역한다.
-- Ridge를 기준으로 MLP, rollout/distillation loss를 순차 비교한다.
+- 작은 component-wise MLP를 첫 학습 모델로 삼고, 필요할 때 attention/gating과
+  rollout/distillation loss를 순차 비교한다.
 - 모델 backbone은 동결하고 Translator만 학습한다.
+
+2026-09-14 사용자 결정에 따라 새로운 Linear/Ridge Translator 개발·학습은 연구
+범위에서 제외한다. 기존 Ridge pilot은 파이프라인이 실제 state를 주입할 수 있음을
+보인 역사적 sanity baseline으로만 보존하며, 제안 방법이나 향후 개발 대상으로
+사용하지 않는다.
 
 ## Phase 4 — 일반화 및 통계
 

@@ -74,10 +74,14 @@ cache는 GitHub Pages에 포함되지 않습니다.
 1. 여러 DAVIS train/validation 영상·객체·switch point를 고정 manifest로 구성
 2. Target Reset, Last-Mask, Replay-k, Full Replay baseline 완성
 3. leakage 없이 Tiny/Large paired-state 학습 데이터를 확대
-4. Ridge → component-wise MLP → downstream/rollout loss 순으로 비교
+4. component-wise MLP → attention/gating → downstream/rollout loss 순으로 비교
 5. switch+1/5/20, identity break, occlusion recovery, latency·VRAM·전송량 평가
 6. MOSE/LVOS의 hard·long-term 조건과 반복 switch로 확장
 7. SAM 2↔XMem/Cutie cross-architecture handoff 검증
+
+현재 담당 범위는 **nonlinear Translator**입니다. 새로운 Linear/Ridge 방식의 개발과
+학습은 진행하지 않으며, 이미 실행된 Ridge pilot은 과거 sanity baseline으로만
+보존합니다.
 
 RunPod 비용 때문에 연구에 필요한 데이터나 반복 횟수를 줄이지 않습니다. 다만
 GPU는 checkpoint inference/state 수집/학습에 집중하고, 전처리·그래프·갤러리는

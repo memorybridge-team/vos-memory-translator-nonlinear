@@ -235,14 +235,28 @@ def _aggregate_temporal(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any] | N
 
     checkpoints = {}
     for offset in ("1", "5", "20"):
+        rows_at_offset = [
+            value["checkpoint_scores"][offset]
+            for value in temporal
+            if value["checkpoint_scores"][offset]["available"]
+        ]
+        visible_rows = [
+            row for row in rows_at_offset if row["ground_truth_present"]
+        ]
         checkpoints[offset] = {
-            "mean_candidate_J_and_F": available_mean(
-                value["checkpoint_scores"][offset]["candidate_J_and_F"]
-                for value in temporal
+            "cases_available": len(rows_at_offset),
+            "ground_truth_visible_cases": len(visible_rows),
+            "mean_candidate_J_and_F_all": available_mean(
+                row["candidate_J_and_F"] for row in rows_at_offset
             ),
-            "mean_reference_gap": available_mean(
-                value["checkpoint_scores"][offset]["reference_gap"]
-                for value in temporal
+            "mean_reference_gap_all": available_mean(
+                row["reference_gap"] for row in rows_at_offset
+            ),
+            "mean_candidate_J_and_F_visible": available_mean(
+                row["candidate_J_and_F"] for row in visible_rows
+            ),
+            "mean_reference_gap_visible": available_mean(
+                row["reference_gap"] for row in visible_rows
             ),
         }
     recovered = [
@@ -308,9 +322,15 @@ def write_aggregate_reports(report: Mapping[str, Any], output_root: str | Path) 
                 "| {label} | {plus1} | {plus5} | {plus20} | {shock} | "
                 "{identity:.3f} | {recovery:.3f} | {recovery_frames} |".format(
                     label=row["label"],
-                    plus1=value_text(checkpoints["1"]["mean_candidate_J_and_F"]),
-                    plus5=value_text(checkpoints["5"]["mean_candidate_J_and_F"]),
-                    plus20=value_text(checkpoints["20"]["mean_candidate_J_and_F"]),
+                    plus1=value_text(
+                        checkpoints["1"]["mean_candidate_J_and_F_visible"]
+                    ),
+                    plus5=value_text(
+                        checkpoints["5"]["mean_candidate_J_and_F_visible"]
+                    ),
+                    plus20=value_text(
+                        checkpoints["20"]["mean_candidate_J_and_F_visible"]
+                    ),
                     shock=value_text(temporal["mean_switch_shock_first_5_visible"]),
                     identity=temporal["identity_break_proxy_rate"],
                     recovery=temporal["recovery_rate"],

@@ -120,5 +120,9 @@ def test_attach_and_aggregate_temporal_metrics(tmp_path: Path) -> None:
     (suite / "summary.json").write_text(json.dumps(upgraded), encoding="utf-8")
     aggregate = aggregate_completed([case], tmp_path)
     temporal = aggregate["methods"][0]["temporal"]
-    assert temporal["checkpoint_scores"]["1"]["mean_candidate_J_and_F"] == 0.0
+    assert temporal["checkpoint_scores"]["1"]["mean_candidate_J_and_F_all"] == 0.0
+    assert (
+        temporal["checkpoint_scores"]["1"]["mean_candidate_J_and_F_visible"]
+        == 0.0
+    )
     assert temporal["mean_switch_shock_first_5_visible"] == pytest.approx(0.8 / 3)
