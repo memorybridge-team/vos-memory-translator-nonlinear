@@ -185,3 +185,21 @@ cmmt-sam2-cached-handoff \
   --translator residual_mlp \
   --translator-artifact outputs/nonlinear_training/example/paired_translators.pt
 ```
+
+Internal validation 8개 case 전체의 J&F, switch shock, identity-loss proxy,
+recovery와 시각화는 다음 실행기로 평가합니다. 완료 case는 같은 translator SHA-256이면
+건너뛰므로 중단 후 재개할 수 있습니다.
+
+```bash
+python scripts/evaluate_nonlinear_collection.py \
+  --selection-manifest outputs/paired_state_runs/davis2017_train_rare_v1/selection_manifest.json \
+  --case-cache-root outputs/paired_states/davis2017_train_rare_v1 \
+  --dataset-root data/DAVIS --sam2-repo .external/sam2 \
+  --target-config configs/sam2.1/sam2.1_hiera_l.yaml \
+  --target-checkpoint checkpoints/sam2.1_hiera_large.pt \
+  --target-model-id sam2.1-hiera-large \
+  --translator-artifact outputs/nonlinear_training/davis2017_train_rare_v1_mlp128/paired_translators.pt \
+  --evaluation-repo .external/davis2017-evaluation \
+  --output-root outputs/nonlinear_validation/davis2017_train_rare_v1_mlp128 \
+  --hot-cache-root /tmp/cmmt-phase3-hot --device cuda
+```
