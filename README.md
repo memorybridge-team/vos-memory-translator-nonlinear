@@ -52,6 +52,23 @@ Translator의 일반화나 우월성은 아직 검증되지 않았습니다.
 갤러리는 각 프레임에서 `DAVIS GT / Large-native / Direct / Ridge hybrid`를
 나란히 보여주고, 전체 영상과 frame별 J&F 그래프를 제공합니다.
 
+### GitHub Pages 배포 구조
+
+공개 결과물은 이 저장소의 `docs/` 디렉터리에 함께 버전 관리됩니다. GitHub Pages의
+배포 원본은 **`main` 브랜치의 `/docs`**이며, 별도 파일 업로드나 외부 저장소 복사는
+필요하지 않습니다. 배포되면 다음 주소에서 같은 결과물을 확인할 수 있습니다.
+
+- 홈페이지: `https://memorybridge-team.github.io/vos-memory-translator-nonlinear/`
+- 83-frame Tiny→Large handoff pilot
+- bike-packing cached baseline 비교
+- india 재등장 hard-case 비교
+- lab-coat 급격한 크기 변화 사례
+- 10개 rare-event baseline sweep 대시보드
+
+각 페이지는 원본 DAVIS 영상 전체나 checkpoint를 올리지 않고, 연구 검토에 필요한
+선별된 프레임·영상·metric만 정적 파일로 제공합니다. 데이터셋, checkpoint, raw state
+cache는 GitHub Pages에 포함되지 않습니다.
+
 ## 앞으로의 핵심 실험
 
 1. 여러 DAVIS train/validation 영상·객체·switch point를 고정 manifest로 구성
