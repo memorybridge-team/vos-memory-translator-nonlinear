@@ -44,6 +44,7 @@ Translator의 일반화나 우월성은 아직 검증되지 않았습니다.
 ## 결과 직접 보기
 
 - [연구 결과 홈페이지](https://memorybridge-team.github.io/vos-memory-translator-nonlinear/)
+- [CanonicalState → Target SAM 2 인터랙티브 조립 지도](https://memorybridge-team.github.io/vos-memory-translator-nonlinear/architecture/cmmt-state-assembly-map.html)
 - [83프레임 인터랙티브 갤러리](https://memorybridge-team.github.io/vos-memory-translator-nonlinear/experiments/2026-09-08-davis-handoff/)
 - [현재 정식 실험 계획](docs/experimental_plan.md)
 - [첫 DAVIS handoff pilot 보고서](reports/experiments/2026-09-08_davis_handoff_pilot/report.md)
@@ -64,6 +65,7 @@ Translator의 일반화나 우월성은 아직 검증되지 않았습니다.
 - india 재등장 hard-case 비교
 - lab-coat 급격한 크기 변화 사례
 - 10개 rare-event baseline sweep 대시보드
+- CanonicalState → Target SAM 2 필드별 조립 지도
 
 각 페이지는 원본 DAVIS 영상 전체나 checkpoint를 올리지 않고, 연구 검토에 필요한
 선별된 프레임·영상·metric만 정적 파일로 제공합니다. 데이터셋, checkpoint, raw state

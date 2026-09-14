@@ -4,6 +4,7 @@
 
 - [`experimental_plan.md`](experimental_plan.md): 현재 유효한 정식 실험 계획과 Codex/RunPod 운영 원칙
 - [`storage_pipeline.md`](storage_pipeline.md): GPU를 기다리게 하지 않는 hot/warm/cold 저장·입출력 정책
+- [CanonicalState → Target SAM 2 인터랙티브 조립 지도](https://memorybridge-team.github.io/vos-memory-translator-nonlinear/architecture/cmmt-state-assembly-map.html): 전체 필드의 학습 변환·grid adapter·보존·재생성·runtime 경로와 클릭 설명
 - [공개 83-frame pilot gallery](https://memorybridge-team.github.io/vos-memory-translator-nonlinear/experiments/2026-09-08-davis-handoff/): GT와 세 방법의 영상·frame별 J&F 검토
 - [공개 cached baseline suite](https://memorybridge-team.github.io/vos-memory-translator-nonlinear/experiments/2026-09-10-bike-packing-baselines/): Direct, Reset, Last-Mask, Replay-1/2/4, Full Replay의 53-frame 선택형 비교
 - [공개 reappearance hard-case gallery](https://memorybridge-team.github.io/vos-memory-translator-nonlinear/experiments/2026-09-10-india-reappearance-baselines/): 물체가 사라진 switch에서 Last-Mask와 Replay-2/4의 회복 차이를 보여 주는 44-frame 비교

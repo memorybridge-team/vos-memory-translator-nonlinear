@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="CMMT CanonicalState에서 Target SAM 2 inference_state로 조립되는 전체 필드와 처리 방식 지도">
+<title>CMMT State Assembly Map</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --background: light-dark(rgb(255 255 255), rgb(24 24 24));
+  --foreground: light-dark(rgb(26 28 31), rgb(245 247 250));
+  --card: light-dark(rgb(248 249 251), rgb(35 36 39));
+  --card-foreground: var(--foreground);
+  --muted-foreground: light-dark(rgb(88 94 103), rgb(183 187 194));
+  --primary: light-dark(rgb(20 96 170), rgb(118 190 255));
+  --primary-foreground: light-dark(rgb(255 255 255), rgb(12 28 44));
+  --accent: light-dark(rgb(216 235 252), rgb(31 61 87));
+  --border: light-dark(rgb(211 215 221), rgb(67 69 74));
+  --ring: light-dark(rgb(20 96 170), rgb(118 190 255));
+  --destructive: light-dark(rgb(185 28 28), rgb(255 120 120));
+  --viz-series-1: light-dark(rgb(25 118 210), rgb(109 190 255));
+  --viz-series-2: light-dark(rgb(217 102 19), rgb(255 165 92));
+  --viz-series-3: light-dark(rgb(38 145 78), rgb(102 218 139));
+  --viz-series-4: light-dark(rgb(179 62 135), rgb(255 133 207));
+  --viz-series-5: light-dark(rgb(111 70 180), rgb(184 144 255));
+  --viz-series-6: light-dark(rgb(0 132 145), rgb(80 218 225));
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-width: 320px; background: var(--background); color: var(--foreground); }
+body { padding: 20px; font: 14px/1.48 system-ui, -apple-system, "Segoe UI", sans-serif; }
+code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
+.text-muted { color: var(--muted-foreground); }
+.text-small { font-size: 12px; }
+.viz-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.btn {
+  min-height: 34px; padding: 6px 10px; border: 1px solid transparent; border-radius: 8px;
+  background: transparent; color: var(--foreground); font: inherit; cursor: pointer;
+}
+.btn:hover, .btn:focus-visible { background: var(--accent); outline: none; }
+.btn-primary { background: var(--primary); color: var(--primary-foreground); }
+.btn-ghost { background: transparent; }
+.card {
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--card); color: var(--card-foreground);
+}
+.viz-badge {
+  display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px;
+  background: var(--accent); color: var(--foreground); font-size: 12px;
+}
+@media (max-width: 600px) { body { padding: 12px; } }
+</style>
+</head>
+<body>
+<div id="cmmt-state-map">
+  <h2>CMMT CanonicalState → Target SAM 2 조립 지도</h2>
+  <p class="text-muted">현재 프로젝트의 <code>cmmt.canonical_state.v1</code>과 고정 SAM 2.1 predictor 기준입니다. 선을 선택하면 해당 조립 방식만 강조됩니다.</p>
+
+  <div class="viz-controls" aria-label="연결 방식 필터">
+    <button class="btn btn-primary" type="button" data-filter="all" aria-pressed="true">전체</button>
+    <button class="btn btn-ghost" type="button" data-filter="adapter" aria-pressed="false"><span class="legend-line adapter"></span>Grid adapter</button>
+    <button class="btn btn-ghost" type="button" data-filter="learned" aria-pressed="false"><span class="legend-line learned"></span>학습 변환</button>
+    <button class="btn btn-ghost" type="button" data-filter="preserve" aria-pressed="false"><span class="legend-line preserve"></span>그대로 보존</button>
+    <button class="btn btn-ghost" type="button" data-filter="support" aria-pressed="false"><span class="legend-line support"></span>보조 history</button>
+    <button class="btn btn-ghost" type="button" data-filter="regenerate" aria-pressed="false"><span class="legend-line regenerate"></span>Target 재생성</button>
+    <button class="btn btn-ghost" type="button" data-filter="control" aria-pressed="false"><span class="legend-line control"></span>재구성·검증</button>
+    <button class="btn btn-ghost" type="button" data-filter="runtime" aria-pressed="false"><span class="legend-line runtime"></span>Target 자체 준비</button>
+    <button class="btn btn-ghost" type="button" data-filter="none" aria-pressed="false"><span class="legend-line none"></span>비전송·기록 전용</button>
+  </div>
+
+  <div class="edge-detail card" aria-live="polite">
+    <div class="detail-heading">
+      <span class="viz-badge" data-detail-mode>화살표 설명</span>
+      <strong data-detail-title>지도에서 화살표를 클릭하세요</strong>
+    </div>
+    <p data-detail-text>선이 나타내는 값의 이동 방식과 그 이유를 쉬운 말로 설명합니다.</p>
+  </div>
+
+  <div class="map-stage">
+    <svg class="edge-layer" role="img" aria-labelledby="cmmt-map-svg-title cmmt-map-svg-desc">
+      <title id="cmmt-map-svg-title">CanonicalState와 Target SAM 2 상태 사이의 필드 조립 관계</title>
+      <desc id="cmmt-map-svg-desc">학습 변환, 보존, 보조 기록 복원, 위치정보 재생성, 검증, Target 자체 초기화를 서로 다른 색과 선 모양으로 연결한 전체 필드 지도입니다.</desc>
+      <defs></defs>
+      <g data-edge-root></g>
+    </svg>
+
+    <section class="map-column source-column" aria-labelledby="source-title">
+      <div class="column-title" id="source-title">① CMMT CanonicalState</div>
+      <div data-source-groups></div>
+    </section>
+
+    <section class="map-column assembly-column" aria-labelledby="assembly-title">
+      <div class="column-title" id="assembly-title">② 조립 엔진</div>
+      <div data-assembly-groups></div>
+    </section>
+
+    <section class="map-column target-column" aria-labelledby="target-title">
+      <div class="column-title" id="target-title">③ Target SAM 2 inference_state</div>
+      <div data-target-groups></div>
+    </section>
+  </div>
+
+  <div class="map-notes text-small">
+    <strong>읽는 법:</strong> 왼쪽 값이 가운데 조립 규칙을 거쳐 오른쪽 필드가 됩니다. <code>switch_frame</code>은 Target 필드로 복사되지 않고 <code>t+1</code> 시작점을 정합니다. Source PE·device·provenance는 검사에는 남지만 Target 실행값으로 주입되지 않습니다.
+  </div>
+</div>
+
+<style>
+  #cmmt-state-map {
+    width: 100%;
+    color: var(--foreground);
+  }
+  #cmmt-state-map h2 { margin: 0 0 0.35rem; }
+  #cmmt-state-map > p { margin: 0 0 0.8rem; }
+  #cmmt-state-map .viz-controls { margin-bottom: 0.85rem; }
+  #cmmt-state-map .btn { display: inline-flex; align-items: center; gap: 0.4rem; }
+  #cmmt-state-map .legend-line {
+    width: 1.8rem;
+    height: 0;
+    display: inline-block;
+    border-top-width: 3px;
+    border-top-style: solid;
+  }
+  #cmmt-state-map .legend-line.learned { border-color: var(--viz-series-1); }
+  #cmmt-state-map .legend-line.adapter { border-color: var(--viz-series-6); border-top-style: dashed; }
+  #cmmt-state-map .legend-line.preserve { border-color: var(--viz-series-2); }
+  #cmmt-state-map .legend-line.support { border-color: var(--viz-series-3); border-top-style: dashed; }
+  #cmmt-state-map .legend-line.regenerate { border-color: var(--viz-series-4); border-top-style: dotted; }
+  #cmmt-state-map .legend-line.control { border-color: var(--viz-series-5); border-top-style: dashed; }
+  #cmmt-state-map .legend-line.runtime { border-color: var(--muted-foreground); border-top-style: double; }
+  #cmmt-state-map .legend-line.none { border-color: var(--destructive); border-top-style: dotted; }
+
+  #cmmt-state-map .map-stage {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(270px, 1fr) minmax(210px, 0.72fr) minmax(300px, 1.08fr);
+    gap: clamp(72px, 8vw, 132px);
+    align-items: start;
+  }
+  #cmmt-state-map .edge-detail { margin: 0 0 0.85rem; }
+  #cmmt-state-map .detail-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; }
+  #cmmt-state-map .edge-detail p { margin: 0.45rem 0 0; }
+  #cmmt-state-map .edge-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 1;
+  }
+  #cmmt-state-map .map-column {
+    position: relative;
+    z-index: 2;
+    min-width: 0;
+  }
+  #cmmt-state-map .column-title {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    padding: 0.6rem 0.75rem;
+    margin-bottom: 0.55rem;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-weight: 500;
+    border-radius: 0.45rem;
+  }
+  #cmmt-state-map .field-group {
+    margin-bottom: 0.68rem;
+    padding: 0.55rem 0.65rem;
+    background: color-mix(in srgb, var(--card) 94%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 0.45rem;
+  }
+  #cmmt-state-map .group-title {
+    margin-bottom: 0.35rem;
+    color: var(--muted-foreground);
+    font-weight: 500;
+  }
+  #cmmt-state-map .field-row {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    gap: 0.38rem;
+    min-height: 1.55rem;
+    padding: 0.18rem 0.22rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+    transition: opacity 140ms ease, background-color 140ms ease;
+  }
+  #cmmt-state-map .field-row:last-child { border-bottom: 0; }
+  #cmmt-state-map .field-row code { overflow-wrap: anywhere; }
+  #cmmt-state-map .field-row .meaning { color: var(--muted-foreground); }
+  #cmmt-state-map .field-row.is-dim { opacity: 0.22; }
+  #cmmt-state-map .field-row.is-focus {
+    background: color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+  #cmmt-state-map .field-row::after,
+  #cmmt-state-map .field-row::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--border);
+    transform: translateY(-50%);
+  }
+  #cmmt-state-map .source-column .field-row::after,
+  #cmmt-state-map .assembly-column .field-row::after { right: -4px; }
+  #cmmt-state-map .assembly-column .field-row::before,
+  #cmmt-state-map .target-column .field-row::before { left: -4px; }
+  #cmmt-state-map .source-column .field-row::before,
+  #cmmt-state-map .target-column .field-row::after { display: none; }
+
+  #cmmt-state-map .edge {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.62;
+    transition: opacity 140ms ease, stroke-width 140ms ease;
+  }
+  #cmmt-state-map .edge.learned { stroke: var(--viz-series-1); stroke-width: 3.2; }
+  #cmmt-state-map .edge.adapter { stroke: var(--viz-series-6); stroke-width: 2.8; stroke-dasharray: 5 4; }
+  #cmmt-state-map .edge.preserve { stroke: var(--viz-series-2); stroke-width: 2.5; }
+  #cmmt-state-map .edge.support { stroke: var(--viz-series-3); stroke-width: 2.5; stroke-dasharray: 8 5; }
+  #cmmt-state-map .edge.regenerate { stroke: var(--viz-series-4); stroke-width: 3; stroke-dasharray: 2 7; }
+  #cmmt-state-map .edge.control { stroke: var(--viz-series-5); stroke-width: 2.6; stroke-dasharray: 10 4 2 4; }
+  #cmmt-state-map .edge.runtime { stroke: var(--muted-foreground); stroke-width: 4.5; }
+  #cmmt-state-map .edge.runtime-rail { stroke: var(--background); stroke-width: 1.5; }
+  #cmmt-state-map .edge.none { stroke: var(--destructive); stroke-width: 2; stroke-dasharray: 2 6; }
+  #cmmt-state-map .edge-hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 18;
+    pointer-events: stroke;
+    cursor: pointer;
+  }
+  #cmmt-state-map .edge-hit:focus { stroke: color-mix(in srgb, var(--ring) 24%, transparent); }
+  #cmmt-state-map .edge-hit.is-inactive { pointer-events: none; }
+  #cmmt-state-map .edge.is-selected { opacity: 1; stroke-width: 5; }
+  #cmmt-state-map .edge.is-dim { opacity: 0.035; }
+  #cmmt-state-map .edge.is-focus { opacity: 0.96; }
+  #cmmt-state-map .map-notes {
+    margin-top: 0.75rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted-foreground);
+  }
+
+  @media (max-width: 760px) {
+    #cmmt-state-map .map-stage {
+      grid-template-columns: 1fr;
+      gap: 70px;
+    }
+    #cmmt-state-map .column-title { position: static; }
+    #cmmt-state-map .source-column .field-row::after,
+    #cmmt-state-map .assembly-column .field-row::after,
+    #cmmt-state-map .assembly-column .field-row::before,
+    #cmmt-state-map .target-column .field-row::before {
+      left: 50%;
+      right: auto;
+    }
+    #cmmt-state-map .source-column .field-row::after,
+    #cmmt-state-map .assembly-column .field-row::after { top: auto; bottom: -4px; }
+    #cmmt-state-map .assembly-column .field-row::before,
+    #cmmt-state-map .target-column .field-row::before { top: -4px; }
+  }
+</style>
+
+<script>
+(() => {
+  const root = document.getElementById('cmmt-state-map');
+  if (!root) return;
+
+  const sourceGroups = [
+    ['학습 변환 대상', [
+      ['s-spatial', 'spatial_memory', 'maskmem_features'],
+      ['s-pointer', 'object_pointer', 'obj_ptr'],
+      ['s-presence', 'presence_logits', 'object_score_logits']]],
+    ['기억의 위치·순서', [
+      ['s-frame-indices', 'frame_indices', '각 기억의 프레임'],
+      ['s-slot-order', 'slot_order', 'record 조립 순서'],
+      ['s-is-cond', 'is_conditioning', 'cond/non-cond 분기'],
+      ['s-validity', 'validity', 'padding 제외']]],
+    ['물체 등록 정보', [
+      ['s-object-ids', 'object_ids', '외부 object ID'],
+      ['s-object-indices', 'metadata.object_indices', 'Source 내부 index']]],
+    ['Handoff 시점', [
+      ['s-switch-frame', 'switch_frame', 'Source 종료 시점 t']]],
+    ['위치정보 정책', [
+      ['s-pos-policy', 'positional_information.policy', 'Target 재생성 정책'],
+      ['s-pos-records', 'positional_information.records', 'Source PE 관측본']]],
+    ['보조 history와 계약', [
+      ['s-meta-source', 'metadata.source', '출처 기록'],
+      ['s-tracked', 'metadata.frames_tracked_per_obj', '추적 진행 기록'],
+      ['s-points', 'metadata.preserved_inputs.point_inputs_per_obj', 'point/box prompt'],
+      ['s-masks', 'metadata.preserved_inputs.mask_inputs_per_obj', 'mask prompt'],
+      ['s-pred-masks', 'metadata.preserved_pred_masks', '이전 예측 mask'],
+      ['s-num-frames', 'metadata.num_frames', '전체 frame 수'],
+      ['s-video-height', 'metadata.video_height', '원본 높이'],
+      ['s-video-width', 'metadata.video_width', '원본 너비'],
+      ['s-storage-device', 'metadata.storage_device', 'Source 저장 장치'],
+      ['s-compute-device', 'metadata.compute_device', 'Source 연산 장치'],
+      ['s-translation', 'metadata.translation', '번역 provenance · 선택'],
+      ['s-schema', 'schema_version', 'cmmt.canonical_state.v1']]]
+  ];
+
+  const assemblyGroups = [
+    ['학습 모듈', [
+      ['a-grid', 'Spatial grid adapter', 'H×W가 다를 때 bilinear'],
+      ['a-spatial', 'Spatial learned head', 'Linear 또는 nonlinear MLP'],
+      ['a-pointer', 'Pointer nonlinear head', 'identity 변환'],
+      ['a-presence', 'Presence calibrator', '존재 점수 보정']]],
+    ['History materializer', [
+      ['a-order', 'Record materializer', 'frame·slot 순서 복원'],
+      ['a-route', 'Cond/non-cond router', '기록 종류별 분기'],
+      ['a-valid', 'Validity filter', '유효 slot만 복원'],
+      ['a-pred', 'Prediction history restorer', 'pred_masks 복원']]],
+    ['Registry 조립', [
+      ['a-registry', 'Object registry rebuild', 'Target index 새로 부여'],
+      ['a-object-align', 'Source→Target slot aligner', 'prompt·tracking 정렬']]],
+    ['Target 정책', [
+      ['a-cutoff', 'Continuation boundary', '다음 시작점 t+1'],
+      ['a-pe', 'Target positional factory', 'Target PE 생성']]],
+    ['검증·비전송', [
+      ['a-contract', 'Video contract validator', '길이·해상도 일치 검사'],
+      ['a-schema', 'Schema validator', '지원 schema 확인'],
+      ['a-diagnostics', 'Report / diagnostics only', 'Target에 주입하지 않음']]],
+    ['Target 자체 초기화', [
+      ['a-runtime', 'Fresh Target runtime', '영상·장치·빈 cache 준비'],
+      ['a-temp', 'Fresh temporary history', '항상 빈 상태로 시작']]]
+  ];
+
+  const targetGroups = [
+    ['Target runtime 자체 준비', [
+      ['t-images', 'images', '앞으로 읽을 영상'],
+      ['t-num-frames', 'num_frames', 'Target 영상에서 산출'],
+      ['t-video-height', 'video_height', 'Target 영상에서 산출'],
+      ['t-video-width', 'video_width', 'Target 영상에서 산출'],
+      ['t-offload-video', 'offload_video_to_cpu', 'Target 설정'],
+      ['t-offload-state', 'offload_state_to_cpu', 'Target 설정'],
+      ['t-device', 'device', 'Target compute device'],
+      ['t-storage-device', 'storage_device', 'Target storage device'],
+      ['t-cached-features', 'cached_features', '새 Target cache'],
+      ['t-constants', 'constants.maskmem_pos_enc', 'Target PE cache']]],
+    ['물체 등록부', [
+      ['t-obj-ids', 'obj_ids', '외부 ID 목록'],
+      ['t-id-to-idx', 'obj_id_to_idx', '외부 ID → Target index'],
+      ['t-idx-to-id', 'obj_idx_to_id', 'Target index → 외부 ID']]],
+    ['Prompt history', [
+      ['t-points', 'point_inputs_per_obj', 'point/box prompt'],
+      ['t-masks', 'mask_inputs_per_obj', 'mask prompt']]],
+    ['완료된 memory history', [
+      ['t-output-root', 'output_dict_per_obj', '물체별 완료 기록'],
+      ['t-object-slot', '└─ Target object index', '재구축된 내부 index'],
+      ['t-cond-root', '   ├─ cond_frame_outputs', 'conditioning history'],
+      ['t-cond-frame', '   │  └─ frame index', 'dictionary key'],
+      ['t-cond-memory', '   │     ├─ maskmem_features', 'translated'],
+      ['t-cond-pos', '   │     ├─ maskmem_pos_enc', 'target-generated'],
+      ['t-cond-pred', '   │     ├─ pred_masks', 'preserved'],
+      ['t-cond-pointer', '   │     ├─ obj_ptr', 'translated'],
+      ['t-cond-score', '   │     └─ object_score_logits', 'calibrated'],
+      ['t-noncond-root', '   └─ non_cond_frame_outputs', 'non-conditioning history'],
+      ['t-noncond-frame', '      └─ frame index', 'dictionary key'],
+      ['t-noncond-memory', '         ├─ maskmem_features', 'translated'],
+      ['t-noncond-pos', '         ├─ maskmem_pos_enc', 'target-generated'],
+      ['t-noncond-pred', '         ├─ pred_masks', 'preserved'],
+      ['t-noncond-pointer', '         ├─ obj_ptr', 'translated'],
+      ['t-noncond-score', '         └─ object_score_logits', 'calibrated']]],
+    ['임시 interaction 결과', [
+      ['t-temp-root', 'temp_output_dict_per_obj', '주입 시 비어 있음'],
+      ['t-temp-cond', '├─ cond_frame_outputs', 'empty'],
+      ['t-temp-noncond', '└─ non_cond_frame_outputs', 'empty']]],
+    ['추적 진행과 continuation', [
+      ['t-tracked', 'frames_tracked_per_obj', '물체별 처리 기록'],
+      ['t-next', '비필드: propagation starts at t+1', 'switch_frame로 결정']]]
+  ];
+
+  function renderGroups(target, groups) {
+    target.innerHTML = '';
+    for (const [title, rows] of groups) {
+      const group = document.createElement('div');
+      group.className = 'field-group';
+      const heading = document.createElement('div');
+      heading.className = 'group-title text-small';
+      heading.textContent = title;
+      group.appendChild(heading);
+      for (const [id, field, meaning] of rows) {
+        const row = document.createElement('div');
+        row.className = 'field-row text-small';
+        row.dataset.node = id;
+        row.innerHTML = `<code>${field}</code><span class="meaning">${meaning}</span>`;
+        group.appendChild(row);
+      }
+      target.appendChild(group);
+    }
+  }
+
+  renderGroups(root.querySelector('[data-source-groups]'), sourceGroups);
+  renderGroups(root.querySelector('[data-assembly-groups]'), assemblyGroups);
+  renderGroups(root.querySelector('[data-target-groups]'), targetGroups);
+
+  const edges = [];
+  const add = (from, to, mode) => edges.push({from, to, mode});
+
+  add('s-spatial', 'a-grid', 'adapter');
+  add('a-grid', 'a-spatial', 'adapter');
+  add('a-spatial', 't-cond-memory', 'learned');
+  add('a-spatial', 't-noncond-memory', 'learned');
+  add('s-pointer', 'a-pointer', 'learned');
+  add('a-pointer', 't-cond-pointer', 'learned');
+  add('a-pointer', 't-noncond-pointer', 'learned');
+  add('s-presence', 'a-presence', 'learned');
+  add('a-presence', 't-cond-score', 'learned');
+  add('a-presence', 't-noncond-score', 'learned');
+
+  add('s-frame-indices', 'a-order', 'preserve');
+  add('s-slot-order', 'a-order', 'preserve');
+  add('a-order', 't-output-root', 'preserve');
+  add('a-order', 't-cond-frame', 'preserve');
+  add('a-order', 't-noncond-frame', 'preserve');
+  add('s-is-cond', 'a-route', 'preserve');
+  add('a-route', 't-cond-root', 'preserve');
+  add('a-route', 't-noncond-root', 'preserve');
+  add('s-validity', 'a-valid', 'control');
+  add('a-valid', 't-output-root', 'control');
+
+  add('s-object-ids', 'a-registry', 'control');
+  add('s-object-indices', 'a-object-align', 'control');
+  add('a-registry', 't-obj-ids', 'control');
+  add('a-registry', 't-id-to-idx', 'control');
+  add('a-registry', 't-idx-to-id', 'control');
+  add('a-registry', 't-object-slot', 'control');
+  add('a-object-align', 'a-registry', 'control');
+
+  add('s-switch-frame', 'a-cutoff', 'control');
+  add('a-cutoff', 't-next', 'control');
+
+  add('s-pos-policy', 'a-pe', 'regenerate');
+  add('a-pe', 't-constants', 'regenerate');
+  add('a-pe', 't-cond-pos', 'regenerate');
+  add('a-pe', 't-noncond-pos', 'regenerate');
+  add('s-pos-records', 'a-diagnostics', 'none');
+
+  add('s-tracked', 'a-object-align', 'support');
+  add('a-object-align', 't-tracked', 'support');
+  add('s-points', 'a-object-align', 'support');
+  add('a-object-align', 't-points', 'support');
+  add('s-masks', 'a-object-align', 'support');
+  add('a-object-align', 't-masks', 'support');
+  add('s-pred-masks', 'a-pred', 'support');
+  add('a-pred', 't-cond-pred', 'support');
+  add('a-pred', 't-noncond-pred', 'support');
+
+  add('s-num-frames', 'a-contract', 'control');
+  add('s-video-height', 'a-contract', 'control');
+  add('s-video-width', 'a-contract', 'control');
+  add('a-contract', 't-num-frames', 'control');
+  add('a-contract', 't-video-height', 'control');
+  add('a-contract', 't-video-width', 'control');
+  add('s-schema', 'a-schema', 'control');
+
+  add('s-meta-source', 'a-diagnostics', 'none');
+  add('s-storage-device', 'a-diagnostics', 'none');
+  add('s-compute-device', 'a-diagnostics', 'none');
+  add('s-translation', 'a-diagnostics', 'none');
+
+  for (const id of ['t-images', 't-num-frames', 't-video-height', 't-video-width',
+    't-offload-video', 't-offload-state', 't-device', 't-storage-device',
+    't-cached-features', 't-constants']) add('a-runtime', id, 'runtime');
+  add('a-temp', 't-temp-root', 'runtime');
+  add('a-temp', 't-temp-cond', 'runtime');
+  add('a-temp', 't-temp-noncond', 'runtime');
+
+  const modeDetails = {
+    adapter: {
+      label: 'Grid adapter',
+      action: '필요할 때만 크기를 맞춰 전달합니다',
+      reason: '학습 가중치는 없으며 H×W가 이미 같으면 값을 바꾸지 않고 통과합니다.'
+    },
+    learned: {
+      label: '학습 변환',
+      action: '학습된 Linear 또는 nonlinear head로 값을 바꿉니다',
+      reason: 'Source와 Target이 같은 모양의 tensor를 쓰더라도 내부 의미가 다를 수 있기 때문입니다.'
+    },
+    preserve: {
+      label: '그대로 보존',
+      action: '학습하지 않고 원래 값이나 순서를 유지합니다',
+      reason: '프레임 번호와 기록 종류는 의미를 추측해 바꾸면 안 되는 장부 정보입니다.'
+    },
+    support: {
+      label: '보조 history',
+      action: '번역하지 않고 Target predictor의 해당 history에 복원합니다',
+      reason: '신경망의 주 번역 대상은 아니지만 다음 조작과 추적을 정상적으로 이어가기 위해 필요합니다.'
+    },
+    regenerate: {
+      label: 'Target 재생성',
+      action: 'Source 값을 복사하지 않고 Target 모듈이 새 값을 만듭니다',
+      reason: '위치 표현은 Target 모델의 좌표 정책과 memory grid에 맞아야 하기 때문입니다.'
+    },
+    control: {
+      label: '재구성·검증',
+      action: '값을 학습하지 않고 분기, 정렬, 등록 또는 일치 검사에 사용합니다',
+      reason: '잘못 연결된 물체나 프레임을 조용히 주입하지 않도록 하는 안전 규칙입니다.'
+    },
+    runtime: {
+      label: 'Target 자체 준비',
+      action: 'CanonicalState가 아니라 새 Target runtime이 준비합니다',
+      reason: '영상, 장치, cache는 Source 모델의 기억이 아니라 Target 실행 환경입니다.'
+    },
+    none: {
+      label: '비전송·기록 전용',
+      action: '검사와 재현 기록에만 남기고 Target 실행값에는 넣지 않습니다',
+      reason: 'Source 전용 값이나 provenance를 Target 동작에 섞지 않기 위해서입니다.'
+    }
+  };
+
+  const edgeNotes = {
+    's-spatial>a-grid': 'Source 공간 기억의 H×W를 Target memory grid와 비교합니다. 다르면 bilinear interpolation으로 맞추고, 현재 Tiny→Large처럼 같으면 그대로 통과합니다.',
+    'a-grid>a-spatial': '크기가 정렬된 공간 기억만 learned head에 넘깁니다. 따라서 MLP는 위치 크기 문제가 아니라 채널별 표현 의미를 학습합니다.',
+    's-is-cond>a-route': '각 record의 true/false 표지를 읽어 사용자 기준 기억과 자동 추적 기억을 서로 다른 보관함으로 나눕니다.',
+    'a-route>t-cond-root': 'true인 record를 conditioning history에 넣어 사용자가 직접 지정한 강한 기준 기억으로 유지합니다.',
+    'a-route>t-noncond-root': 'false인 record를 non-conditioning history에 넣어 모델이 스스로 만든 일반 추적 기억으로 유지합니다.',
+    's-validity>a-valid': 'padding으로 채운 빈 slot은 Target history에 들어가지 않도록 걸러냅니다.',
+    's-object-ids>a-registry': '사용자가 식별하는 외부 object ID를 기준으로 Target의 새 물체 등록부를 만듭니다.',
+    's-object-indices>a-object-align': 'Source 내부 index를 이용해 그 물체에 딸린 prompt와 tracking 기록을 정확한 Target slot에 연결합니다.',
+    'a-registry>t-id-to-idx': '외부 object ID에서 Target 내부 index를 찾는 정방향 표를 새로 만듭니다.',
+    'a-registry>t-idx-to-id': 'Target 내부 index에서 외부 object ID를 찾는 역방향 표를 새로 만듭니다.',
+    's-switch-frame>a-cutoff': 'Source가 어디까지 처리했는지 t를 확정합니다. 과거 기록은 t까지만 포함하고 중복 처리를 막습니다.',
+    'a-cutoff>t-next': 'Target의 첫 새 추론 프레임을 t+1로 정합니다. switch_frame 자체는 Target inference_state의 영구 필드가 아닙니다.',
+    's-pos-policy>a-pe': 'Source positional tensor를 번역하지 말고 Target position module을 호출하라는 정책을 전달합니다.',
+    'a-pe>t-constants': 'Target이 만든 positional encoding을 constants cache에 저장해 같은 grid에서 재사용합니다.',
+    's-pos-records>a-diagnostics': 'Source에서 관측한 positional encoding은 비교와 문제 진단에는 쓸 수 있지만 Target PE로 주입하지 않습니다.',
+    's-pred-masks>a-pred': '과거 예측 mask를 learned head에 넣지 않고 record별로 보존합니다. 같은 프레임 prompt 수정과 predictor history 복원에 쓰입니다.',
+    's-num-frames>a-contract': 'Source가 기록한 전체 프레임 수와 Target이 연 영상을 비교합니다. 다르면 잘못된 영상으로 보고 주입을 중단합니다.',
+    's-video-height>a-contract': 'Source와 Target 영상 높이가 같은지 확인합니다. 이 값은 Target 값을 덮어쓰지 않습니다.',
+    's-video-width>a-contract': 'Source와 Target 영상 너비가 같은지 확인합니다. 이 값은 Target 값을 덮어쓰지 않습니다.',
+    's-schema>a-schema': '저장 상태의 schema 버전이 현재 코드가 이해할 수 있는 형식인지 먼저 검사합니다.',
+    's-storage-device>a-diagnostics': 'Source가 어느 장치에 저장했는지는 로그로만 남깁니다. Target은 자신의 storage_device를 사용합니다.',
+    's-compute-device>a-diagnostics': 'Source GPU/CPU 정보는 로그로만 남깁니다. Target 연산 장치는 새 runtime 설정을 따릅니다.'
+  };
+
+  const svg = root.querySelector('.edge-layer');
+  const edgeRoot = svg.querySelector('[data-edge-root]');
+  const defs = svg.querySelector('defs');
+  const modes = ['adapter', 'learned', 'preserve', 'support', 'regenerate', 'control', 'runtime', 'none'];
+  let selectedEdgeIndex = null;
+
+  defs.innerHTML = modes.map(mode => {
+    const color = mode === 'adapter' ? 'var(--viz-series-6)' :
+      mode === 'learned' ? 'var(--viz-series-1)' :
+      mode === 'preserve' ? 'var(--viz-series-2)' :
+      mode === 'support' ? 'var(--viz-series-3)' :
+      mode === 'regenerate' ? 'var(--viz-series-4)' :
+      mode === 'control' ? 'var(--viz-series-5)' :
+      mode === 'none' ? 'var(--destructive)' : 'var(--muted-foreground)';
+    return `<marker id="arrow-${mode}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="${color}"></path></marker>`;
+  }).join('');
+
+  function pathFor(fromEl, toEl) {
+    const stage = root.querySelector('.map-stage').getBoundingClientRect();
+    const a = fromEl.getBoundingClientRect();
+    const b = toEl.getBoundingClientRect();
+    const horizontal = b.left > a.right + 24;
+    if (horizontal) {
+      const x1 = a.right - stage.left;
+      const y1 = a.top + a.height / 2 - stage.top;
+      const x2 = b.left - stage.left;
+      const y2 = b.top + b.height / 2 - stage.top;
+      const bend = Math.max(34, (x2 - x1) * 0.44);
+      return `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
+    }
+    const x1 = a.left + a.width / 2 - stage.left;
+    const y1 = a.bottom - stage.top;
+    const x2 = b.left + b.width / 2 - stage.left;
+    const y2 = b.top - stage.top;
+    const bend = Math.max(34, (y2 - y1) * 0.44);
+    return `M ${x1} ${y1} C ${x1} ${y1 + bend}, ${x2} ${y2 - bend}, ${x2} ${y2}`;
+  }
+
+  function nodeText(id) {
+    const row = root.querySelector(`[data-node="${id}"]`);
+    if (!row) return id;
+    const field = row.querySelector('code')?.textContent?.trim() || id;
+    const meaning = row.querySelector('.meaning')?.textContent?.trim();
+    return meaning ? `${field} (${meaning})` : field;
+  }
+
+  function showEdgeDetail(edge, index) {
+    selectedEdgeIndex = index;
+    const detail = modeDetails[edge.mode];
+    const from = nodeText(edge.from);
+    const to = nodeText(edge.to);
+    root.querySelector('[data-detail-mode]').textContent = detail.label;
+    root.querySelector('[data-detail-title]').textContent = `${from} → ${to}`;
+    root.querySelector('[data-detail-text]').textContent =
+      edgeNotes[`${edge.from}>${edge.to}`] ||
+      `“${from}”의 정보를 “${to}”로 ${detail.action}. ${detail.reason}`;
+    updateSelectedEdge();
+  }
+
+  function updateSelectedEdge() {
+    root.querySelectorAll('.edge[data-edge-index]').forEach(path => {
+      path.classList.toggle(
+        'is-selected',
+        Number(path.dataset.edgeIndex) === selectedEdgeIndex &&
+          !path.classList.contains('runtime-rail')
+      );
+    });
+  }
+
+  function draw() {
+    const stageEl = root.querySelector('.map-stage');
+    const width = stageEl.clientWidth;
+    const height = stageEl.scrollHeight;
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+    edgeRoot.innerHTML = '';
+    edges.forEach((edge, index) => {
+      const fromEl = root.querySelector(`[data-node="${edge.from}"]`);
+      const toEl = root.querySelector(`[data-node="${edge.to}"]`);
+      if (!fromEl || !toEl) return;
+      const d = pathFor(fromEl, toEl);
+      if (edge.mode === 'runtime') {
+        const outer = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        outer.setAttribute('d', d);
+        outer.setAttribute('class', 'edge runtime');
+        outer.dataset.mode = edge.mode;
+        outer.dataset.edgeIndex = String(index);
+        edgeRoot.appendChild(outer);
+        const rail = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        rail.setAttribute('d', d);
+        rail.setAttribute('class', 'edge runtime-rail');
+        rail.dataset.mode = edge.mode;
+        rail.dataset.edgeIndex = String(index);
+        rail.setAttribute('marker-end', `url(#arrow-${edge.mode})`);
+        edgeRoot.appendChild(rail);
+      } else {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', d);
+        path.setAttribute('class', `edge ${edge.mode}`);
+        path.dataset.mode = edge.mode;
+        path.dataset.edgeIndex = String(index);
+        path.setAttribute('marker-end', `url(#arrow-${edge.mode})`);
+        edgeRoot.appendChild(path);
+      }
+      const hit = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      hit.setAttribute('d', d);
+      hit.setAttribute('class', 'edge-hit');
+      hit.setAttribute('tabindex', '0');
+      hit.setAttribute('role', 'button');
+      hit.setAttribute('aria-label', `${nodeText(edge.from)}에서 ${nodeText(edge.to)}로 가는 ${modeDetails[edge.mode].label} 설명`);
+      hit.dataset.mode = edge.mode;
+      hit.dataset.edgeIndex = String(index);
+      hit.addEventListener('click', () => showEdgeDetail(edge, index));
+      hit.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          showEdgeDetail(edge, index);
+        }
+      });
+      edgeRoot.appendChild(hit);
+    });
+    applyFilter(root.querySelector('[data-filter][aria-pressed="true"]')?.dataset.filter || 'all');
+    updateSelectedEdge();
+  }
+
+  function applyFilter(filter) {
+    const activeNodes = new Set();
+    for (const edge of edges) {
+      if (filter === 'all' || edge.mode === filter) {
+        activeNodes.add(edge.from);
+        activeNodes.add(edge.to);
+      }
+    }
+    root.querySelectorAll('.edge').forEach(path => {
+      const active = filter === 'all' || path.dataset.mode === filter;
+      path.classList.toggle('is-dim', !active);
+      path.classList.toggle('is-focus', active && filter !== 'all');
+    });
+    root.querySelectorAll('.edge-hit').forEach(path => {
+      const active = filter === 'all' || path.dataset.mode === filter;
+      path.classList.toggle('is-inactive', !active);
+    });
+    root.querySelectorAll('.field-row').forEach(row => {
+      const active = filter === 'all' || activeNodes.has(row.dataset.node);
+      row.classList.toggle('is-dim', !active);
+      row.classList.toggle('is-focus', active && filter !== 'all');
+    });
+  }
+
+  root.querySelectorAll('[data-filter]').forEach(button => {
+    button.addEventListener('click', () => {
+      root.querySelectorAll('[data-filter]').forEach(peer => {
+        const active = peer === button;
+        peer.setAttribute('aria-pressed', String(active));
+        peer.classList.toggle('btn-primary', active);
+        peer.classList.toggle('btn-ghost', !active);
+      });
+      applyFilter(button.dataset.filter);
+    });
+  });
+
+  let frame = 0;
+  const schedule = () => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(draw);
+  };
+  new ResizeObserver(schedule).observe(root.querySelector('.map-stage'));
+  window.addEventListener('resize', schedule, {passive: true});
+  schedule();
+})();
+</script>
+
+
+</body>
+</html>
