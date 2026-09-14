@@ -16,6 +16,16 @@ body{margin:0;background:#0d1117;color:#e6edf3;font:15px/1.55 system-ui,sans-ser
 <tr class="best"><td>Replay-4</td><td>0.624</td><td><div class="bar"><span style="width:62.4%;background:#3fb950"></span></div></td><td>4.0</td></tr>
 <tr><td>Full Replay / Large-native</td><td>0.484</td><td><div class="bar"><span style="width:48.4%"></span></div></td><td>30.5</td></tr>
 </tbody></table><p class="note">GT에 대상이 실제로 존재하는 후속 frame만 사례별로 평균한 뒤 10사례를 동일 가중 평균했습니다.</p></div>
+<div class="card"><h2>전환 직후 GT-visible temporal 결과</h2>
+<p>+1/+5/+20은 switch에서 해당 frame만큼 지난 정확한 시점의 J&amp;F입니다. GT가 비어 있는 사례는 평균에서 제외했습니다. Shock@5는 처음 5개 GT-visible 관측에서 Large-native와의 평균 격차이며 작을수록 좋습니다.</p>
+<table><thead><tr><th>방법</th><th>+1 J&amp;F</th><th>+5 J&amp;F</th><th>+20 J&amp;F</th><th>Shock@5</th><th>Identity-loss</th><th>Recovery</th></tr></thead><tbody>
+<tr><td>Direct Copy</td><td>0.000</td><td>0.000</td><td>0.000</td><td>0.636</td><td>70%</td><td>0%</td></tr>
+<tr><td>Target Reset</td><td>0.000</td><td>0.000</td><td>0.000</td><td>0.636</td><td>70%</td><td>0%</td></tr>
+<tr><td>Last-Mask / Replay-1</td><td>0.352</td><td>0.452</td><td>0.333</td><td>0.284</td><td>50%</td><td>30%</td></tr>
+<tr><td>Replay-2</td><td>0.444</td><td>0.671</td><td>0.413</td><td>0.165</td><td>30%</td><td>50%</td></tr>
+<tr class="best"><td>Replay-4</td><td>0.534</td><td>0.791</td><td>0.654</td><td>0.025</td><td>10%</td><td>60%</td></tr>
+<tr><td>Full Replay / Large-native</td><td>0.598</td><td>0.710</td><td>0.418</td><td>0.000</td><td>0%</td><td>70%</td></tr>
+</tbody></table><p class="note">Identity-loss는 단일-object 추적 상실 proxy이며 multi-object ID switch가 아닙니다. Recovery는 healthy Large-native보다 J&amp;F 0.05 이내인 상태가 visible 관측 3개 연속 유지된 사례 비율입니다.</p></div>
 <div class="card"><h2>사례별 결과</h2><table><thead><tr><th>사례</th><th>이벤트</th><th>Last</th><th>Replay-2</th><th>Replay-4</th><th>Full</th></tr></thead><tbody>
 <tr><td>india o1 s38</td><td>area drop</td><td>0.897</td><td>0.894</td><td>0.892</td><td>0.892</td></tr>
 <tr><td>india o1 s40</td><td>area growth</td><td>0.907</td><td>0.907</td><td>0.909</td><td>0.907</td></tr>

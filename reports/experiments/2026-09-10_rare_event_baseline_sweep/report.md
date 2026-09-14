@@ -36,6 +36,26 @@ Large가 처리한 Full Replay를 같은 switch 이후 구간에서 비교했다
 | Replay-4 | **0.700364** | **0.623753** | 4.0 | 23.432 |
 | Full Replay / Large-native | 0.603838 | 0.483535 | 30.5 | 33.545 |
 
+## 전환 직후 temporal 결과
+
+아래 `+1/+5/+20 J&F`는 해당 offset에서 GT가 실제로 보이는 사례만 평균했다.
+`Shock`은 처음 5개 GT-visible observation에서 Large-native와의 평균 J&F 차이다.
+
+| 방법 | +1 J&F | +5 J&F | +20 J&F | Shock@5 | Identity-loss proxy 비율 | Recovery 비율 |
+|---|---:|---:|---:|---:|---:|---:|
+| Direct Copy | 0.000000 | 0.000000 | 0.000000 | 0.635878 | 0.700 | 0.000 |
+| Target Reset | 0.000000 | 0.000000 | 0.000000 | 0.635878 | 0.700 | 0.000 |
+| Last-Mask / Replay-1 | 0.352143 | 0.451538 | 0.333493 | 0.283680 | 0.500 | 0.300 |
+| Replay-2 | 0.443937 | 0.670875 | 0.412809 | 0.165450 | 0.300 | 0.500 |
+| Replay-4 | 0.534164 | **0.790990** | **0.653715** | **0.025282** | **0.100** | 0.600 |
+| Full Replay / Large-native | **0.597803** | 0.710352 | 0.417813 | 0.000000 | 0.000 | **0.700** |
+
+Direct/Reset의 전체 offset 평균에는 GT와 prediction이 모두 빈 사례의 J&F 1이
+섞여 있었으나, GT-visible로 제한하면 세 offset 모두 0이었다. Replay-4는
+전환 직후 shock과 identity-loss proxy에서 가장 강한 비-oracle baseline이었다.
+다만 이 수치는 3개 영상에 군집된 10-case rare-event slice이므로 일반화된
+benchmark 결과가 아니다.
+
 ## 사례별 GT-visible J&F
 
 | 사례 | 이벤트 | Last | Replay-2 | Replay-4 | Full Replay |
@@ -72,8 +92,7 @@ Large가 처리한 Full Replay를 같은 switch 이후 구간에서 비교했다
 ## 다음 gate
 
 - switch+1/5/20, switch shock, single-object identity-loss proxy, recovery length의
-  정의와 구현은 2026-09-14에 고정했다. 기존 10-case suite의 per-method
-  `davis.json`에서 GPU 재추론 없이 backfill해 이 표를 보강한다.
+  정의·구현·10-case backfill을 2026-09-14에 완료했다.
 - 영상 단위 train/validation/test split을 고정하고 Tiny/Large paired state를 수집한다.
 - component별 작은 MLP를 시작으로 nonlinear Translator를 학습한다. 새로운
   Linear/Ridge 개발은 제외하고 기존 Ridge pilot만 역사적 baseline으로 보존한다.

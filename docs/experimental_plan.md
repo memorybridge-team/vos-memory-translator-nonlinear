@@ -9,15 +9,14 @@
 [0. 환경·데이터·고정 manifest]                         완료
                 │
                 ▼
-[1. state contract·주입·평가 파이프라인]               진행 중
-                │  └─ 전체/GT-visible J&F와 temporal metric 구현 완료
-                │     rare-event 10-case 원자료 backfill은 남음
+[1. state contract·주입·평가 파이프라인]               완료
+                │  └─ 전체/GT-visible J&F와 temporal metric 완료
                 ▼
-[2. 강한 baseline과 rare-event 분포]                   ◀ 현재 단계
+[2. 강한 baseline과 rare-event 분포]                   완료
                 │  └─ Direct/Reset/Last/Replay/Oracle 구현 완료
-                │     rare-event 10/10 완료, temporal metric 재집계 대기
+                │     rare-event 10/10 temporal metric 재집계 완료
                 ▼
-[3. paired Tiny↔Large state 수집·nonlinear 학습]       다음 단계
+[3. paired Tiny↔Large state 수집·nonlinear 학습]       ◀ 현재 단계
                 │
                 ▼
 [4. held-out 일반화·통계·양방향·반복 switch]
@@ -35,10 +34,10 @@
 2026-09-10 현재 고정 rare-event 10-case subset을 완료했다. GT-visible J&F 평균은
 Last-Mask 0.319945, Replay-2 0.425541, Replay-4 0.623753, Full Replay 0.483535였다.
 Replay-4가 평균상 가장 강했지만 `kite-surf` 재등장에서는 Full Replay만 성공했고,
-`lab-coat`에서는 반대로 Full Replay가 실패하고 Replay-4가 성공했다. 다음 실행은
-동일 결과의 원본 `davis.json`에서 switch shock·identity-loss proxy·recovery length를
-GPU 추론 없이 backfill한 뒤, video-level split을 고정하고 paired state 수집과
-nonlinear Translator 학습으로 넘어간다.
+`lab-coat`에서는 반대로 Full Replay가 실패하고 Replay-4가 성공했다. 동일 결과의
+원본 `davis.json`에서 switch shock·identity-loss proxy·recovery length를 GPU
+추론 없이 backfill했다. 현재 실행은 video-level split을 고정하고 paired state를
+수집해 nonlinear Translator를 학습하는 Phase 3이다.
 
 ## 최종 연구 질문
 

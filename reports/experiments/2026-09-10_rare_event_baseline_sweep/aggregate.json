@@ -22,7 +22,40 @@
       "mean_J_and_F": 0.2782430306820551,
       "mean_visible_J_and_F": 0.0,
       "mean_past_backbone_calls": 0.0,
-      "mean_wall_time_seconds": 24.892890552431346
+      "mean_wall_time_seconds": 24.892890552431346,
+      "temporal": {
+        "checkpoint_scores": {
+          "1": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 7,
+            "mean_candidate_J_and_F_all": 0.3,
+            "mean_reference_gap_all": 0.4184619541134972,
+            "mean_candidate_J_and_F_visible": 0.0,
+            "mean_reference_gap_visible": 0.5978027915907103
+          },
+          "5": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 8,
+            "mean_candidate_J_and_F_all": 0.2,
+            "mean_reference_gap_all": 0.5682815339300863,
+            "mean_candidate_J_and_F_visible": 0.0,
+            "mean_reference_gap_visible": 0.7103519174126078
+          },
+          "20": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 7,
+            "mean_candidate_J_and_F_all": 0.3,
+            "mean_reference_gap_all": 0.2924690647298578,
+            "mean_candidate_J_and_F_visible": 0.0,
+            "mean_reference_gap_visible": 0.41781294961408255
+          }
+        },
+        "mean_switch_shock_first_5_visible": 0.635878442916004,
+        "identity_break_proxy_rate": 0.7,
+        "recovery_rate": 0.0,
+        "mean_recovery_frames_when_recovered": null,
+        "recovery_censored_cases": 10
+      }
     },
     {
       "method": "target_reset",
@@ -31,7 +64,40 @@
       "mean_J_and_F": 0.2746716021106265,
       "mean_visible_J_and_F": 0.0,
       "mean_past_backbone_calls": 1.0,
-      "mean_wall_time_seconds": 24.079403494857253
+      "mean_wall_time_seconds": 24.079403494857253,
+      "temporal": {
+        "checkpoint_scores": {
+          "1": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 7,
+            "mean_candidate_J_and_F_all": 0.3,
+            "mean_reference_gap_all": 0.4184619541134972,
+            "mean_candidate_J_and_F_visible": 0.0,
+            "mean_reference_gap_visible": 0.5978027915907103
+          },
+          "5": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 8,
+            "mean_candidate_J_and_F_all": 0.2,
+            "mean_reference_gap_all": 0.5682815339300863,
+            "mean_candidate_J_and_F_visible": 0.0,
+            "mean_reference_gap_visible": 0.7103519174126078
+          },
+          "20": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 7,
+            "mean_candidate_J_and_F_all": 0.3,
+            "mean_reference_gap_all": 0.2924690647298578,
+            "mean_candidate_J_and_F_visible": 0.0,
+            "mean_reference_gap_visible": 0.41781294961408255
+          }
+        },
+        "mean_switch_shock_first_5_visible": 0.635878442916004,
+        "identity_break_proxy_rate": 0.7,
+        "recovery_rate": 0.0,
+        "mean_recovery_frames_when_recovered": null,
+        "recovery_censored_cases": 10
+      }
     },
     {
       "method": "last_mask",
@@ -40,7 +106,40 @@
       "mean_J_and_F": 0.46818803321542,
       "mean_visible_J_and_F": 0.3199445586600519,
       "mean_past_backbone_calls": 1.0,
-      "mean_wall_time_seconds": 21.481613114848734
+      "mean_wall_time_seconds": 21.481613114848734,
+      "temporal": {
+        "checkpoint_scores": {
+          "1": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 7,
+            "mean_candidate_J_and_F_all": 0.5464999623525537,
+            "mean_reference_gap_all": 0.17196199176094348,
+            "mean_candidate_J_and_F_visible": 0.352142803360791,
+            "mean_reference_gap_visible": 0.24565998822991927
+          },
+          "5": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 8,
+            "mean_candidate_J_and_F_all": 0.5612307295138328,
+            "mean_reference_gap_all": 0.2070508044162535,
+            "mean_candidate_J_and_F_visible": 0.45153841189229094,
+            "mean_reference_gap_visible": 0.2588135055203169
+          },
+          "20": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 7,
+            "mean_candidate_J_and_F_all": 0.5334448603435932,
+            "mean_reference_gap_all": 0.05902420438626464,
+            "mean_candidate_J_and_F_visible": 0.3334926576337045,
+            "mean_reference_gap_visible": 0.08432029198037806
+          }
+        },
+        "mean_switch_shock_first_5_visible": 0.28367979970491475,
+        "identity_break_proxy_rate": 0.5,
+        "recovery_rate": 0.3,
+        "mean_recovery_frames_when_recovered": 2.0,
+        "recovery_censored_cases": 7
+      }
     },
     {
       "method": "replay_1",
@@ -49,7 +148,40 @@
       "mean_J_and_F": 0.46818803321542,
       "mean_visible_J_and_F": 0.3199445586600519,
       "mean_past_backbone_calls": 1.0,
-      "mean_wall_time_seconds": 21.729169359244406
+      "mean_wall_time_seconds": 21.729169359244406,
+      "temporal": {
+        "checkpoint_scores": {
+          "1": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 7,
+            "mean_candidate_J_and_F_all": 0.5464999623525537,
+            "mean_reference_gap_all": 0.17196199176094348,
+            "mean_candidate_J_and_F_visible": 0.352142803360791,
+            "mean_reference_gap_visible": 0.24565998822991927
+          },
+          "5": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 8,
+            "mean_candidate_J_and_F_all": 0.5612307295138328,
+            "mean_reference_gap_all": 0.2070508044162535,
+            "mean_candidate_J_and_F_visible": 0.45153841189229094,
+            "mean_reference_gap_visible": 0.2588135055203169
+          },
+          "20": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 7,
+            "mean_candidate_J_and_F_all": 0.5334448603435932,
+            "mean_reference_gap_all": 0.05902420438626464,
+            "mean_candidate_J_and_F_visible": 0.3334926576337045,
+            "mean_reference_gap_visible": 0.08432029198037806
+          }
+        },
+        "mean_switch_shock_first_5_visible": 0.28367979970491475,
+        "identity_break_proxy_rate": 0.5,
+        "recovery_rate": 0.3,
+        "mean_recovery_frames_when_recovered": 2.0,
+        "recovery_censored_cases": 7
+      }
     },
     {
       "method": "replay_2",
@@ -58,7 +190,40 @@
       "mean_J_and_F": 0.5383498524309714,
       "mean_visible_J_and_F": 0.42554100213512286,
       "mean_past_backbone_calls": 2.0,
-      "mean_wall_time_seconds": 22.743573609553277
+      "mean_wall_time_seconds": 22.743573609553277,
+      "temporal": {
+        "checkpoint_scores": {
+          "1": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 7,
+            "mean_candidate_J_and_F_all": 0.6107560617426273,
+            "mean_reference_gap_all": 0.10770589237086992,
+            "mean_candidate_J_and_F_visible": 0.4439372310608961,
+            "mean_reference_gap_visible": 0.15386556052981418
+          },
+          "5": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 8,
+            "mean_candidate_J_and_F_all": 0.7366999271446452,
+            "mean_reference_gap_all": 0.0315816067854411,
+            "mean_candidate_J_and_F_visible": 0.6708749089308065,
+            "mean_reference_gap_visible": 0.03947700848180137
+          },
+          "20": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 7,
+            "mean_candidate_J_and_F_all": 0.4889660184019629,
+            "mean_reference_gap_all": 0.10350304632789488,
+            "mean_candidate_J_and_F_visible": 0.41280859771708983,
+            "mean_reference_gap_visible": 0.005004351896992677
+          }
+        },
+        "mean_switch_shock_first_5_visible": 0.16545044606490317,
+        "identity_break_proxy_rate": 0.3,
+        "recovery_rate": 0.5,
+        "mean_recovery_frames_when_recovered": 2.0,
+        "recovery_censored_cases": 5
+      }
     },
     {
       "method": "replay_4",
@@ -67,7 +232,40 @@
       "mean_J_and_F": 0.7003642997954191,
       "mean_visible_J_and_F": 0.62375265198656,
       "mean_past_backbone_calls": 4.0,
-      "mean_wall_time_seconds": 23.43174525592476
+      "mean_wall_time_seconds": 23.43174525592476,
+      "temporal": {
+        "checkpoint_scores": {
+          "1": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 7,
+            "mean_candidate_J_and_F_all": 0.6739145772831336,
+            "mean_reference_gap_all": 0.04454737683036356,
+            "mean_candidate_J_and_F_visible": 0.5341636818330481,
+            "mean_reference_gap_visible": 0.06363910975766222
+          },
+          "5": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 8,
+            "mean_candidate_J_and_F_all": 0.8327922230047611,
+            "mean_reference_gap_all": -0.06451068907467479,
+            "mean_candidate_J_and_F_visible": 0.7909902787559513,
+            "mean_reference_gap_visible": -0.08063836134334348
+          },
+          "20": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 7,
+            "mean_candidate_J_and_F_all": 0.7576004315042824,
+            "mean_reference_gap_all": -0.16513136677442458,
+            "mean_candidate_J_and_F_visible": 0.6537149021489748,
+            "mean_reference_gap_visible": -0.23590195253489227
+          }
+        },
+        "mean_switch_shock_first_5_visible": 0.02528184497877135,
+        "identity_break_proxy_rate": 0.1,
+        "recovery_rate": 0.6,
+        "mean_recovery_frames_when_recovered": 2.6666666666666665,
+        "recovery_censored_cases": 4
+      }
     },
     {
       "method": "full_replay",
@@ -76,7 +274,40 @@
       "mean_J_and_F": 0.6038380968747901,
       "mean_visible_J_and_F": 0.4835350102529208,
       "mean_past_backbone_calls": 30.5,
-      "mean_wall_time_seconds": 33.54504074305296
+      "mean_wall_time_seconds": 33.54504074305296,
+      "temporal": {
+        "checkpoint_scores": {
+          "1": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 7,
+            "mean_candidate_J_and_F_all": 0.7184619541134972,
+            "mean_reference_gap_all": 0.0,
+            "mean_candidate_J_and_F_visible": 0.5978027915907103,
+            "mean_reference_gap_visible": 0.0
+          },
+          "5": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 8,
+            "mean_candidate_J_and_F_all": 0.7682815339300862,
+            "mean_reference_gap_all": 0.0,
+            "mean_candidate_J_and_F_visible": 0.7103519174126078,
+            "mean_reference_gap_visible": 0.0
+          },
+          "20": {
+            "cases_available": 10,
+            "ground_truth_visible_cases": 7,
+            "mean_candidate_J_and_F_all": 0.5924690647298577,
+            "mean_reference_gap_all": 0.0,
+            "mean_candidate_J_and_F_visible": 0.41781294961408255,
+            "mean_reference_gap_visible": 0.0
+          }
+        },
+        "mean_switch_shock_first_5_visible": 0.0,
+        "identity_break_proxy_rate": 0.0,
+        "recovery_rate": 0.7,
+        "mean_recovery_frames_when_recovered": 1.8571428571428572,
+        "recovery_censored_cases": 3
+      }
     }
   ]
 }
