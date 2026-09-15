@@ -476,23 +476,31 @@ class ResidualMLPStateTranslator(_LearnedStateTranslator):
 class LearnedComponentPolicyTranslator:
     """Use selected learned continuous components and Direct Copy for the rest."""
 
+    _ALLOWED_COMPONENTS = {
+        "spatial_memory",
+        "object_pointer",
+        "presence_logits",
+    }
+
     def __init__(
         self,
         learned: _LearnedStateTranslator,
         *,
         learned_components: tuple[str, ...],
     ):
-        allowed = {"spatial_memory", "object_pointer", "presence_logits"}
         selected = frozenset(learned_components)
-        if not selected or not selected <= allowed:
+        if not selected or not selected <= self._ALLOWED_COMPONENTS:
             raise ValueError(
-                f"learned_components must be a non-empty subset of {sorted(allowed)}"
+                "learned_components must be a non-empty subset of "
+                f"{sorted(self._ALLOWED_COMPONENTS)}"
             )
         self.learned = learned
         self.learned_components = selected
         self.target_spec = learned.target_spec
         self.name = "learned_" + "_".join(
-            component for component in sorted(allowed) if component in selected
+            component
+            for component in sorted(self._ALLOWED_COMPONENTS)
+            if component in selected
         )
 
     def translate(self, source: CanonicalState) -> CanonicalState:
@@ -519,7 +527,7 @@ class LearnedComponentPolicyTranslator:
                     component: (
                         "learned" if component in self.learned_components else "direct"
                     )
-                    for component in sorted(allowed)
+                    for component in sorted(self._ALLOWED_COMPONENTS)
                 },
                 "grid_adapter": "bilinear",
             },
