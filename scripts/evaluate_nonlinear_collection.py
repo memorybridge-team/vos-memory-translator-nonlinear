@@ -33,7 +33,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--target-config", required=True)
     parser.add_argument("--target-checkpoint", required=True, type=Path)
     parser.add_argument("--target-model-id", required=True)
-    parser.add_argument("--translator-artifact", required=True, type=Path)
+    parser.add_argument(
+        "--translator", choices=("residual_mlp", "direct"), default="residual_mlp"
+    )
+    parser.add_argument("--translator-artifact", type=Path)
     parser.add_argument("--evaluation-repo", required=True, type=Path)
     parser.add_argument("--output-root", required=True, type=Path)
     parser.add_argument("--hot-cache-root", type=Path)
@@ -73,26 +76,48 @@ def _stage_sequence(
     return staged_video, staged_annotation
 
 
-def _write_aggregate(rows: list[dict[str, Any]], output_root: Path) -> None:
+def _aggregate_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    visible_rows = [
+        row
+        for row in rows
+        if int(row["candidate_davis"]["ground_truth_visible"]["frames"]) > 0
+    ]
+    absent_only_rows = [
+        row
+        for row in rows
+        if int(row["candidate_davis"]["ground_truth_visible"]["frames"]) == 0
+    ]
     visible = [
         float(row["candidate_davis"]["ground_truth_visible"]["mean_J_and_F"])
-        for row in rows
+        for row in visible_rows
         if row["candidate_davis"]["ground_truth_visible"]["mean_J_and_F"] is not None
+    ]
+    absent_only = [
+        float(row["candidate_davis"]["ground_truth_absent"]["mean_J_and_F"])
+        for row in absent_only_rows
+        if row["candidate_davis"]["ground_truth_absent"]["mean_J_and_F"] is not None
     ]
     shocks = [
         float(row["temporal"]["switch_shock"]["windows"]["5"]["mean_reference_gap"])
-        for row in rows
+        for row in visible_rows
         if row["temporal"]["switch_shock"]["windows"]["5"]["mean_reference_gap"]
         is not None
     ]
-    recovered = [bool(row["temporal"]["recovery"]["recovered"]) for row in rows]
-    identity = [
-        bool(row["temporal"]["identity_break_proxy"]["occurred"]) for row in rows
+    recovered = [
+        bool(row["temporal"]["recovery"]["recovered"]) for row in visible_rows
     ]
-    aggregate = {
-        "schema_version": "cmmt.nonlinear_validation_aggregate.v1",
+    identity = [
+        bool(row["temporal"]["identity_break_proxy"]["occurred"])
+        for row in visible_rows
+    ]
+    return {
+        "schema_version": "cmmt.nonlinear_validation_aggregate.v2",
+        "translator": rows[0].get("translator") if rows else None,
         "case_count": len(rows),
+        "gt_visible_case_count": len(visible_rows),
+        "gt_absent_only_case_count": len(absent_only_rows),
         "mean_gt_visible_J_and_F": mean(visible) if visible else None,
+        "mean_gt_absent_only_J_and_F": mean(absent_only) if absent_only else None,
         "mean_switch_shock_first_5_visible": mean(shocks) if shocks else None,
         "identity_break_proxy_rate": mean(identity) if identity else None,
         "recovery_rate": mean(recovered) if recovered else None,
@@ -102,16 +127,23 @@ def _write_aggregate(rows: list[dict[str, Any]], output_root: Path) -> None:
         ),
         "cases": rows,
     }
+
+
+def _write_aggregate(rows: list[dict[str, Any]], output_root: Path) -> None:
+    aggregate = _aggregate_rows(rows)
     (output_root / "aggregate.json").write_text(
         json.dumps(aggregate, indent=2), encoding="utf-8"
     )
     (output_root / "aggregate.md").write_text(
         "\n".join(
             [
-                "# Nonlinear translator internal validation",
+                "# CMMT internal validation",
                 "",
                 f"- Cases: {aggregate['case_count']}",
+                f"- Cases with post-switch visible GT: {aggregate['gt_visible_case_count']}",
+                f"- GT-absent-only cases: {aggregate['gt_absent_only_case_count']}",
                 f"- Mean GT-visible J&F: {aggregate['mean_gt_visible_J_and_F']}",
+                f"- Mean GT-absent-only J&F: {aggregate['mean_gt_absent_only_J_and_F']}",
                 "- Mean switch shock, first 5 visible: "
                 f"{aggregate['mean_switch_shock_first_5_visible']}",
                 f"- Identity-break proxy rate: {aggregate['identity_break_proxy_rate']}",
@@ -132,13 +164,26 @@ def main() -> None:
     ]
     if not cases:
         raise ValueError("selection has no internal validation cases")
-    artifact_path = args.translator_artifact.resolve()
-    artifact = torch.load(artifact_path, map_location="cpu", weights_only=True)
-    payload = artifact.get("residual_mlp") if isinstance(artifact, dict) else None
-    if not isinstance(payload, dict):
-        raise ValueError("artifact has no residual_mlp payload")
-    translator = ResidualMLPStateTranslator.from_payload(payload).to(args.device).eval()
-    translator_sha = _sha256(artifact_path)
+    if args.translator == "residual_mlp":
+        if args.translator_artifact is None:
+            raise ValueError("--translator-artifact is required for residual_mlp")
+        artifact_path = args.translator_artifact.resolve()
+        artifact = torch.load(artifact_path, map_location="cpu", weights_only=True)
+        payload = artifact.get("residual_mlp") if isinstance(artifact, dict) else None
+        if not isinstance(payload, dict):
+            raise ValueError("artifact has no residual_mlp payload")
+        translator = (
+            ResidualMLPStateTranslator.from_payload(payload).to(args.device).eval()
+        )
+        evaluation_id = _sha256(artifact_path)
+        candidate_label = "Nonlinear Residual MLP"
+    else:
+        if args.translator_artifact is not None:
+            raise ValueError("--translator-artifact is not used for direct")
+        artifact_path = None
+        translator = None
+        evaluation_id = "direct-copy-v1"
+        candidate_label = "Direct Copy"
     iou_metric, boundary_metric, evaluator_commit = load_official_davis_metrics(
         args.evaluation_repo
     )
@@ -154,7 +199,13 @@ def main() -> None:
         summary_path = case_output / "summary.json"
         if summary_path.is_file():
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
-            if summary.get("translator_artifact_sha256") == translator_sha:
+            summary_id = summary.get(
+                "translator_evaluation_id",
+                summary.get("translator_artifact_sha256"),
+            )
+            if summary_id == evaluation_id:
+                summary.setdefault("translator", args.translator)
+                summary.setdefault("translator_evaluation_id", evaluation_id)
                 rows.append(summary)
                 print(f"[{index}/{len(cases)}] {slug}: skipped_complete", flush=True)
                 continue
@@ -175,8 +226,8 @@ def main() -> None:
             seed=args.seed,
             artifact_dir=case_output,
             translator=translator,
-            translator_name=translator.name,
-            candidate_label="Nonlinear Residual MLP",
+            translator_name=args.translator,
+            candidate_label=candidate_label,
         )
         metric_source = f"davisvideochallenge/davis2017-evaluation@{evaluator_commit}"
         candidate_davis = evaluate_davis_future_masks(
@@ -205,8 +256,11 @@ def main() -> None:
         write_davis_future_report(oracle_davis, case_output / "oracle_davis.json")
         summary = {
             "case": case,
-            "translator_artifact": str(artifact_path),
-            "translator_artifact_sha256": translator_sha,
+            "translator": args.translator,
+            "translator_artifact": (
+                None if artifact_path is None else str(artifact_path)
+            ),
+            "translator_evaluation_id": evaluation_id,
             "handoff": handoff,
             "candidate_davis": candidate_davis,
             "target_native_davis": oracle_davis,
