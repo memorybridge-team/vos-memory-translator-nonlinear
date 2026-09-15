@@ -19,7 +19,10 @@ from vos_memory_inspector.davis_evaluation import (
 )
 from vos_memory_inspector.roundtrip import run_cached_translator_handoff
 from vos_memory_inspector.temporal_evaluation import evaluate_temporal_handoff
-from vos_memory_inspector.translators import ResidualMLPStateTranslator
+from vos_memory_inspector.translators import (
+    LearnedComponentPolicyTranslator,
+    ResidualMLPStateTranslator,
+)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -35,6 +38,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--target-model-id", required=True)
     parser.add_argument(
         "--translator", choices=("residual_mlp", "direct"), default="residual_mlp"
+    )
+    parser.add_argument(
+        "--component-policy",
+        choices=("full", "spatial_pointer", "spatial_only"),
+        default="full",
+        help="Residual MLP components to use; remaining components use Direct Copy.",
     )
     parser.add_argument("--translator-artifact", type=Path)
     parser.add_argument("--evaluation-repo", required=True, type=Path)
@@ -172,14 +181,31 @@ def main() -> None:
         payload = artifact.get("residual_mlp") if isinstance(artifact, dict) else None
         if not isinstance(payload, dict):
             raise ValueError("artifact has no residual_mlp payload")
-        translator = (
+        learned = (
             ResidualMLPStateTranslator.from_payload(payload).to(args.device).eval()
         )
-        evaluation_id = _sha256(artifact_path)
-        candidate_label = "Nonlinear Residual MLP"
+        artifact_sha = _sha256(artifact_path)
+        if args.component_policy == "full":
+            translator = learned
+            evaluation_id = artifact_sha
+            candidate_label = "Nonlinear Residual MLP"
+        else:
+            learned_components = (
+                ("spatial_memory", "object_pointer")
+                if args.component_policy == "spatial_pointer"
+                else ("spatial_memory",)
+            )
+            translator = LearnedComponentPolicyTranslator(
+                learned,
+                learned_components=learned_components,
+            )
+            evaluation_id = f"{artifact_sha}:{args.component_policy}:v1"
+            candidate_label = f"Nonlinear MLP ({args.component_policy})"
     else:
         if args.translator_artifact is not None:
             raise ValueError("--translator-artifact is not used for direct")
+        if args.component_policy != "full":
+            raise ValueError("--component-policy is only used for residual_mlp")
         artifact_path = None
         translator = None
         evaluation_id = "direct-copy-v1"
@@ -256,7 +282,11 @@ def main() -> None:
         write_davis_future_report(oracle_davis, case_output / "oracle_davis.json")
         summary = {
             "case": case,
-            "translator": args.translator,
+            "translator": (
+                args.translator
+                if args.translator == "direct"
+                else f"{args.translator}:{args.component_policy}"
+            ),
             "translator_artifact": (
                 None if artifact_path is None else str(artifact_path)
             ),

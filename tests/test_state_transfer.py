@@ -20,6 +20,7 @@ from vos_memory_inspector.state_inspector import inspect_state, write_inspection
 from vos_memory_inspector.state_schema import CanonicalState, StateSpec
 from vos_memory_inspector.translators import (
     DirectCopyTranslator,
+    LearnedComponentPolicyTranslator,
     ResidualMLPStateTranslator,
     RidgeDirectPresenceTranslator,
     RidgeStateTranslator,
@@ -283,6 +284,32 @@ def test_residual_mlp_payload_roundtrip_preserves_predictions() -> None:
     assert torch.allclose(actual.spatial_memory, expected.spatial_memory)
     assert torch.allclose(actual.object_pointer, expected.object_pointer)
     assert torch.allclose(actual.presence_logits, expected.presence_logits)
+
+
+def test_learned_component_policy_uses_direct_for_unselected_components() -> None:
+    spec = StateSpec(3, 2, 2, 5)
+    learned = ResidualMLPStateTranslator(spec, spec, hidden_dim=7)
+    source = _state(
+        torch.randn(1, 1, 2, 3, 2, 2),
+        torch.randn(1, 1, 2, 5),
+        torch.randn(1, 1, 2, 1),
+    )
+    policy = LearnedComponentPolicyTranslator(
+        learned,
+        learned_components=("spatial_memory", "object_pointer"),
+    )
+
+    translated = policy.translate(source)
+    learned_state = learned.translate(source)
+
+    assert torch.allclose(translated.spatial_memory, learned_state.spatial_memory)
+    assert torch.allclose(translated.object_pointer, learned_state.object_pointer)
+    assert torch.allclose(translated.presence_logits, source.presence_logits)
+    assert translated.metadata["translation"]["component_policy"] == {
+        "object_pointer": "learned",
+        "presence_logits": "direct",
+        "spatial_memory": "learned",
+    }
 
 
 def test_paired_experiment_serializes_residual_mlp_contract(tmp_path: Path) -> None:

@@ -473,6 +473,62 @@ class ResidualMLPStateTranslator(_LearnedStateTranslator):
         return translator
 
 
+class LearnedComponentPolicyTranslator:
+    """Use selected learned continuous components and Direct Copy for the rest."""
+
+    def __init__(
+        self,
+        learned: _LearnedStateTranslator,
+        *,
+        learned_components: tuple[str, ...],
+    ):
+        allowed = {"spatial_memory", "object_pointer", "presence_logits"}
+        selected = frozenset(learned_components)
+        if not selected or not selected <= allowed:
+            raise ValueError(
+                f"learned_components must be a non-empty subset of {sorted(allowed)}"
+            )
+        self.learned = learned
+        self.learned_components = selected
+        self.target_spec = learned.target_spec
+        self.name = "learned_" + "_".join(
+            component for component in sorted(allowed) if component in selected
+        )
+
+    def translate(self, source: CanonicalState) -> CanonicalState:
+        learned_state = self.learned.translate(source)
+        direct_state = DirectCopyTranslator(self.target_spec).translate(source)
+
+        def choose(name: str) -> torch.Tensor:
+            learned_tensor = getattr(learned_state, name)
+            if name in self.learned_components:
+                return learned_tensor
+            return getattr(direct_state, name).to(
+                device=learned_tensor.device,
+                dtype=learned_tensor.dtype,
+            )
+
+        return learned_state.with_continuous(
+            spatial_memory=choose("spatial_memory"),
+            object_pointer=choose("object_pointer"),
+            presence_logits=choose("presence_logits"),
+            positional_information=_target_positional(self.target_spec),
+            translation_metadata={
+                "translator": self.name,
+                "component_policy": {
+                    component: (
+                        "learned" if component in self.learned_components else "direct"
+                    )
+                    for component in sorted(allowed)
+                },
+                "grid_adapter": "bilinear",
+            },
+        )
+
+    def parameter_count(self) -> int:
+        return self.learned.parameter_count()
+
+
 def state_mse_loss(prediction: CanonicalState, target: CanonicalState) -> torch.Tensor:
     valid = _pair_guard(prediction, target)
     target_device = prediction.spatial_memory.device
