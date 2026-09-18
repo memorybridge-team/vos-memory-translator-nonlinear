@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vos-memory-translator-nonlinear-v2"
+version = "0.1.0"
+description = "SAM 2.1 Tiny to Base+ nonlinear temporal-memory handoff research"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.24",
+  "Pillow>=9.4",
+  "torch>=2.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+sam2-memory-probe = "vos_memory_inspector.cli:probe_main"
+sam2-memory-compare = "vos_memory_inspector.cli:compare_main"
+sam2-davis-check = "vos_memory_inspector.cli:davis_main"
+sam2-davis-download = "vos_memory_inspector.cli:davis_download_main"
+cmmt-davis-build-manifest = "vos_memory_inspector.cli:davis_manifest_main"
+cmmt-davis-future-eval = "vos_memory_inspector.cli:davis_future_evaluation_main"
+cmmt-state-inspect = "vos_memory_inspector.cli:state_inspect_main"
+cmmt-synthetic-experiment = "vos_memory_inspector.cli:synthetic_experiment_main"
+cmmt-paired-experiment = "vos_memory_inspector.cli:paired_experiment_main"
+sam2-roundtrip-smoke = "vos_memory_inspector.cli:roundtrip_main"
+cmmt-sam2-prepare-case = "vos_memory_inspector.cli:prepare_handoff_case_main"
+cmmt-sam2-cached-handoff = "vos_memory_inspector.cli:cached_handoff_main"
+cmmt-sam2-cached-baseline = "vos_memory_inspector.cli:cached_baseline_main"
+sam2-direct-handoff-smoke = "vos_memory_inspector.cli:direct_handoff_main"
+sam2-ridge-handoff-smoke = "vos_memory_inspector.cli:ridge_handoff_main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SAM 2.1 Tiny → Base+ memory handoff</title>
+  <style>
+    body{margin:0;background:#101923;color:#f3f6fa;font:16px/1.65 system-ui,sans-serif}
+    main{max-width:840px;margin:52px auto;padding:0 24px}
+    h1{font-size:2rem;line-height:1.2}h2{margin-top:2rem}
+    a{color:#7ed3ff} .card{background:#192837;border:1px solid #365065;border-radius:12px;padding:18px;margin:18px 0}
+    .muted{color:#b7c7d3}code{background:#253a4b;padding:2px 5px;border-radius:4px}
+  </style>
+</head>
+<body><main>
+  <p class="muted">CMMT nonlinear v2 · 연구 진행 페이지</p>
+  <h1>SAM 2.1 Tiny의 기억을 Base+로 전달하기</h1>
+  <p>비디오 중간에 모델을 바꿀 때 과거 프레임을 전부 다시 처리하지 않고도 객체 추적을 이어갈 수 있는지 연구합니다.</p>
+  <div class="card">
+    <h2>연구 범위</h2>
+    <p>모델: SAM 2.1 Tiny → Base+<br>데이터셋: DAVIS 2017, MOSEv2, LVOS v2<br>방식: 여러 nonlinear memory translator 비교</p>
+    <p>현재 상태: 새 저장소 구성과 기존 기능 이관. Base+ 실험 결과는 아직 없습니다.</p>
+  </div>
+  <div class="card">
+    <h2>살펴보기</h2>
+    <p><a href="architecture/cmmt-state-assembly-map.html">SAM 2 상태 조립 지도</a></p>
+    <p><a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear-v2/blob/main/docs/experimental_plan.md">4주 실험 계획</a></p>
+    <p><a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear-v2">코드와 재현 방법</a></p>
+  </div>
+  <p class="muted">과거 Tiny→Large pilot은 새 모델 쌍의 성능 근거로 사용하지 않습니다. 새 결과가 검증되면 이 페이지에 추가합니다.</p>
+</main></body></html>

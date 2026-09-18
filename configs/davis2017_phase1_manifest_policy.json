@@ -1,0 +1,12 @@
+{
+  "schema_version": "cmmt.davis_manifest_policy.v1",
+  "split": "val",
+  "resolution": "480p",
+  "regular_quantiles": [0.25, 0.5, 0.75],
+  "min_prefix_frames": 5,
+  "min_future_frames": 20,
+  "area_drop_ratio": 0.35,
+  "area_growth_ratio": 3.0,
+  "seed": 7,
+  "ground_truth_usage": "case_selection_and_slice_tags_only"
+}
