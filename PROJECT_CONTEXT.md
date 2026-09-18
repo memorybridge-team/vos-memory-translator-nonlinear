@@ -54,3 +54,5 @@ GitHub repository를 새로 만들었다는 사실만으로 실험이 이전됐�
 ## 8. 2026-09-18 일정·GitHub Projects 동기화
 
 GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/views/1)의 제목과 설명을 Tiny→Base+ 및 새 저장소 기준으로 수정했다. 데이터·상태 주입·강한 비교군·세 nonlinear 후보의 완료 조건을 항목 설명에 기록하고, 10/7의 최종 `Method freeze`를 후보/프로토콜 중간 검토로 바꿨다. 전체 학습의 시작일은 10/8에서 10/3으로 앞당겨 shard별로 확장하게 했으며, 10/18 작업은 PDF 전용이 아닌 공식 업로드 형식 검증으로 바꿨다. 원래 담당자와 완료 상태는 임의로 변경하지 않았다. 10/12~14 최종 방법/결과 동결, 10/15~17 검토, 10/18 모의 제출, 10/19 제출의 상세 게이트는 [실험 계획](docs/experimental_plan.md)에 둔다.
+
+보드에 이 연구와 무관한 외부 저장소의 [`subinidus/cell-msca-odiac-estimation#2`](https://github.com/subinidus/cell-msca-odiac-estimation/issues/2)가 연결돼 있다. 원본 이슈를 삭제하지 않고 보드 연결만 해제하려는 조작이 자동 안전 검토에서 특정 항목 승인 부족으로 거절되었다. 사용자 승인 전까지 그대로 둔다.
