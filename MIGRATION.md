@@ -27,3 +27,11 @@
 새 저장소의 초기 commit 작성자는 GitHub 계정 `KIMKYUDO`로 설정한다. 이는 **파일 전체를 KIMKYUDO가 처음 작성했다는 뜻이 아니다.** 이전 저장소에는 `KyudoKim`과 `서수빈`의 커밋이 있으며, 후자는 초기 memory probe 등 일부 이관 파일에 기여했다. 과거 저장소의 `git log`와 이 문서가 작성 경위를 설명한다. 원본 Git 이력과 전체 산출물을 복구할 수 있도록 로컬 기존 checkout의 `.git`을 보존한다. 원본 GitHub 저장소를 삭제하면 그 저장소의 Pages URL 및 GitHub 상의 history 접근도 사라진다.
 
 새 GitHub 저장소의 Contributors 표시는 새 commit의 작성 이력에 의해 계산된다. 초기 commit을 단일 GitHub 계정의 검증 가능한 이메일로 작성한 뒤 확인한다. 이후 팀원 기여가 생기면 정당한 작성자를 그대로 기록한다.
+
+## 2026-09-18 이관 실행 결과
+
+- 새 저장소 `main`의 독립된 첫 commit `dc1d667e0a4f42739f1e86d66f2715e06b11f9c2`를 push했다. GitHub Contributors API에서 `KIMKYUDO` 한 명만 확인했다.
+- 새 저장소 GitHub Pages를 `main /docs`로 설정했다. 공개 주소 `https://memorybridge-team.github.io/vos-memory-translator-nonlinear-v2/`의 HTTP 200 응답을 확인했다.
+- 기존 원격 `main`과 로컬 checkout의 commit이 일치하며, 원격 branch는 `main` 하나이고 tag는 없다. 원본 이력 백업 `.external/archives/vos-memory-translator-nonlinear-before-v2.bundle`을 만들고 `git bundle verify`로 검증했다. 이 bundle은 기존 로컬 작업공간에만 있다.
+- **기존 GitHub 저장소 삭제는 미완료**다. GitHub REST 삭제 요청은 `403 Must have admin rights to Repository`로 거절됐다. 브라우저 UI 진입도 자동 승인 검토에서 거절돼 우회하지 않았다. 저장소 관리자 계정으로 기존 저장소의 Settings → General → Danger Zone에서 삭제해야 한다. 그전에는 기존 저장소와 Pages가 남아 있다.
+- 기존 로컬 checkout의 `origin`은 해제했다. 코드, 미커밋 변경, Git 이력과 위 bundle은 그대로 보존하며 새 저장소 `v2/`만 새 원격에 연결한다.
