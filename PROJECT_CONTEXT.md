@@ -85,6 +85,12 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - 상세 계약과 남은 runtime gate는 `docs/design/small_base_state_io_contract.md`에 기록했다.
 - 대화 운영은 고정된 “다음 6개 답변” 카운트가 아니다. 한 프롬프트에 요청이 여러 개이면 각 항목을 `완료 / 진행 중 / Blocker / 미착수`로 나눠 병목을 보고한다.
 
+## 13. 2026-09-19 canonical Issue와 PR
+
+- [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2)를 생성하고 `KIMKYUDO`에게 할당한 뒤 Project #2에 연결해 `In Progress`로 지정했다. 정적 memory boundary, field policy, fail-closed pair validation, CPU test는 완료됐고 실제 checkpoint runtime inventory와 Base+ same-checkpoint export→inject는 GPU가 확보될 때까지 미완료다.
+- `codex/project-board-workflow`의 4개 커밋은 [PR #3](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/pull/3)으로 제출했다. PR도 Project #2에 연결해 `In Progress`로 지정했고 Issue #2를 `Refs`로만 연결했으므로 미완료 runtime gate를 자동으로 닫지 않는다.
+- PR 생성 시 GitHub가 4 commits, 24 files changed, 1 contributor(`KIMKYUDO`)를 표시했고 merge conflict가 없음을 확인했다. 자동 병합은 하지 않았으며 `main`은 검토 전 상태를 유지한다.
+
 사용자 승인 후 이 연구와 무관한 외부 저장소의 [`subinidus/cell-msca-odiac-estimation#2`](https://github.com/subinidus/cell-msca-odiac-estimation/issues/2)를 원본 변경 없이 연구 보드에서만 제거했다. 대신 이 저장소의 [범위 이슈 #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1)을 생성해 보드에 연결했다. 이슈의 활동 기록에서 `KIMKYUDO`가 보드에 추가한 사실과 `Todo` 상태를 확인했다.
 
 ## 11. 2026-09-19 RunPod L4 환경 정보와 재개 gate
