@@ -1,57 +1,55 @@
 # GitHub Project #2 task 감사·수정 기록
 
-기준일: 2026-09-19 KST. Project의 `Tasks`와 `Roadmap`에 있던 20개 카드의 제목, 본문, 담당자, 상태, 날짜를 직접 확인했다. 감사 후 Infra 카드 1개를 추가해 현재는 21개다.
+기준일: 2026-09-19 KST. Project의 기존 20개 연구 카드는 제목뿐 아니라 본문, 담당자, 상태, 시작일·종료일을 전부 확인했다. 본문이 비어 있거나 완료 기준이 약한 카드는 연구 범위, 실행 증거, 재현성, 통계·누수 검토 기준을 보완했다.
 
 ## 결론
 
-연구 단계의 큰 흐름은 충분하다. 새로운 대규모 단계를 추가하기보다 기존 카드의 비어 있는 완료 기준을 채우고, GPU 실행 환경을 별도 task로 추가하는 것이 적절하다.
+연구의 뼈대는 **01 Scope → 20 Submission**의 20단계로 충분하다. 번호는 실행·관리 순서를 뜻하며, 장시간 학습과 정기 회의처럼 일부 단계는 서로 겹쳐 진행할 수 있다. `Infra`, canonical Issue, PR은 별도 연구 단계가 아니라 기존 단계의 실행 환경·증거이므로 21번 이후 단계로 세지 않는다.
 
-감사에서 발견한 즉시 수정 항목은 두 가지였다.
+Tasks 기본 보기는 제목 오름차순으로 저장했다. 따라서 보드를 열면 `01`부터 `20`까지 순서대로 보인다.
 
-1. `[Scope]` Issue #1 본문의 `Tiny → Base+`를 `Small → Base+`로 수정했다. target-native 필요성 gate, same-checkpoint injection, 필수 baseline, 통계·누수 기준도 함께 명시했다.
-2. `[Benchmark] Freeze dataset...` 본문의 `Tiny→Base+`를 `Small→Base+`로 수정하고, switch manifest·사건 표본 수·video-clustered confidence interval 고정 조건을 추가했다.
+## 확정한 20단계
 
-사용자 확인 결과 `-v2` URL의 redirect는 새 저장소의 이름을 `vos-memory-translator-nonlinear`로 변경해서 생긴 정상 동작이다. 로컬 `origin`, README, Issue 검증 규칙과 Pages 링크를 canonical 이름으로 동기화했다.
+| # | Task | 핵심 완료 기준 |
+|---:|---|---|
+| 01 | Scope 고정 | Small→Base+, 세 데이터셋, nonlinear 범위, 성공·실패 기준, target-native 필요성 gate |
+| 02 | Small/Base+ memory I/O 계약 | component별 shape·dtype·의미·정렬·복사/생성 정책, 예시 dump, runtime inventory |
+| 03 | 데이터·난이도·baseline·metric 고정 | switch manifest, 누수 금지, video-clustered CI, 실패·제외 규칙 |
+| 04 | 논문 질문·기여·개요 | 반증 가능한 RQ, claim–evidence 대응, 과장 없는 novelty 범위 |
+| 05 | 멘토 검토 agenda | 결과·실패·결정 질문·후속 action 링크를 회의마다 누적 |
+| 06 | memory export/self-injection/target injection | Base+ same-checkpoint 연속 실행 일치, field trace, checkpoint·upstream hash |
+| 07 | paired-state 수집 | video-level split, checksum manifest, resumable shard, storage capacity 보고 |
+| 08 | evaluator·필수 baseline 구현 | 동일 manifest·공식 evaluator·미래 GT 금지·결과 일치 test |
+| 09 | nonlinear 후보 구현·비교 | residual/gated/slot-context 후보, 공통 compute budget, ablation |
+| 10 | single-video overfit·pilot | overfit 통과 수치, held-out smoke, deterministic reload |
+| 11 | 전체 학습·반복 실험 | seed·checkpoint 선택·중단/재개·실패 run 보존 |
+| 12 | 후보·프로토콜 중간 검토 | go/no-go rubric, 결정 근거, 남은 실행 matrix |
+| 13 | 전체 baseline·조건 분석 | 어려운 사건 strata, retry 규칙, CI, latency/VRAM/state bytes |
+| 14 | 방법·실험·예비 결과 통합 | notation과 claim consistency, section별 근거 링크 |
+| 15 | 결과 동결 검토 | 제외 사례와 실패 run을 포함한 freeze manifest |
+| 16 | 표·그림·전체 초안 | 원본 결과 JSON과 생성 명령 연결, 수동 전사 금지 |
+| 17 | 내부 검토·인용·수정 | claim–evidence, 인용, 통계, 누수, 한계 checklist |
+| 18 | 재현성·release 검증 | lockfile, CUDA/PyTorch/SAM revision, checkpoint/data hash, clean run, artifact sync |
+| 19 | 제출 파일·모의 제출 | 공식 형식·마감 시간대·등록/결제·업로드 dry run 확인 |
+| 20 | IEIE 2026 제출 | 접수번호, 최종 파일 hash, 원고 보관 위치 기록 |
 
-## 카드별 판정
+## 기존 20개에서 실제로 보완한 내용
 
-| # | Task | 판정 | 보완할 완료 기준 |
-|---:|---|---|---|
-| 1 | Submit IEIE paper | 수정 완료 | 접수번호, 제출 파일 hash, 최종 원고 보관 위치 |
-| 2 | Mentor agendas | 수정 완료 | 회의별 agenda 링크, 결정·action 기록 위치 |
-| 3 | Validate paper file/dry run | 보완 완료 | 마감 시간대와 등록/결제 확인 증거 |
-| 4 | Verify reproducibility | 수정 완료 | lockfile, 환경 inventory, checkpoint/data hash, clean-run 결과 |
-| 5 | Internal review | 수정 완료 | claim-evidence, 인용, 통계, 누수, 한계 검토 checklist |
-| 6 | Freeze tables/figures | 수정 완료 | 표 숫자 원본 JSON 매핑, 그림 생성 명령, 수동 전사 금지 |
-| 7 | Result freeze | 보완 완료 | 제외 사례와 실패 run을 포함한 freeze manifest |
-| 8 | Integrate paper | 수정 완료 | section별 입력·산출물, notation/claim consistency |
-| 9 | Full baseline comparison | 수정 완료 | 실행 matrix, retry/failure 규칙, video-clustered CI |
-| 10 | Full training | 보완 완료 | checkpoint 선택 규칙과 중단/재개 조건 |
-| 11 | Candidate review | 보완 완료 | 구조별 go/no-go rubric과 결정 기록 링크 |
-| 12 | Overfit/pilot | 수정 완료 | overfit 통과 수치, held-out smoke, deterministic rerun |
-| 13 | Nonlinear candidates | 보완 완료 | 공통 parameter/compute budget과 checkpoint 선택 규칙 |
-| 14 | Common evaluator/baselines | 보완 완료 | dataset별 공식 evaluator와 결과 일치 test |
-| 15 | Paired memory pipeline | 보완 완료 | strata별 sample count와 storage capacity report |
-| 16 | Extraction/injection | 보완 완료 | same-checkpoint 허용 오차와 uninterrupted 비교 규칙 |
-| 17 | Paper title/outline/RQ | 수정 완료 | 연구 필요성, related work, 반증 가능한 claim, 과장 금지 |
-| 18 | Dataset/taxonomy/baseline freeze | 오류 수정·보완 완료 | Small 표기, switch selection rule과 표본 수 고정 |
-| 19 | Map memory tensors | 보완 완료 | component별 source/target 예시 dump 링크 |
-| 20 | Scope/success criteria | 수정 완료 | Small 표기, target-native 이득 확인 gate |
+1. Scope Issue #1의 `Tiny → Base+`를 `Small → Base+`로 고쳤고 target-native 필요성, same-checkpoint injection, 필수 baseline, 통계·누수 기준을 추가했다.
+2. Dataset/benchmark 카드의 같은 오기를 고치고 switch selection rule, 사건별 표본 수, video-clustered confidence interval을 추가했다.
+3. 설명과 완료 기준이 약했던 카드에는 실행 matrix, 실패·재시도 규칙, checkpoint 선택, clean-run 재현, 표·그림 원본 연결, 제출 증거를 보완했다.
+4. 원래 담당자와 완료 상태는 연구 근거 없이 임의로 바꾸지 않았다.
 
-## 추가한 task
+## 20단계 밖 항목의 처리 원칙
 
-### `[Infra] Freeze RunPod environment, storage and artifact sync`
+- `[Infra] Freeze RunPod environment, storage and artifact sync`의 요구사항은 독립 연구 단계가 아니다. CUDA/PyTorch/SAM revision과 checkpoint hash는 06·18, Network Volume의 resumable shard와 checksum은 07, 완료 marker·로그·artifact sync는 11·18의 완료 기준으로 흡수한다.
+- Issue #2는 02와 06의 실제 구현 추적 수단이다. 정적 I/O 계약은 완료됐지만 runtime checkpoint inventory와 Base+ self-injection이 남아 있으므로 `In Progress`를 유지한다.
+- PR #3은 연구 단계가 아니라 Issue #2의 코드·테스트 증거다. 검토 전 `main`에 직접 반영하지 않는다.
+- 예전에 만든 `Map ... select translator I/O` draft는 Issue #2와 중복이어서 보관 처리했다. 별도 Infra 카드와 PR #3 Project 카드도 보관했으며, 원본 PR은 열어 둔 채 Issue #2에서 코드·테스트 증거로 추적한다.
 
-- CUDA/PyTorch/SAM 2 revision과 Small/Base+ checkpoint hash를 기록한다.
-- Network Volume의 dataset/cache/checkpoint/log 디렉터리 계약을 정한다.
-- 중단·재개 smoke test와 로컬/GitHub에 올릴 경량 산출물 동기화 절차를 검증한다.
-- 장시간 job의 PID, log heartbeat, GPU utilization, 완료 marker 확인법을 문서화한다.
+## 현재 위치
 
-보드에 21번 카드로 추가했다. 담당자는 `KIMKYUDO`, 상태는 `Todo`, 기간은 2026-09-20∼2026-09-24다.
-
-문헌 필요성 감사와 통계 프로토콜은 새 카드를 늘리기보다 각각 `Paper title/outline/RQ`, `Freeze dataset...`, `Internal review` 카드의 완료 기준으로 넣는 편이 중복이 적다.
-
-## 최종 판정
-
-- 21개 카드로 범위→상태 I/O→데이터·평가→nonlinear 후보→전체 학습·baseline→논문·재현성→제출의 전체 단계가 덮인다.
-- 추가 대규모 카드는 현재 필요 없다. 실제 구현을 시작할 때 Draft 카드를 canonical repository Issue로 승격하고 PR·실험 증거를 연결하면 된다.
+- 01의 범위와 성공 기준은 문서화됐고 팀 최종 확인이 남아 있다.
+- 02의 정적 state contract와 CPU 검증은 완료됐다.
+- GPU가 다시 준비되면 02/06의 runtime inventory와 Base+ same-checkpoint export→inject gate를 먼저 통과시킨다.
+- gate 통과 뒤 07 paired-state 수집 → 08 evaluator/baseline → 09~11 nonlinear 학습으로 진행한다.
