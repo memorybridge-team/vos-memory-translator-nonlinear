@@ -50,6 +50,6 @@ Tasks 기본 보기는 제목 오름차순으로 저장했다. 따라서 보드�
 ## 현재 위치
 
 - 01의 범위와 성공 기준은 문서화됐고 팀 최종 확인이 남아 있다.
-- 02의 정적 state contract와 CPU 검증은 완료됐다.
-- GPU가 다시 준비되면 02/06의 runtime inventory와 Base+ same-checkpoint export→inject gate를 먼저 통과시킨다.
-- gate 통과 뒤 07 paired-state 수집 → 08 evaluator/baseline → 09~11 nonlinear 학습으로 진행한다.
+- 02의 정적 state contract·CPU 검증에 더해 실제 Small/Base+ runtime inventory와 paired dump가 완료됐다. State Assembly Map의 최종 검토·동결만 남아 있다.
+- 06은 Base+ same-checkpoint 단일 객체 self-injection gate를 통과했다. 다객체·late prompt·부재/재등장·prompt correction·복수 영상/switch와 Small→Base+ target injection이 남아 있다.
+- 02를 동결한 뒤 06의 edge-case validation → 07 paired-state 수집 → 08 evaluator/baseline → 09~11 nonlinear 학습으로 진행한다.

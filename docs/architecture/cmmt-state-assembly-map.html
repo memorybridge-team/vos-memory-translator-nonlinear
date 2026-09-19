@@ -56,31 +56,6 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   <h2>CMMT CanonicalState → Target SAM 2 조립 지도</h2>
   <p class="text-muted">현재 프로젝트의 <code>cmmt.canonical_state.v1</code>과 고정 SAM 2.1 predictor 기준입니다. 선을 선택하면 해당 조립 방식만 강조됩니다.</p>
 
-  <section class="task-boundaries" aria-label="Project task 책임 경계">
-    <article class="card task-card">
-      <span class="viz-badge">01 Scope</span>
-      <strong>왜 연구하고 무엇을 성공으로 볼지 고정</strong>
-      <p>Small→Base+, DAVIS·LVOSv2·MOSEv2, nonlinear-only, baseline, 성공·중단 기준을 확정합니다. Base+ 필요성은 hard-event에서 판정한다고 정의하되, 실제 비교 실험은 후속 pilot/evaluation task에서 실행합니다.</p>
-    </article>
-    <article class="card task-card task-card-current">
-      <span class="viz-badge">02 State I/O</span>
-      <strong>무엇을 어떤 형식으로 옮길지 고정</strong>
-      <p>필드, shape, dtype, 의미, object/frame 정렬, copy·translate·regenerate 정책과 검증 규칙을 명세합니다. 이 페이지가 02의 핵심 산출물이며 실제 Small/Base+ runtime inventory로 명세를 확인합니다.</p>
-    </article>
-    <article class="card task-card">
-      <span class="viz-badge">06 Implementation</span>
-      <strong>어떻게 추출·조립·주입하고 이어갈지 검증</strong>
-      <p>export, materialize, self-injection, target injection을 구현합니다. 다객체, late prompt, 부재·재등장, prompt correction, 여러 영상·switch에서 replay 없이 continuation-closed한지 검증합니다.</p>
-    </article>
-  </section>
-
-  <div class="verification-status card">
-    <strong>현재 검증 범위</strong>
-    <span><b>02:</b> Small/Base+ 실제 runtime tensor inventory와 paired dump 확인.</span>
-    <span><b>06:</b> Base+ 단일 객체·첫 프레임 prompt self-injection만 exact continuation 확인.</span>
-    <span><b>아직 미검증:</b> 다객체·late prompt·부재 후 재등장·prompt correction·복수 영상/전환 시점·Small→Base+ target injection.</span>
-  </div>
-
   <div class="viz-controls" aria-label="연결 방식 필터">
     <button class="btn btn-primary" type="button" data-filter="all" aria-pressed="true">전체</button>
     <button class="btn btn-ghost" type="button" data-filter="adapter" aria-pressed="false"><span class="legend-line adapter"></span>Grid adapter</button>
@@ -140,22 +115,6 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   }
   #cmmt-state-map h2 { margin: 0 0 0.35rem; }
   #cmmt-state-map > p { margin: 0 0 0.8rem; }
-  #cmmt-state-map .task-boundaries {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.65rem;
-    margin-bottom: 0.65rem;
-  }
-  #cmmt-state-map .task-card { display: grid; align-content: start; gap: 0.38rem; }
-  #cmmt-state-map .task-card strong { line-height: 1.35; }
-  #cmmt-state-map .task-card p { margin: 0; color: var(--muted-foreground); font-size: 12px; }
-  #cmmt-state-map .task-card-current { border-color: var(--viz-series-1); }
-  #cmmt-state-map .verification-status {
-    display: grid;
-    gap: 0.25rem;
-    margin-bottom: 0.85rem;
-    font-size: 12px;
-  }
   #cmmt-state-map .viz-controls { margin-bottom: 0.85rem; }
   #cmmt-state-map .btn { display: inline-flex; align-items: center; gap: 0.4rem; }
   #cmmt-state-map .legend-line {
@@ -292,7 +251,6 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   }
 
   @media (max-width: 760px) {
-    #cmmt-state-map .task-boundaries { grid-template-columns: 1fr; }
     #cmmt-state-map .map-stage {
       grid-template-columns: 1fr;
       gap: 70px;
