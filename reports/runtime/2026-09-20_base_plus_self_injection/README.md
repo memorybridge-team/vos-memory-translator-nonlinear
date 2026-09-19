@@ -37,14 +37,10 @@ future predictions.
 ## Scope of the evidence
 
 This is runtime evidence for the state export/injection boundary, not evidence
-that Small-to-Base+ translation succeeds. The following remain before Project
-task 02 can be marked Done:
-
-- actual Small/Base+ shape, dtype, and device inventory;
-- one paired Small/Base+ canonical-state dump;
-- multi-object and late-prompt continuation;
-- absence/reappearance and prompt-correction continuation;
-- final freeze of learn/copy/regenerate policies in the I/O contract and map.
+that Small-to-Base+ translation succeeds. The Small/Base+ inventory, paired
+dump, and final I/O policy freeze were completed separately, so task 02 is now
+complete. Multi-object, late-prompt, absence/reappearance, prompt-correction,
+and cross-model target-injection behavior belong to task 06.
 
 Raw `report.json`, `status.txt`, and `stdout.log` are copied from the RunPod run
 into this directory.

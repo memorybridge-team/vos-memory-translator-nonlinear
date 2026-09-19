@@ -11,13 +11,14 @@
 
 ## 현재 상태
 
-이 저장소는 이전 프로젝트에서 검증한 상태 추출·주입, DAVIS 평가, 기존 baseline runner, MLP 학습 코드를 **새 Git 이력으로 선별 이관한 시작점**입니다. 이전 Tiny→Large 실험은 [과거 결과](reports/legacy/)로 보존했습니다. Small→Base+의 checkpoint 기반 round-trip, baseline 비교, 학습 결과는 아직 생성되지 않았습니다.
+이 저장소는 이전 프로젝트에서 검증한 상태 추출·주입, DAVIS 평가, 기존 baseline runner, MLP 학습 코드를 **새 Git 이력으로 선별 이관한 시작점**입니다. 이전 Tiny→Large 실험은 [과거 결과](reports/legacy/)로 보존했습니다. Small/Base+ runtime I/O inventory와 Base+ same-checkpoint round-trip은 완료됐고, Small→Base+ 전체 baseline 비교와 nonlinear 학습 결과는 아직 생성되지 않았습니다.
 
 ### 연구·협업 진행판
 
 | 단계 | 보드 상태 | 지금의 완료 조건 |
 |---|---|---|
-| 연구 범위·성공 기준 고정 | `In Progress` — [Issue #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1) | Small→Base+·데이터셋·비교군·누수 금지 규칙을 팀이 최종 확인 |
+| 연구 범위·성공 기준 고정 | `Done candidate` — [Issue #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1) | [Baseline·성공·중단 기준](docs/design/01_scope_baselines_success_stop.md) 동결 완료; Project 상태 동기화 대기 |
+| Small/Base+ State I/O 계약 | `Done candidate` — [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2) | [I/O 계약 v1.0](docs/design/small_base_state_io_contract.md), runtime inventory, paired dump, Map 동결 완료 |
 | 상태 추출·self-injection·target injection | `Todo` — KIMKYUDO | Base+ same-checkpoint export→inject가 과거 replay 없이 다음 프레임을 이어가는 실행 로그·보고서 |
 | paired Small/Base+ state 수집 | `Todo` | video-level split, checksum manifest, compact state pair |
 | 공통 evaluator·baseline | `Todo` | 같은 manifest에서 강한 재인코딩·replay·native 비교 결과 |
