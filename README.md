@@ -60,6 +60,7 @@ Nonlinear 후보는 component-wise residual MLP, gated MLP, slot/context attenti
 | `docs/experimental_plan.md` | 현재 유효한 4주 연구 계획 |
 | `docs/github_task_workflow.md` | Issue·Project·commit/PR·완료 증거 운영 순서 |
 | `docs/project_board_audit_2026-09-19.md` | Project #2 21개 task 감사·수정 기록 |
+| `docs/design/small_base_state_io_contract.md` | Small/Base+ memory tensor와 translator 입력·복사·재생성 정책 |
 | `docs/architecture/` | 상태 조립 구조 설명 |
 | `reports/legacy/` | 이전 모델 쌍의 제한적 결과; 새 실험 결과가 아님 |
 

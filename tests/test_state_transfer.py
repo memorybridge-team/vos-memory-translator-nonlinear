@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import torch
 
 from vos_memory_inspector.hf_cache import (
@@ -17,7 +18,11 @@ from vos_memory_inspector.sam2_state import (
     materialize_sam2_history,
 )
 from vos_memory_inspector.state_inspector import inspect_state, write_inspection_report
-from vos_memory_inspector.state_schema import CanonicalState, StateSpec
+from vos_memory_inspector.state_schema import (
+    CanonicalState,
+    StateSpec,
+    validate_paired_state_contract,
+)
 from vos_memory_inspector.translators import (
     DirectCopyTranslator,
     LearnedComponentPolicyTranslator,
@@ -203,6 +208,47 @@ def test_direct_adapts_shape_and_preserves_discrete_state() -> None:
     assert torch.equal(translated.frame_indices, source.frame_indices)
     assert translated.metadata["sentinel"] == "preserve"
     assert translated.positional_information == {"policy": "regenerate_at_target"}
+
+
+def test_paired_contract_requires_one_discrete_timeline() -> None:
+    source = _state(
+        torch.randn(1, 1, 2, 3, 2, 2),
+        torch.randn(1, 1, 2, 4),
+        torch.randn(1, 1, 2, 1),
+    )
+    target = source.with_continuous(
+        spatial_memory=torch.randn(1, 1, 2, 5, 3, 3),
+        object_pointer=torch.randn(1, 1, 2, 6),
+        presence_logits=torch.randn(1, 1, 2, 1),
+    )
+    assert torch.equal(validate_paired_state_contract(source, target), source.validity)
+
+    target.slot_order = target.slot_order.clone()
+    target.slot_order[0, 0, 1] = 99
+    with pytest.raises(ValueError, match="slot_order"):
+        validate_paired_state_contract(source, target)
+
+
+def test_paired_contract_rejects_padding_or_switch_mismatch() -> None:
+    source = _state(
+        torch.randn(1, 1, 2, 3, 2, 2),
+        torch.randn(1, 1, 2, 4),
+        torch.randn(1, 1, 2, 1),
+    )
+    target = source.with_continuous(
+        spatial_memory=source.spatial_memory.clone(),
+        object_pointer=source.object_pointer.clone(),
+        presence_logits=source.presence_logits.clone(),
+    )
+    target.validity = target.validity.clone()
+    target.validity[0, 0, 1] = False
+    with pytest.raises(ValueError, match="validity"):
+        validate_paired_state_contract(source, target)
+
+    target.validity = source.validity.clone()
+    target.switch_frame += 1
+    with pytest.raises(ValueError, match="switch_frame"):
+        validate_paired_state_contract(source, target)
 
 
 def test_ridge_recovers_affine_components() -> None:

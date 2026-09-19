@@ -223,3 +223,52 @@ class CanonicalState:
             },
             "metadata_keys": sorted(self.metadata),
         }
+
+
+def validate_paired_state_contract(
+    source: CanonicalState,
+    target: CanonicalState,
+) -> torch.Tensor:
+    """Fail closed unless a paired source/target state describes one timeline.
+
+    Continuous feature dimensions may differ across models.  Object identity,
+    record identity, conditioning roles and padding may not: otherwise the
+    trainer would compare unrelated memories while still producing a loss.
+    The returned validity mask is safe to use for component losses.
+    """
+
+    source.validate()
+    target.validate()
+    if source.schema_version != target.schema_version:
+        raise ValueError("paired source/target schema_version must match exactly")
+    if source.spatial_memory.shape[:3] != target.spatial_memory.shape[:3]:
+        raise ValueError("paired source/target [B,O,K] axes must match")
+    if source.object_ids != target.object_ids:
+        raise ValueError("paired source/target object_ids must match exactly")
+    if source.switch_frame != target.switch_frame:
+        raise ValueError("paired source/target switch_frame must match exactly")
+
+    discrete_tensors = (
+        "frame_indices",
+        "slot_order",
+        "is_conditioning",
+        "validity",
+    )
+    for name in discrete_tensors:
+        source_value = getattr(source, name).detach().cpu()
+        target_value = getattr(target, name).detach().cpu()
+        if not torch.equal(source_value, target_value):
+            raise ValueError(f"paired source/target {name} must match exactly")
+
+    for key in ("num_frames", "video_height", "video_width"):
+        source_value = source.metadata.get(key)
+        target_value = target.metadata.get(key)
+        if (
+            source_value is not None
+            and target_value is not None
+            and source_value != target_value
+        ):
+            raise ValueError(
+                f"paired source/target metadata[{key!r}] must match exactly"
+            )
+    return source.validity

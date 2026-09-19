@@ -9,7 +9,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from .state_schema import CanonicalState, StateSpec
+from .state_schema import CanonicalState, StateSpec, validate_paired_state_contract
 
 
 def _resample_spatial(tensor: torch.Tensor, height: int, width: int) -> torch.Tensor:
@@ -43,17 +43,7 @@ def _target_positional(spec: StateSpec) -> dict[str, str]:
 
 
 def _pair_guard(source: CanonicalState, target: CanonicalState) -> torch.Tensor:
-    source.validate()
-    target.validate()
-    if source.spatial_memory.shape[:3] != target.spatial_memory.shape[:3]:
-        raise ValueError("paired source/target [B,O,K] axes must match")
-    if source.object_ids != target.object_ids:
-        raise ValueError("paired source/target object_ids must match exactly")
-    if not torch.equal(source.frame_indices.cpu(), target.frame_indices.cpu()):
-        raise ValueError("paired source/target frame_indices must match exactly")
-    if not torch.equal(source.is_conditioning.cpu(), target.is_conditioning.cpu()):
-        raise ValueError("paired source/target conditioning roles must match exactly")
-    return source.validity & target.validity.to(source.validity.device)
+    return validate_paired_state_contract(source, target)
 
 
 class DirectCopyTranslator:
