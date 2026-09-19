@@ -21,7 +21,7 @@ Translator가 학습할 연속 입력은 `spatial_memory`, `object_pointer`, `pr
 | `num_maskmem` | 7 | 7 | 한 번의 memory read 범위; 전체 저장 history 상한이 아님 |
 | `max_obj_ptrs_in_encoder` | 16 | 16 | 시간축 pointer read 범위; 객체 수 제한이 아님 |
 
-위 표는 pinned config와 `SAM2Base` 생성 코드의 정적 계약이다. 실제 checkpoint에서 나온 dtype, grid, record 수와 값의 의미가 같은지는 GPU runtime inventory로 다시 확인해야 한다.
+위 표는 pinned config와 `SAM2Base` 생성 코드의 정적 계약이다. 2026-09-20 DAVIS `walking`, object 1, switch frame 10의 실제 checkpoint runtime에서도 Small과 Base+ 모두 spatial memory `[1,1,11,64,64,64]` bfloat16, object pointer `[1,1,11,256]` float32, presence logits `[1,1,11,1]` float32로 확인했다. 이 한 사례의 shape·dtype 일치는 경계를 확인하지만 표현 의미의 동일성을 뜻하지 않는다.
 
 ## 2. CanonicalState의 입력과 처리 정책
 
@@ -72,7 +72,7 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 | object registry·prompt/tracking metadata 복원 | 구현됨 |
 | Pair discrete timeline validator | 구현·CPU unit test 추가 |
 | Base+ checkpoint same-model export→inject | DAVIS `walking`, object 1, switch 10 통과 |
-| Small/Base+ 실제 runtime shape inventory | GPU 대기 |
+| Small/Base+ 실제 runtime shape inventory | 단일 paired case 확인 |
 | 다객체·prompt correction 뒤 continuation closure | GPU 대기 |
 | Small→Base+ paired-state 수집 | 위 gate 통과 후 시작 |
 
@@ -80,4 +80,6 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 
 2026-09-20에 `scripts/runpod_preflight.sh`로 revision·checkpoint·storage를 확인한 뒤 `scripts/runpod_base_plus_roundtrip.sh`를 실행했다. DAVIS `walking`, object 1, switch frame 10에서 이후 61 frames의 native/injected 결과가 binary IoU 1.0, MSE 0.0, max absolute error 0.0이었고 injection 중 과거 backbone 호출은 0회였다. 원본 증거는 [`reports/runtime/2026-09-20_base_plus_self_injection/`](../../reports/runtime/2026-09-20_base_plus_self_injection/)에 있다.
 
-이 결과로 단일 객체·첫 frame prompt의 실행 경계는 통과했다. 다만 Small/Base+ 실제 runtime inventory와 paired example, 다객체, late prompt, absent/reappearance, prompt correction이 남아 있으므로 task 02 전체를 완료로 판정하지 않는다.
+이 결과로 단일 객체·첫 frame prompt의 실행 경계는 통과했다. 같은 조건의 Small/Base+ paired example도 생성해 두 모델의 shape·dtype·timeline 일치를 확인했다. `.pt` cache는 166,882,485 bytes이므로 Git에는 checksum만 남기고 RunPod network volume에 보존한다. 상세 보고서는 [`reports/runtime/2026-09-20_small_base_runtime_inventory/`](../../reports/runtime/2026-09-20_small_base_runtime_inventory/)에 있다.
+
+다만 다객체, late prompt, absent/reappearance, prompt correction과 여러 sequence/switch에서의 반복 검증이 남아 있으므로 task 02 전체를 완료로 판정하지 않는다.
