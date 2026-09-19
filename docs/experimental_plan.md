@@ -8,17 +8,17 @@
 
 | 항목 | 결정 |
 |---|---|
-| 모델 | SAM 2.1 Tiny → Base+ |
+| 모델 | SAM 2.1 Small → Base+ |
 | 데이터셋 | DAVIS 2017, MOSEv2, LVOS v2 |
 | 제안 방식 | Nonlinear memory translator |
 | 후속 성능 | J&F, 재등장·부재 오류, switch 직후 성능 |
 | 시스템 비용 | handoff 지연, 과거 재처리량, VRAM, 전송 bytes |
 
-Base+를 Tiny의 메모리로 이어 쓰게 하는 것이 주 실험이다. Tiny→Large의 과거 결과는 코드와 위험 분석에 활용하되 새 pair의 결과로 취급하지 않는다. 새 모델 쌍이 추가로 필요하다는 실험적 근거가 생기면 논문 목표와 비교 가능성을 검토해 확장한다.
+Base+를 Small의 메모리로 이어 쓰게 하는 것이 주 실험이다. Tiny→Large 및 Tiny→Base+의 과거 결과는 코드와 위험 분석에 활용하되 새 pair의 결과로 취급하지 않는다. 새 모델 쌍이 추가로 필요하다는 실험적 근거가 생기면 논문 목표와 비교 가능성을 검토해 확장한다.
 
 ## 1주차: 상태 계약과 자료 준비
 
-- 공식 SAM 2 revision, Tiny/Base+ checkpoint hash, DAVIS/MOSEv2/LVOS v2의 이용 조건·version·split·해상도·fps를 기록한다.
+- 공식 SAM 2 revision, Small/Base+ checkpoint hash, DAVIS/MOSEv2/LVOS v2의 이용 조건·version·split·해상도·fps를 기록한다.
 - Base+ same-checkpoint export→inject가 native continuation을 재현하는지 검증한다. 객체가 안 보이거나 다시 등장하는 사례와 다객체 ID를 포함한다.
 - 세 데이터셋의 표준 loader와 `(video, object, switch)` manifest 형식을 맞춘다. Source와 target이 같은 frame/prompt 이력을 사용하는지 검사한다.
 - 데이터는 학습·모델 선택·최종 평가 사이에 영상 단위로 분리한다. 기존 DAVIS train 내부 pilot을 untouched test라고 부르지 않는다.
@@ -29,11 +29,11 @@ Base+를 Tiny의 메모리로 이어 쓰게 하는 것이 주 실험이다. Tiny
 
 | 비교군 | target에 전달하는 것 | 역할 |
 |---|---|---|
-| Source-only | 전환하지 않은 Tiny state | 전환 필요성 참조 |
+| Source-only | 전환하지 않은 Small state | 전환 필요성 참조 |
 | Base+-native / Full Replay | 과거 RGB와 실제 prompt timeline | target 직접 처리 참조 및 비용 |
-| Direct State Copy | Tiny memory·pointer·필요 metadata | 번역 자체 필요성 |
+| Direct State Copy | Small memory·pointer·필요 metadata | 번역 자체 필요성 |
 | Original-Prompt(s) Only | 객체별 처음 실제 prompt와 해당 RGB | 최초 지정 정보의 효과 |
-| Last-Visible Source Mask | 객체별 마지막 비어 있지 않은 Tiny 예측 mask와 해당 RGB | 최신 관측의 효과 |
+| Last-Visible Source Mask | 객체별 마지막 비어 있지 않은 Small 예측 mask와 해당 RGB | 최신 관측의 효과 |
 | Original + Last-Visible | 위 두 anchor | 조합의 효과 |
 | Original + Replay-k | 객체별 원래 anchor + 최근 RGB k장 | 제한된 재처리의 효과 |
 | Last-Mask / Recent Replay-k | switch mask 또는 최근 창의 source 예측 | 단순·저비용 진단 |

@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "vos-memory-translator-nonlinear-v2"
+name = "vos-memory-translator-nonlinear"
 version = "0.1.0"
-description = "SAM 2.1 Tiny to Base+ nonlinear temporal-memory handoff research"
+description = "SAM 2.1 Small to Base+ nonlinear temporal-memory handoff research"
 requires-python = ">=3.10"
 dependencies = [
   "numpy>=1.24",
@@ -32,6 +32,7 @@ cmmt-sam2-cached-handoff = "vos_memory_inspector.cli:cached_handoff_main"
 cmmt-sam2-cached-baseline = "vos_memory_inspector.cli:cached_baseline_main"
 sam2-direct-handoff-smoke = "vos_memory_inspector.cli:direct_handoff_main"
 sam2-ridge-handoff-smoke = "vos_memory_inspector.cli:ridge_handoff_main"
+cmmt-task = "vos_memory_inspector.research_task:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

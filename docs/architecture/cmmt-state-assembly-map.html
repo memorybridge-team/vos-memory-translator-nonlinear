@@ -516,7 +516,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   };
 
   const edgeNotes = {
-    's-spatial>a-grid': 'Source 공간 기억의 H×W를 Target memory grid와 비교합니다. 다르면 bilinear interpolation으로 맞추고, 현재 Tiny→Base+처럼 같으면 그대로 통과합니다.',
+    's-spatial>a-grid': 'Source 공간 기억의 H×W를 Target memory grid와 비교합니다. 다르면 bilinear interpolation으로 맞추고, 현재 Small→Base+처럼 같으면 그대로 통과합니다.',
     'a-grid>a-spatial': '크기가 정렬된 공간 기억만 learned head에 넘깁니다. 따라서 MLP는 위치 크기 문제가 아니라 채널별 표현 의미를 학습합니다.',
     's-is-cond>a-route': '각 record의 true/false 표지를 읽어 사용자 기준 기억과 자동 추적 기억을 서로 다른 보관함으로 나눕니다.',
     'a-route>t-cond-root': 'true인 record를 conditioning history에 넣어 사용자가 직접 지정한 강한 기준 기억으로 유지합니다.',
