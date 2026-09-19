@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
-  echo "Usage: bash scripts/runpod_bootstrap.sh /workspace/vos-memory-translator-nonlinear-v2"
+  echo "Usage: bash scripts/runpod_bootstrap.sh /workspace/vos-memory-translator-nonlinear"
   exit 2
 fi
 
@@ -32,7 +32,7 @@ git -C "${sam2_dir}" checkout --detach "${sam2_commit}"
 SAM2_BUILD_ALLOW_ERRORS=0 "${python_bin}" -m pip install --no-build-isolation -v -e "${sam2_dir}"
 
 mkdir -p "${checkpoint_dir}"
-for checkpoint in sam2.1_hiera_tiny.pt sam2.1_hiera_base_plus.pt; do
+for checkpoint in sam2.1_hiera_small.pt sam2.1_hiera_base_plus.pt; do
   if [[ ! -f "${checkpoint_dir}/${checkpoint}" ]]; then
     curl -fL \
       "https://dl.fbaipublicfiles.com/segment_anything_2/092824/${checkpoint}" \
@@ -47,3 +47,27 @@ print(f"cuda_available={torch.cuda.is_available()}")
 if torch.cuda.is_available():
     print(f"gpu={torch.cuda.get_device_name(0)}")
 PY
+
+inventory_dir="${project_dir}/outputs/inventory"
+mkdir -p "${inventory_dir}"
+inventory_path="${inventory_dir}/bootstrap_$(date -u +%Y%m%dT%H%M%SZ).txt"
+{
+  echo "timestamp_utc=$(date -u --iso-8601=seconds)"
+  echo "project_dir=${project_dir}"
+  echo "sam2_commit=$(git -C "${sam2_dir}" rev-parse HEAD)"
+  echo "python=$(${python_bin} --version)"
+  "${python_bin}" - <<'PY'
+import torch
+print(f"torch={torch.__version__}")
+print(f"cuda_available={torch.cuda.is_available()}")
+if torch.cuda.is_available():
+    print(f"cuda={torch.version.cuda}")
+    print(f"gpu={torch.cuda.get_device_name(0)}")
+PY
+  df -h "${project_dir}"
+  sha256sum "${checkpoint_dir}/sam2.1_hiera_small.pt"
+  sha256sum "${checkpoint_dir}/sam2.1_hiera_base_plus.pt"
+  nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
+} | tee "${inventory_path}"
+
+echo "Bootstrap inventory: ${inventory_path}"

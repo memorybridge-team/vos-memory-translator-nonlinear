@@ -64,6 +64,6 @@ python -m pip install -e ".[dev]"
 python -m pytest -q
 ```
 
-GPU Pod에서는 `bash scripts/runpod_bootstrap.sh "$PWD"`가 공식 SAM 2 및 Small/Base+ checkpoint를 준비합니다. 다운로드 파일의 출처와 hash를 실험 기록에 남깁니다. DAVIS/MOSEv2/LVOS v2 원본, checkpoint, 개인 SSH 키, raw state cache는 Git에 넣지 않습니다. 각 데이터셋의 이용 조건과 저장 경로를 확인한 후 수집합니다.
+GPU Pod에서는 `bash scripts/runpod_bootstrap.sh "$PWD"`가 공식 SAM 2 및 Small/Base+ checkpoint를 준비합니다. 이어서 `bash scripts/runpod_preflight.sh "$PWD"`로 CUDA, Network Volume 여유 공간, revision과 SHA-256을 확인합니다. 첫 Base+ self-injection 실행과 종료 확인 방법은 [RunPod L4 운영 문서](docs/runpod_l4_operations.md)를 따릅니다. DAVIS/MOSEv2/LVOS v2 원본, checkpoint, 개인 SSH 키, raw state cache는 Git에 넣지 않습니다. 각 데이터셋의 이용 조건과 저장 경로를 확인한 후 수집합니다.
 
 현재 `prepare_paired_state_dataset.py`와 일부 baseline script는 DAVIS 전용입니다. MOSEv2/LVOS v2 로더와 새로운 객체별 anchor baseline은 계획에 포함됐지만 아직 구현되지 않았습니다. 과거 Tiny→Large 명령을 재활용할 때 source를 Small로 바꾸더라도 checkpoint·config·cache metadata를 함께 검증해야 합니다.
