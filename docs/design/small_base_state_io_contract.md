@@ -1,6 +1,6 @@
 # Small → Base+ 상태 I/O 계약
 
-> 상태: **정적 코드·config 검토 완료, checkpoint runtime 검증 보류**  
+> 상태: **정적 코드·config 검토 및 단일 객체 Base+ self-injection 통과, 확장 runtime 검증 진행 중**
 > 기준 upstream: Meta SAM 2 commit `2b90b9f5ceec907a1c18123530e92e794ad901a4`
 
 ## 결론
@@ -71,12 +71,13 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 | Target PE 재생성 | 구현됨 |
 | object registry·prompt/tracking metadata 복원 | 구현됨 |
 | Pair discrete timeline validator | 구현·CPU unit test 추가 |
-| Base+ checkpoint same-model export→inject | GPU 대기 |
+| Base+ checkpoint same-model export→inject | DAVIS `walking`, object 1, switch 10 통과 |
 | Small/Base+ 실제 runtime shape inventory | GPU 대기 |
 | 다객체·prompt correction 뒤 continuation closure | GPU 대기 |
 | Small→Base+ paired-state 수집 | 위 gate 통과 후 시작 |
 
 ## 6. GPU 재개 시 첫 실행
 
-GPU가 생기면 `scripts/runpod_preflight.sh`로 revision·checkpoint·storage를 확인하고, `scripts/runpod_base_plus_roundtrip.sh`로 Base+ same-checkpoint export→inject를 실행한다. 통과 기준은 다음 frame 이후 native/injected mask agreement, 과거 backbone 호출 0회, target-generated positional encoding, 저장 record 수와 object registry 일치다. 이 gate가 실패하면 paired-state 수집이나 nonlinear 학습으로 넘어가지 않는다.
+2026-09-20에 `scripts/runpod_preflight.sh`로 revision·checkpoint·storage를 확인한 뒤 `scripts/runpod_base_plus_roundtrip.sh`를 실행했다. DAVIS `walking`, object 1, switch frame 10에서 이후 61 frames의 native/injected 결과가 binary IoU 1.0, MSE 0.0, max absolute error 0.0이었고 injection 중 과거 backbone 호출은 0회였다. 원본 증거는 [`reports/runtime/2026-09-20_base_plus_self_injection/`](../../reports/runtime/2026-09-20_base_plus_self_injection/)에 있다.
 
+이 결과로 단일 객체·첫 frame prompt의 실행 경계는 통과했다. 다만 Small/Base+ 실제 runtime inventory와 paired example, 다객체, late prompt, absent/reappearance, prompt correction이 남아 있으므로 task 02 전체를 완료로 판정하지 않는다.

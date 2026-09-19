@@ -93,8 +93,17 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 
 사용자 승인 후 이 연구와 무관한 외부 저장소의 [`subinidus/cell-msca-odiac-estimation#2`](https://github.com/subinidus/cell-msca-odiac-estimation/issues/2)를 원본 변경 없이 연구 보드에서만 제거했다. 대신 이 저장소의 [범위 이슈 #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1)을 생성해 보드에 연결했다. 이슈의 활동 기록에서 `KIMKYUDO`가 보드에 추가한 사실과 `Todo` 상태를 확인했다.
 
-## 11. 2026-09-19 RunPod L4 환경 정보와 재개 gate
+## 14. 2026-09-19 RunPod L4 환경 정보와 재개 gate
 
 - **[확인]** 사용자가 실행에 사용할 Pod를 NVIDIA L4 1장(24 GB VRAM), vCPU 16개, RAM 62 GB, Container disk 20 GB, Network Volume 200 GB(`/workspace`) 구성으로 정했다. 2026-09-19 화면상 Network Volume의 사용량은 24 GB(12%)였다.
 - **[구현]** `runpod_bootstrap.sh`를 Small/Base+ checkpoint를 준비하도록 수정하고, `runpod_preflight.sh`와 `runpod_base_plus_roundtrip.sh`를 추가했다. 이들은 Network Volume 여유 공간, revision, checkpoint SHA-256, CUDA를 기록하고 Base+ same-checkpoint export→inject를 검증한다.
 - **[미검증]** 새 Pod의 SSH endpoint가 이 대화에 제공되지 않아 로컬 코드만 준비된 상태다. SSH 접속 명령을 받으면 bootstrap→preflight→Base+ round-trip을 실행한다. 현재 gate가 통과하기 전에는 Small→Base+ paired-state 수집이나 nonlinear 학습을 시작하지 않는다.
+
+## 15. 2026-09-20 RunPod runtime gate와 Notion 실행 허브
+
+- **[확인]** 새 endpoint `157.157.221.29:57478`에 로컬 `~/.ssh/id_ed25519`로 접속했다. 실제 장치는 NVIDIA RTX 2000 Ada Generation 16,380 MiB였으며, 이전에 전달된 L4 24 GB 화면과는 다른 현재 Pod다.
+- **[확인]** `codex/project-board-workflow` commit `32dc1400b5b3b2cbbbbac11f4780010358a5f83b`, 공식 SAM 2 commit `2b90b9f5ceec907a1c18123530e92e794ad901a4`, Small/Base+ checkpoint SHA-256을 고정해 bootstrap과 preflight를 통과했다. 기본 `pytest`는 `scripts` import 경로 누락으로 collection 실패했지만 `PYTHONPATH=.`로 실행하면 50개 테스트가 모두 통과하므로 코드 실패가 아니라 실행 환경 경로 문제로 판정했다.
+- **[확인]** DAVIS `walking`, object 1, switch frame 10에서 Base+→Base+ state export→inject를 실행했다. 이후 61개 frame의 native/injected 결과가 mean binary IoU `1.0`, mean MSE `0.0`, max absolute error `0.0`였고 injection 동안 과거 backbone call은 `0`이었다. wall time은 `132.53 s`, peak CUDA memory는 `974,874,624 bytes`였다. 단일 객체·첫 frame prompt 조건의 self-injection gate는 통과했다.
+- **[제한]** 이 결과는 state assembly 구현의 정확성을 입증하지만 Small→Base+ translator의 성공 증거는 아니다. Project task 02를 Done으로 바꾸기 전에 Small/Base+ runtime inventory와 paired dump, multi-object, late prompt, absence/reappearance, prompt correction 검증이 남아 있다.
+- **[산출물]** 원본 JSON·상태·로그와 해석은 `reports/runtime/2026-09-20_base_plus_self_injection/`에 보존했다.
+- **[Notion]** 전달된 Documents database의 `모델API&실험` 그룹에 `CMMT 연구 실행 허브 — Project #2` 페이지를 만들고 Project·repository·PR·assembly map 링크, 01/02 Done gate, evidence 기록 규칙, 최신 self-injection 결과를 기록했다. Notion connector가 연결된 KNSW workspace에서는 이 guest workspace page를 `NOT_FOUND`로 반환해, 로그인된 Notion UI를 통해 작성 권한과 최종 내용을 검증했다.
