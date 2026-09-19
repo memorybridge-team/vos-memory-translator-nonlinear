@@ -3,29 +3,87 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SAM 2.1 Tiny → Base+ memory handoff</title>
+  <title>Small → Base+ Nonlinear Memory Handoff</title>
   <style>
-    body{margin:0;background:#101923;color:#f3f6fa;font:16px/1.65 system-ui,sans-serif}
-    main{max-width:840px;margin:52px auto;padding:0 24px}
-    h1{font-size:2rem;line-height:1.2}h2{margin-top:2rem}
-    a{color:#7ed3ff} .card{background:#192837;border:1px solid #365065;border-radius:12px;padding:18px;margin:18px 0}
-    .muted{color:#b7c7d3}code{background:#253a4b;padding:2px 5px;border-radius:4px}
+    :root{color-scheme:dark;--bg:#101923;--card:#192837;--border:#365065;--text:#f3f6fa;--muted:#b7c7d3;--link:#7ed3ff;--done:#70d59a;--progress:#ffd477}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}
+    main{max-width:960px;margin:52px auto;padding:0 24px 64px}
+    h1{font-size:clamp(2rem,5vw,3rem);line-height:1.15;margin:.3rem 0 1rem}
+    h2{margin:.2rem 0 .35rem;font-size:1.35rem}h3{margin:1.1rem 0 .4rem;font-size:1rem}
+    p{margin:.45rem 0}a{color:var(--link)}code{background:#253a4b;padding:2px 5px;border-radius:4px}
+    .muted{color:var(--muted)}.lead{max-width:760px;font-size:1.08rem}
+    .scope{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:24px 0}
+    .scope span{background:#142230;border:1px solid var(--border);border-radius:10px;padding:12px}
+    .tasks{display:grid;gap:18px;margin-top:30px}
+    .task{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+    .task-head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+    .task-number{font:700 1.1rem ui-monospace,monospace;color:var(--link)}
+    .status{white-space:nowrap;border-radius:999px;padding:3px 9px;font-size:.82rem;font-weight:700}
+    .done{color:var(--done);border:1px solid color-mix(in srgb,var(--done) 55%,transparent)}
+    .progress{color:var(--progress);border:1px solid color-mix(in srgb,var(--progress) 55%,transparent)}
+    .links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+    .links a{display:block;background:#142230;border:1px solid #2d465a;border-radius:9px;padding:10px 12px;text-decoration:none}
+    .links a:hover,.links a:focus{border-color:var(--link);outline:none}
+    .evidence{margin-top:12px;padding-top:12px;border-top:1px solid #2d465a;color:var(--muted)}
+    footer{margin-top:28px;color:var(--muted);font-size:.92rem}
+    @media(max-width:700px){main{margin-top:28px}.scope,.links{grid-template-columns:1fr}.task-head{display:block}.status{display:inline-block;margin-top:8px}}
   </style>
 </head>
 <body><main>
-  <p class="muted">CMMT nonlinear v2 · 연구 진행 페이지</p>
-  <h1>SAM 2.1 Tiny의 기억을 Base+로 전달하기</h1>
-  <p>비디오 중간에 모델을 바꿀 때 과거 프레임을 전부 다시 처리하지 않고도 객체 추적을 이어갈 수 있는지 연구합니다.</p>
-  <div class="card">
-    <h2>연구 범위</h2>
-    <p>모델: SAM 2.1 Tiny → Base+<br>데이터셋: DAVIS 2017, MOSEv2, LVOS v2<br>방식: 여러 nonlinear memory translator 비교</p>
-    <p>현재 상태: 새 저장소 구성과 기존 기능 이관. Base+ 실험 결과는 아직 없습니다.</p>
-  </div>
-  <div class="card">
-    <h2>살펴보기</h2>
-    <p><a href="architecture/cmmt-state-assembly-map.html">SAM 2 상태 조립 지도</a></p>
-    <p><a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/experimental_plan.md">4주 실험 계획</a></p>
-    <p><a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear">코드와 재현 방법</a></p>
-  </div>
-  <p class="muted">과거 Tiny→Large pilot은 새 모델 쌍의 성능 근거로 사용하지 않습니다. 새 결과가 검증되면 이 페이지에 추가합니다.</p>
+  <p class="muted">CMMT · SAM 2.1 cross-model state handoff</p>
+  <h1>Small의 비디오 기억을 Base+로 전달하기</h1>
+  <p class="lead">비디오 중간에 SAM 2.1 Small에서 Base+로 전환할 때, 과거 프레임 전체를 다시 처리하지 않고도 등록 객체의 추적을 이어가는 nonlinear state translator 연구입니다.</p>
+
+  <section class="scope" aria-label="연구 범위">
+    <span><strong>Model</strong><br>Small → Base+</span>
+    <span><strong>Dataset</strong><br>DAVIS 2017 · MOSEv2 · LVOS v2</span>
+    <span><strong>Method</strong><br>Nonlinear memory translator</span>
+  </section>
+
+  <section class="tasks" aria-label="Project task별 산출물">
+    <article class="task" id="task-01">
+      <div class="task-head">
+        <div><div class="task-number">TASK 01</div><h2>연구 범위·Baseline·성공/중단 기준</h2></div>
+        <span class="status done">Done</span>
+      </div>
+      <p>어떤 비교가 공정한지, 어떤 결과를 성공으로 볼지, 언제 Small→Base+ 또는 learned translator 주장을 중단할지를 실험 전에 고정했습니다.</p>
+      <div class="links">
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/design/01_scope_baselines_success_stop.md"><strong>범위 동결 문서</strong><br><span class="muted">Baseline 입력·공정성·Go/No-Go</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/experimental_plan.md"><strong>4주 실험 계획</strong><br><span class="muted">데이터·학습·평가·논문 일정</span></a>
+      </div>
+    </article>
+
+    <article class="task" id="task-02">
+      <div class="task-head">
+        <div><div class="task-number">TASK 02</div><h2>Small/Base+ State I/O 계약</h2></div>
+        <span class="status done">Done</span>
+      </div>
+      <p><code>maskmem_features</code>, <code>obj_ptr</code>, presence와 discrete history를 무엇을 번역·복사·재생성할지 고정하고 실제 checkpoint tensor로 확인했습니다.</p>
+      <div class="links">
+        <a href="architecture/cmmt-state-assembly-map.html"><strong>State Assembly Map</strong><br><span class="muted">CanonicalState → Target inference_state</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/design/small_base_state_io_contract.md"><strong>I/O 계약 v1.0</strong><br><span class="muted">shape·dtype·정렬·device 정책</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-20_small_base_runtime_inventory"><strong>Runtime inventory</strong><br><span class="muted">Small/Base+ paired tensor와 checksum</span></a>
+      </div>
+      <p class="evidence">확인된 경계: spatial <code>[1,1,11,64,64,64]</code> bfloat16 · pointer <code>[1,1,11,256]</code> float32 · presence <code>[1,1,11,1]</code> float32</p>
+    </article>
+
+    <article class="task" id="task-06">
+      <div class="task-head">
+        <div><div class="task-number">TASK 06</div><h2>State 추출·Self-injection·Target injection</h2></div>
+        <span class="status progress">In Progress</span>
+      </div>
+      <p>Base+ state를 새 Base+ predictor에 replay 없이 주입하는 단일 객체 gate를 통과했습니다. 다객체, late prompt, 부재·재등장, prompt correction과 Small→Base+ target injection은 후속 검증입니다.</p>
+      <div class="links">
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-20_base_plus_self_injection"><strong>Base+ self-injection 보고서</strong><br><span class="muted">61 frames · IoU 1.0 · replay 0</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/runpod_l4_operations.md"><strong>RunPod 재현 방법</strong><br><span class="muted">환경·checkpoint·실행 절차</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/pull/3"><strong>현재 구현 PR #3</strong><br><span class="muted">코드·검증 기록·diff</span></a>
+      </div>
+      <p class="evidence">현재 gate: DAVIS <code>walking</code>, object 1, switch frame 10 이후 61 frames에서 native/injected IoU 1.0, MSE 0.0, injection 중 과거 backbone call 0.</p>
+    </article>
+  </section>
+
+  <footer>
+    <p>Task 순서와 전체 일정은 <a href="https://github.com/orgs/memorybridge-team/projects/2/views/1">GitHub Project #2</a>에서 관리합니다. 확정 결과는 commit·config·실행 로그로 재현될 때만 게시합니다.</p>
+  </footer>
 </main></body></html>
