@@ -1,6 +1,6 @@
 # Small → Base+ 상태 I/O 계약
 
-> 상태: **정적 코드·config 검토 및 단일 객체 Base+ self-injection 통과, 확장 runtime 검증 진행 중**
+> 상태: **Small/Base+ runtime tensor inventory와 paired dump로 I/O 계약 확인 완료. 단일 객체 Base+ self-injection은 task 06의 선행 검증이며, 확장 runtime 동작 검증도 task 06에서 수행**
 > 기준 upstream: Meta SAM 2 commit `2b90b9f5ceec907a1c18123530e92e794ad901a4`
 
 ## 결론
@@ -73,7 +73,7 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 | Pair discrete timeline validator | 구현·CPU unit test 추가 |
 | Base+ checkpoint same-model export→inject | DAVIS `walking`, object 1, switch 10 통과 |
 | Small/Base+ 실제 runtime shape inventory | 단일 paired case 확인 |
-| 다객체·prompt correction 뒤 continuation closure | GPU 대기 |
+| 다객체·prompt correction 뒤 continuation closure | task 06 구현·동작 검증 범위 |
 | Small→Base+ paired-state 수집 | 위 gate 통과 후 시작 |
 
 ## 6. GPU 재개 시 첫 실행
@@ -82,4 +82,4 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 
 이 결과로 단일 객체·첫 frame prompt의 실행 경계는 통과했다. 같은 조건의 Small/Base+ paired example도 생성해 두 모델의 shape·dtype·timeline 일치를 확인했다. `.pt` cache는 166,882,485 bytes이므로 Git에는 checksum만 남기고 RunPod network volume에 보존한다. 상세 보고서는 [`reports/runtime/2026-09-20_small_base_runtime_inventory/`](../../reports/runtime/2026-09-20_small_base_runtime_inventory/)에 있다.
 
-다만 다객체, late prompt, absent/reappearance, prompt correction과 여러 sequence/switch에서의 반복 검증이 남아 있으므로 task 02 전체를 완료로 판정하지 않는다.
+다객체, late prompt, absent/reappearance, prompt correction과 여러 sequence/switch에서의 반복 검증은 이 계약을 소비하는 task 06의 완료 조건이다. task 02는 실제 Small/Base+ inventory, paired dump, 필드 정책, fail-closed validator와 State Assembly Map을 기준으로 검토·동결한다.

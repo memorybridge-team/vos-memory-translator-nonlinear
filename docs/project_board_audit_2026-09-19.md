@@ -12,12 +12,12 @@ Tasks 기본 보기는 제목 오름차순으로 저장했다. 따라서 보드�
 
 | # | Task | 핵심 완료 기준 |
 |---:|---|---|
-| 01 | Scope 고정 | Small→Base+, 세 데이터셋, nonlinear 범위, 성공·실패 기준, target-native 필요성 gate |
-| 02 | Small/Base+ memory I/O 계약 | component별 shape·dtype·의미·정렬·복사/생성 정책, 예시 dump, runtime inventory |
+| 01 | Scope 고정 | Small→Base+, 세 데이터셋, nonlinear 범위, baseline, 성공·실패 기준과 target-native 필요성 판정 규칙을 동결. hard-event 실험 실행은 후속 pilot/evaluation task |
+| 02 | Small/Base+ memory I/O 계약 | component별 shape·dtype·의미·정렬·복사/번역/재생성 정책, 예시 dump, runtime inventory와 State Assembly Map 동결 |
 | 03 | 데이터·난이도·baseline·metric 고정 | switch manifest, 누수 금지, video-clustered CI, 실패·제외 규칙 |
 | 04 | 논문 질문·기여·개요 | 반증 가능한 RQ, claim–evidence 대응, 과장 없는 novelty 범위 |
 | 05 | 멘토 검토 agenda | 결과·실패·결정 질문·후속 action 링크를 회의마다 누적 |
-| 06 | memory export/self-injection/target injection | Base+ same-checkpoint 연속 실행 일치, field trace, checkpoint·upstream hash |
+| 06 | memory export/self-injection/target injection | export·materialize·inject 구현, Base+ same-checkpoint 연속 실행 일치, Small→Base+ target injection, 다객체·late prompt·부재/재등장·prompt correction·복수 영상/switch, field trace와 hash |
 | 07 | paired-state 수집 | video-level split, checksum manifest, resumable shard, storage capacity 보고 |
 | 08 | evaluator·필수 baseline 구현 | 동일 manifest·공식 evaluator·미래 GT 금지·결과 일치 test |
 | 09 | nonlinear 후보 구현·비교 | residual/gated/slot-context 후보, 공통 compute budget, ablation |
@@ -43,7 +43,7 @@ Tasks 기본 보기는 제목 오름차순으로 저장했다. 따라서 보드�
 ## 20단계 밖 항목의 처리 원칙
 
 - `[Infra] Freeze RunPod environment, storage and artifact sync`의 요구사항은 독립 연구 단계가 아니다. CUDA/PyTorch/SAM revision과 checkpoint hash는 06·18, Network Volume의 resumable shard와 checksum은 07, 완료 marker·로그·artifact sync는 11·18의 완료 기준으로 흡수한다.
-- Issue #2는 02와 06의 실제 구현 추적 수단이다. 정적 I/O 계약은 완료됐지만 runtime checkpoint inventory와 Base+ self-injection이 남아 있으므로 `In Progress`를 유지한다.
+- 02와 06을 같은 완료 조건으로 묶지 않는다. Issue #2는 I/O 계약과 실제 Small/Base+ inventory·paired dump·State Assembly Map 검토를 추적한다. export/self-injection/target injection의 구현 및 edge-case continuation 검증은 별도 06 task에서 추적한다.
 - PR #3은 연구 단계가 아니라 Issue #2의 코드·테스트 증거다. 검토 전 `main`에 직접 반영하지 않는다.
 - 예전에 만든 `Map ... select translator I/O` draft는 Issue #2와 중복이어서 보관 처리했다. 별도 Infra 카드와 PR #3 Project 카드도 보관했으며, 원본 PR은 열어 둔 채 Issue #2에서 코드·테스트 증거로 추적한다.
 

@@ -73,7 +73,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 
 ## 11. 2026-09-19 연구 재개용 GitHub·실행 상태
 
-- GitHub Project #2를 실제 UI에서 재확인했다. 01 Scope Issue #1과 02 state I/O Issue #2가 `In Progress`다. 별도 06 memory extraction/self-injection draft는 `Todo`이며, GPU runtime gate를 시작할 때 Issue #2의 하위 실행 범위로 다룬다.
+- GitHub Project #2를 실제 UI에서 재확인했다. 01 Scope Issue #1과 02 state I/O Issue #2가 `In Progress`다. 2026-09-20 책임 경계를 바로잡아, 02는 무엇을 옮길지에 관한 계약·inventory·State Assembly Map까지만 담당하고, export/self-injection/target injection 구현과 edge-case continuation 검증은 별도 06 task로 추적한다.
 - v2 `main`에는 scope·계획 문서가 있으나, L4 preflight, Base+ round-trip script, evidence-gated Issue/PR workflow는 `codex/project-board-workflow` branch의 `9eca421`, `ce9dd33`에 있다. 이 변경은 검증 뒤 PR로 main에 반영한다. main을 직접 변경하지 않는다.
 - 2026-09-19 새 RunPod endpoint `157.157.221.29:43471`은 로컬 `~/.ssh/id_ed25519`(public fingerprint `SHA256:QxA6HrPgzjrkcUVMTx7vAIijjDs9wPxlnIRRLAN168E`)로 접속을 시도했으나 `Permission denied (publickey,password)`였다. host key 확인은 성공했지만 GPU·volume 검증과 Base+ round-trip은 실행하지 않았다. Pod의 등록 공개키와 이 fingerprint의 일치를 확인한 뒤 재시도한다.
 
@@ -104,7 +104,8 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[확인]** 새 endpoint `157.157.221.29:57478`에 로컬 `~/.ssh/id_ed25519`로 접속했다. 실제 장치는 NVIDIA RTX 2000 Ada Generation 16,380 MiB였으며, 이전에 전달된 L4 24 GB 화면과는 다른 현재 Pod다.
 - **[확인]** `codex/project-board-workflow` commit `32dc1400b5b3b2cbbbbac11f4780010358a5f83b`, 공식 SAM 2 commit `2b90b9f5ceec907a1c18123530e92e794ad901a4`, Small/Base+ checkpoint SHA-256을 고정해 bootstrap과 preflight를 통과했다. 기본 `pytest`는 `scripts` import 경로 누락으로 collection 실패했지만 `PYTHONPATH=.`로 실행하면 50개 테스트가 모두 통과하므로 코드 실패가 아니라 실행 환경 경로 문제로 판정했다.
 - **[확인]** DAVIS `walking`, object 1, switch frame 10에서 Base+→Base+ state export→inject를 실행했다. 이후 61개 frame의 native/injected 결과가 mean binary IoU `1.0`, mean MSE `0.0`, max absolute error `0.0`였고 injection 동안 과거 backbone call은 `0`이었다. wall time은 `132.53 s`, peak CUDA memory는 `974,874,624 bytes`였다. 단일 객체·첫 frame prompt 조건의 self-injection gate는 통과했다.
-- **[제한]** 이 결과는 state assembly 구현의 정확성을 입증하지만 Small→Base+ translator의 성공 증거는 아니다. Project task 02를 Done으로 바꾸기 전에 Small/Base+ runtime inventory와 paired dump, multi-object, late prompt, absence/reappearance, prompt correction 검증이 남아 있다.
+- **[제한]** 이 결과는 단일 객체·첫 frame prompt에서 state assembly 구현의 정확성을 입증하지만 Small→Base+ translator의 성공 증거는 아니다. Small/Base+ runtime inventory와 paired dump는 task 02 계약 근거다. multi-object, late prompt, absence/reappearance, prompt correction 및 복수 영상/switch 검증은 task 06 완료 조건이다.
+- **[결정, 2026-09-20]** Project task 경계를 `01=왜·범위·판정 기준`, `02=무엇을 옮길지에 관한 state I/O 계약`, `06=어떻게 추출·조립·주입하고 continuation을 검증할지`로 고정했다. Base+ 필요성을 묻는 hard-event gate는 01에서 정의하지만 실제 pilot/evaluation 실행은 후속 실험 task가 담당한다.
 - **[산출물]** 원본 JSON·상태·로그와 해석은 `reports/runtime/2026-09-20_base_plus_self_injection/`에 보존했다.
 - **[확인]** 동일 DAVIS case에서 실제 Small/Base+ canonical state를 각각 수집하고 paired cache를 생성했다. 두 모델 모두 spatial `[1,1,11,64,64,64]` bfloat16, pointer `[1,1,11,256]` float32, presence `[1,1,11,1]` float32와 동일한 discrete timeline을 보였다. 166,882,485-byte paired cache의 SHA-256은 `5e9bca17217d522335acf80a454834cf2beab22d4dd8f6204fcd221d2bf1a5f0`이며 원본은 RunPod volume, lightweight inventory는 `reports/runtime/2026-09-20_small_base_runtime_inventory/`에 둔다. 이 결과로 단일 paired example gate는 통과했지만 여러 case와 interaction 조건의 반복 검증은 남아 있다.
 - **[Notion]** 전달된 Documents database의 `모델API&실험` 그룹에 `CMMT 연구 실행 허브 — Project #2` 페이지를 만들고 Project·repository·PR·assembly map 링크, 01/02 Done gate, evidence 기록 규칙, 최신 self-injection 결과를 기록했다. Notion connector가 연결된 KNSW workspace에서는 이 guest workspace page를 `NOT_FOUND`로 반환해, 로그인된 Notion UI를 통해 작성 권한과 최종 내용을 검증했다.

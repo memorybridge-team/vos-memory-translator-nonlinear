@@ -56,6 +56,31 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   <h2>CMMT CanonicalState → Target SAM 2 조립 지도</h2>
   <p class="text-muted">현재 프로젝트의 <code>cmmt.canonical_state.v1</code>과 고정 SAM 2.1 predictor 기준입니다. 선을 선택하면 해당 조립 방식만 강조됩니다.</p>
 
+  <section class="task-boundaries" aria-label="Project task 책임 경계">
+    <article class="card task-card">
+      <span class="viz-badge">01 Scope</span>
+      <strong>왜 연구하고 무엇을 성공으로 볼지 고정</strong>
+      <p>Small→Base+, DAVIS·LVOSv2·MOSEv2, nonlinear-only, baseline, 성공·중단 기준을 확정합니다. Base+ 필요성은 hard-event에서 판정한다고 정의하되, 실제 비교 실험은 후속 pilot/evaluation task에서 실행합니다.</p>
+    </article>
+    <article class="card task-card task-card-current">
+      <span class="viz-badge">02 State I/O</span>
+      <strong>무엇을 어떤 형식으로 옮길지 고정</strong>
+      <p>필드, shape, dtype, 의미, object/frame 정렬, copy·translate·regenerate 정책과 검증 규칙을 명세합니다. 이 페이지가 02의 핵심 산출물이며 실제 Small/Base+ runtime inventory로 명세를 확인합니다.</p>
+    </article>
+    <article class="card task-card">
+      <span class="viz-badge">06 Implementation</span>
+      <strong>어떻게 추출·조립·주입하고 이어갈지 검증</strong>
+      <p>export, materialize, self-injection, target injection을 구현합니다. 다객체, late prompt, 부재·재등장, prompt correction, 여러 영상·switch에서 replay 없이 continuation-closed한지 검증합니다.</p>
+    </article>
+  </section>
+
+  <div class="verification-status card">
+    <strong>현재 검증 범위</strong>
+    <span><b>02:</b> Small/Base+ 실제 runtime tensor inventory와 paired dump 확인.</span>
+    <span><b>06:</b> Base+ 단일 객체·첫 프레임 prompt self-injection만 exact continuation 확인.</span>
+    <span><b>아직 미검증:</b> 다객체·late prompt·부재 후 재등장·prompt correction·복수 영상/전환 시점·Small→Base+ target injection.</span>
+  </div>
+
   <div class="viz-controls" aria-label="연결 방식 필터">
     <button class="btn btn-primary" type="button" data-filter="all" aria-pressed="true">전체</button>
     <button class="btn btn-ghost" type="button" data-filter="adapter" aria-pressed="false"><span class="legend-line adapter"></span>Grid adapter</button>
@@ -101,7 +126,10 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   </div>
 
   <div class="map-notes text-small">
-    <strong>읽는 법:</strong> 왼쪽 값이 가운데 조립 규칙을 거쳐 오른쪽 필드가 됩니다. <code>switch_frame</code>은 Target 필드로 복사되지 않고 <code>t+1</code> 시작점을 정합니다. Source PE·device·provenance는 검사에는 남지만 Target 실행값으로 주입되지 않습니다.
+    <strong>읽는 법:</strong> 왼쪽 값이 가운데 조립 규칙을 거쳐 오른쪽 필드가 됩니다. <code>switch_frame</code>은 Target 필드로 복사되지 않고 <code>t+1</code> 시작점을 정합니다. Source PE·device·provenance는 검사에는 남지만 Target 실행값으로 주입되지 않습니다.<br>
+    <strong>기록 수와 읽기 수:</strong> CanonicalState는 전환 시점까지의 유효 record를 보존합니다. <code>K</code>는 저장 record 축이며 SAM 2의 한 추론 step에서 선택해 읽는 <code>num_maskmem</code>과 같은 뜻이 아닙니다.<br>
+    <strong>장치 정책:</strong> 번역·조립된 <code>maskmem_features</code>와 <code>pred_masks</code>는 Target <code>storage_device</code>로, <code>obj_ptr</code>·presence score·Target PE는 Target compute/device 정책으로 이동합니다. Source device 문자열을 복사하지 않습니다.<br>
+    <strong>pred_masks:</strong> 일반 memory attention의 핵심 입력이 아니라 predictor history와 prompt correction을 이어 주는 continuation payload입니다.
   </div>
 </div>
 
@@ -112,6 +140,22 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   }
   #cmmt-state-map h2 { margin: 0 0 0.35rem; }
   #cmmt-state-map > p { margin: 0 0 0.8rem; }
+  #cmmt-state-map .task-boundaries {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
+    margin-bottom: 0.65rem;
+  }
+  #cmmt-state-map .task-card { display: grid; align-content: start; gap: 0.38rem; }
+  #cmmt-state-map .task-card strong { line-height: 1.35; }
+  #cmmt-state-map .task-card p { margin: 0; color: var(--muted-foreground); font-size: 12px; }
+  #cmmt-state-map .task-card-current { border-color: var(--viz-series-1); }
+  #cmmt-state-map .verification-status {
+    display: grid;
+    gap: 0.25rem;
+    margin-bottom: 0.85rem;
+    font-size: 12px;
+  }
   #cmmt-state-map .viz-controls { margin-bottom: 0.85rem; }
   #cmmt-state-map .btn { display: inline-flex; align-items: center; gap: 0.4rem; }
   #cmmt-state-map .legend-line {
@@ -248,6 +292,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   }
 
   @media (max-width: 760px) {
+    #cmmt-state-map .task-boundaries { grid-template-columns: 1fr; }
     #cmmt-state-map .map-stage {
       grid-template-columns: 1fr;
       gap: 70px;
@@ -307,10 +352,10 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
 
   const assemblyGroups = [
     ['학습 모듈', [
-      ['a-grid', 'Spatial grid adapter', 'H×W가 다를 때 bilinear'],
-      ['a-spatial', 'Spatial learned head', 'Linear 또는 nonlinear MLP'],
-      ['a-pointer', 'Pointer nonlinear head', 'identity 변환'],
-      ['a-presence', 'Presence calibrator', '존재 점수 보정']]],
+      ['a-grid', 'Spatial grid adapter', '필요할 때만 H×W 정렬'],
+      ['a-spatial', 'Spatial nonlinear head', '제안 translator'],
+      ['a-pointer', 'Pointer nonlinear head', '제안 translator'],
+      ['a-presence', 'Presence policy head', 'direct·calibrate·nonlinear·ablate']]],
     ['History materializer', [
       ['a-order', 'Record materializer', 'frame·slot 순서 복원'],
       ['a-route', 'Cond/non-cond router', '기록 종류별 분기'],
@@ -359,14 +404,14 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
       ['t-cond-pos', '   │     ├─ maskmem_pos_enc', 'target-generated'],
       ['t-cond-pred', '   │     ├─ pred_masks', 'preserved'],
       ['t-cond-pointer', '   │     ├─ obj_ptr', 'translated'],
-      ['t-cond-score', '   │     └─ object_score_logits', 'calibrated'],
+      ['t-cond-score', '   │     └─ object_score_logits', 'policy-selected'],
       ['t-noncond-root', '   └─ non_cond_frame_outputs', 'non-conditioning history'],
       ['t-noncond-frame', '      └─ frame index', 'dictionary key'],
       ['t-noncond-memory', '         ├─ maskmem_features', 'translated'],
       ['t-noncond-pos', '         ├─ maskmem_pos_enc', 'target-generated'],
       ['t-noncond-pred', '         ├─ pred_masks', 'preserved'],
       ['t-noncond-pointer', '         ├─ obj_ptr', 'translated'],
-      ['t-noncond-score', '         └─ object_score_logits', 'calibrated']]],
+      ['t-noncond-score', '         └─ object_score_logits', 'policy-selected']]],
     ['임시 interaction 결과', [
       ['t-temp-root', 'temp_output_dict_per_obj', '주입 시 비어 있음'],
       ['t-temp-cond', '├─ cond_frame_outputs', 'empty'],
@@ -518,6 +563,8 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   const edgeNotes = {
     's-spatial>a-grid': 'Source 공간 기억의 H×W를 Target memory grid와 비교합니다. 다르면 bilinear interpolation으로 맞추고, 현재 Small→Base+처럼 같으면 그대로 통과합니다.',
     'a-grid>a-spatial': '크기가 정렬된 공간 기억만 learned head에 넘깁니다. 따라서 MLP는 위치 크기 문제가 아니라 채널별 표현 의미를 학습합니다.',
+    's-pointer>a-pointer': 'object pointer는 제안 방식에서 별도 nonlinear head로 번역합니다. identity/direct copy는 학습 head의 설명이 아니라 별도 baseline입니다.',
+    's-presence>a-presence': 'presence logit은 direct copy, scalar calibration, nonlinear mapping, 제거 ablation을 비교한 뒤 선택합니다. 아직 보정 방식 하나로 고정하지 않았습니다.',
     's-is-cond>a-route': '각 record의 true/false 표지를 읽어 사용자 기준 기억과 자동 추적 기억을 서로 다른 보관함으로 나눕니다.',
     'a-route>t-cond-root': 'true인 record를 conditioning history에 넣어 사용자가 직접 지정한 강한 기준 기억으로 유지합니다.',
     'a-route>t-noncond-root': 'false인 record를 non-conditioning history에 넣어 모델이 스스로 만든 일반 추적 기억으로 유지합니다.',
