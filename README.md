@@ -13,6 +13,18 @@
 
 이 저장소는 이전 프로젝트에서 검증한 상태 추출·주입, DAVIS 평가, 기존 baseline runner, MLP 학습 코드를 **새 Git 이력으로 선별 이관한 시작점**입니다. 이전 Tiny→Large 실험은 [과거 결과](reports/legacy/)로 보존했습니다. Small→Base+의 checkpoint 기반 round-trip, baseline 비교, 학습 결과는 아직 생성되지 않았습니다.
 
+### 연구·협업 진행판
+
+| 단계 | 보드 상태 | 지금의 완료 조건 |
+|---|---|---|
+| 연구 범위·성공 기준 고정 | `In Progress` — [Issue #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1) | Small→Base+·데이터셋·비교군·누수 금지 규칙을 팀이 최종 확인 |
+| 상태 추출·self-injection·target injection | `Todo` — KIMKYUDO | Base+ same-checkpoint export→inject가 과거 replay 없이 다음 프레임을 이어가는 실행 로그·보고서 |
+| paired Small/Base+ state 수집 | `Todo` | video-level split, checksum manifest, compact state pair |
+| 공통 evaluator·baseline | `Todo` | 같은 manifest에서 강한 재인코딩·replay·native 비교 결과 |
+| nonlinear 후보 학습·비교 | `Todo` | MLP/gated MLP/slot-context 후보의 downstream·비용 비교 |
+
+실제 코드·실험 작업은 위 보드 카드를 canonical Issue로 승격한 뒤 `In Progress`로 바꾸고, branch의 commit·실행 로그·보고서를 연결합니다. 완료 기준과 재현 명령이 검증되기 전에는 `Done`으로 옮기지 않습니다. [Project #2 Tasks](https://github.com/orgs/memorybridge-team/projects/2/views/1)에서 전체 현황을 확인할 수 있습니다.
+
 기존 코드를 가져온 경위와 제외한 자료는 [MIGRATION.md](MIGRATION.md)에 기록했습니다. 새 저장소의 Git 커밋 작성자와 과거 코드의 실제 작성 기여는 별개의 정보입니다.
 
 ## 연구 흐름

@@ -70,6 +70,12 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - `[Infra] Freeze RunPod environment, storage and artifact sync`를 21번 카드로 추가했다. 담당자는 `KIMKYUDO`, 상태는 `Todo`, 기간은 2026-09-20∼2026-09-24다. 이로써 현재 보드의 대단계 구성은 충분하다. 상세 판정은 [보드 감사·수정 기록](docs/project_board_audit_2026-09-19.md)에 남겼다.
 - 완료 기준·실제 산출물·재현 명령·canonical Issue가 없으면 `Done`으로 끝낼 수 없는 `cmmt-task` 도구와 Issue/PR template를 구현했다. 로컬 CLI smoke와 5개 직접 테스트로 task 생성→진행→증거→체크→완료 흐름을 확인했다.
 - 사용자가 저장소 이름을 `vos-memory-translator-nonlinear-v2`에서 `vos-memory-translator-nonlinear`로 변경했다. redirect는 정상이며 로컬 `origin`, package 이름, README, Pages 링크, Issue 검증 규칙을 canonical 이름으로 동기화했다.
+
+## 11. 2026-09-19 연구 재개용 GitHub·실행 상태
+
+- GitHub Project #2를 실제 UI에서 재확인했다. `[Scope] Freeze Small→Base+ research scope and success criteria` Issue #1만 `In Progress`이며, 현재 구현 진입 카드 `[Model] Implement memory extraction, self-injection and target injection`은 KIMKYUDO 담당 `Todo`다. 이 구현 카드는 실행 시작 전 canonical Issue로 승격해 Project에 연결해야 한다.
+- v2 `main`에는 scope·계획 문서가 있으나, L4 preflight, Base+ round-trip script, evidence-gated Issue/PR workflow는 `codex/project-board-workflow` branch의 `9eca421`, `ce9dd33`에 있다. 이 변경은 검증 뒤 PR로 main에 반영한다. main을 직접 변경하지 않는다.
+- 2026-09-19 새 RunPod endpoint `157.157.221.29:43471`은 로컬 `~/.ssh/id_ed25519`(public fingerprint `SHA256:QxA6HrPgzjrkcUVMTx7vAIijjDs9wPxlnIRRLAN168E`)로 접속을 시도했으나 `Permission denied (publickey,password)`였다. host key 확인은 성공했지만 GPU·volume 검증과 Base+ round-trip은 실행하지 않았다. Pod의 등록 공개키와 이 fingerprint의 일치를 확인한 뒤 재시도한다.
 - 대화 운영은 고정된 “다음 6개 답변” 카운트가 아니다. 한 프롬프트에 요청이 여러 개이면 각 항목을 `완료 / 진행 중 / Blocker / 미착수`로 나눠 병목을 보고한다.
 
 사용자 승인 후 이 연구와 무관한 외부 저장소의 [`subinidus/cell-msca-odiac-estimation#2`](https://github.com/subinidus/cell-msca-odiac-estimation/issues/2)를 원본 변경 없이 연구 보드에서만 제거했다. 대신 이 저장소의 [범위 이슈 #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1)을 생성해 보드에 연결했다. 이슈의 활동 기록에서 `KIMKYUDO`가 보드에 추가한 사실과 `Todo` 상태를 확인했다.
