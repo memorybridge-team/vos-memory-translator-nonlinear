@@ -1,6 +1,6 @@
 # 프로젝트 문맥: SAM 2.1 Small → Base+ nonlinear state handoff
 
-> 확인된 코드·기존 실험과 현재 계획을 구분한 시작 문서. 기준일: 2026-09-18 KST.
+> 확인된 코드·기존 실험과 현재 계획을 구분한 시작 문서. 기준일: 2026-09-21 KST.
 
 ## 1. 연구 질문
 
@@ -80,7 +80,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 ## 12. 2026-09-19 Small/Base+ translator I/O 정적 계약
 
 - GPU 보류 중 다음 비-GPU task로 pinned official SAM 2 config와 `SAM2Base`, 현재 canonical exporter/injector를 대조했다. Small과 Base+는 backbone 시작 차원은 96/112로 다르지만 memory encoder 64 channels, 기본 64×64 grid, object pointer 256, `num_maskmem=7`, `max_obj_ptrs_in_encoder=16` 경계가 같다.
-- Translator 연속 입력은 `spatial_memory`, `object_pointer`, `presence_logits`로 고정한다. Frame/slot/conditioning/validity/object ID/switch metadata는 복사·검증하고 spatial PE와 pointer temporal PE는 target 정책으로 생성한다. `pred_masks`와 prompt/tracking history는 learned input이 아닌 continuation payload로 보존한다.
+- 당시 v1.0 계약은 `spatial_memory`, `object_pointer`, `presence_logits`를 연속 입력으로 기록하고 `pred_masks`를 continuation payload로 보존했다. 이는 2026-09-21 v1.1에서 바뀌었으며, 최신 정책은 본 문서 끝의 v1.1 결정과 I/O 계약을 따른다. Frame/slot/conditioning/validity/object ID/switch metadata를 복사·검증하고 Target PE를 생성한다는 원칙은 유지된다.
 - Paired-state validator가 기존 frame/object/conditioning 검사에 더해 `schema_version`, `switch_frame`, `slot_order`, `validity`, video 크기 metadata 불일치를 fail closed하도록 강화했다. 실제 Small/Base+ dtype·shape inventory와 Base+ self-injection은 GPU가 생긴 뒤 확인한다.
 - 상세 계약과 남은 runtime gate는 `docs/design/small_base_state_io_contract.md`에 기록했다.
 - 대화 운영은 고정된 “다음 6개 답변” 카운트가 아니다. 한 프롬프트에 요청이 여러 개이면 각 항목을 `완료 / 진행 중 / Blocker / 미착수`로 나눠 병목을 보고한다.
@@ -119,3 +119,6 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[결정, 2026-09-20]** `Last-Mask`와 `Recent-Window Replay-1`은 switch 직전 source mask와 동일 RGB/frame을 target에 재인코딩하는 동일 입력 규칙일 때 같은 방법이다. 최종 baseline 표에서는 `Last-Mask (= Replay-1)` 한 행으로만 보고한다. 다른 seed·추가 prompt·target-native state를 쓰는 Replay-1은 별도 방법으로 기록한다. `All Original Prompts`와 `Translation + Short Replay`는 주 비교군이 아니라 interaction/hybrid 선택 분석으로 분리했다.
 - **[결정, 2026-09-20 — 최신]** `Last-Mask (= Replay-1)`과 original anchor 없이 최근 RGB만 재처리하는 `Recent-Window Replay-k`는 객체 coverage가 약해 최종 비교군에서 제거했다. 최신 정보의 효과는 모든 등록 객체의 original prompt를 먼저 보장한 `Original-Prompt(s)+Replay-4/8/16`으로만 측정한다. 4·8·16은 각각 짧은, SAM 2 recent-memory 범위 근방의 중간, 더 긴 문맥을 나타내는 사전 고정 k 값이다.
 - **[결정, 2026-09-21]** Direct Copy와 Nonlinear Translator 사이에 `Moment-Matched Copy`를 정식 baseline으로 추가했다. 학습 split의 paired state에서 conditioning/non-conditioning별·component별 평균과 표준편차를 고정한 뒤, `maskmem_features`와 `obj_ptr`만 affine 보정한다. test target-native state·future frame·test 통계는 금지한다. 이 비교군은 단순 분포 calibration만으로 충분한지 검증하며, nonlinear 방법의 필요성을 더 엄격하게 판정한다.
+
+- **[결정, 2026-09-21]** State Assembly Map과 Small→Base+ I/O 계약을 v1.1로 통일했다. 번역 대상은 `maskmem_features`와 `obj_ptr`뿐이며, Target PE는 재생성한다. 과거 Source `pred_masks`는 Target `inference_state` 밖의 표시 sidecar archive, `presence_logits`/`object_score_logits`는 진단 기록으로만 남긴다. Target의 새 mask·score·memory는 새 frame 또는 correction replay에서만 생성한다.
+- **[제한, 2026-09-21]** 현재 legacy materializer/injector는 과거 `pred_masks`와 `object_score_logits`를 Target history에 쓰는 v1.0 동작을 아직 포함한다. 이 구현은 v1.1 목표 계약과 다르므로, Task 06에서 해당 주입을 제거하고 다객체·late prompt·부재/재등장·correction continuation 검증을 통과하기 전에는 v1.1 구현 완료라고 주장하지 않는다.

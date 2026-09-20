@@ -1,8 +1,8 @@
 # Small → Base+ 상태 I/O 계약
 
-> 상태: **FROZEN v1.0 — 2026-09-20**
+> 상태: **FROZEN v1.1 — 2026-09-21**
 >
-> 계약 ID: `cmmt.small_to_base_plus.io.v1`
+> 계약 ID: `cmmt.small_to_base_plus.io.v1.1`
 >
 > 근거: 정적 config/code, 실제 Small/Base+ runtime inventory, paired dump, fail-closed validator
 >
@@ -13,7 +13,7 @@
 
 SAM 2.1 Small과 Base+는 backbone 크기는 다르지만 video-memory 경계의 기본 shape가 같다. 따라서 첫 nonlinear translator는 크기 변환기가 아니라 **같은 shape 안의 표현 의미를 Small 공간에서 Base+ 공간으로 바꾸는 component-wise mapper**로 정의한다.
 
-Translator가 학습할 연속 입력은 `spatial_memory`, `object_pointer`, `presence_logits` 세 종류다. Frame 번호, 객체 ID, conditioning 여부, record 순서와 validity는 학습하지 않고 정확히 복사한다. Spatial positional encoding은 source 것을 번역하거나 복사하지 않고 Base+가 다시 생성한다.
+Translator가 학습할 연속 입력·출력은 `spatial_memory`, `object_pointer` 두 종류다. `presence_logits`는 Source 진단 기록으로만 보존하며 Target history에 주입하지 않는다. Frame 번호, 객체 ID, conditioning 여부, record 순서와 validity는 학습하지 않고 정확히 복사한다. Spatial positional encoding은 source 것을 번역하거나 복사하지 않고 Base+가 다시 생성한다.
 
 ## 1. 확인된 모델 경계
 
@@ -35,7 +35,7 @@ Translator가 학습할 연속 입력은 `spatial_memory`, `object_pointer`, `pr
 |---|---|---|---|---|
 | `spatial_memory` | `[B,O,K,64,64,64]` | `maskmem_features` | nonlinear translation | `maskmem_features` |
 | `object_pointer` | `[B,O,K,256]` | `obj_ptr` | 별도 nonlinear translation | `obj_ptr` |
-| `presence_logits` | `[B,O,K,1]` | `object_score_logits` | continuous I/O는 고정; direct/calibration/nonlinear/ablation 선택은 task 09 | `object_score_logits` |
+| `presence_logits` | `[B,O,K,1]` | `object_score_logits` | Source 진단 기록만 보존; learned/direct/calibration 출력 및 Target history 주입에서 제외 | CMMT diagnostic sidecar |
 | `frame_indices` | `[B,O,K]` | history dict key | 정확히 복사 | cond/non-cond frame key |
 | `slot_order` | `[B,O,K]` | canonical record 순서 | 정확히 복사·검증 | materialization 순서 |
 | `is_conditioning` | `[B,O,K]` | cond/non-cond dictionary | 정확히 복사 | history dictionary 선택 |
@@ -45,7 +45,7 @@ Translator가 학습할 연속 입력은 `spatial_memory`, `object_pointer`, `pr
 
 `B`는 현재 injection 구현에서 1, `O`는 prompt로 등록한 객체 수, `K`는 객체별 저장 history를 맞추기 위한 padded record 축이다. `K=7`로 고정하지 않는다. Predictor가 저장한 전체 history와 한 frame에서 실제 attention이 읽는 memory 수는 다르기 때문이다.
 
-Injection 직전에는 Target runtime 정책에 따라 `spatial_memory`와 보존된 `pred_masks`를 Target `storage_device`로, `object_pointer`, `presence_logits`, Target-generated PE를 Target compute device로 이동한다. Source device 문자열은 provenance일 뿐 Target 장치 설정을 덮어쓰지 않는다. Runtime에서 확인한 dtype은 spatial `bfloat16`, pointer/presence `float32`이며 translator 내부 정밀도와 최종 cast는 학습 config에 기록한다.
+Injection 직전에는 Target runtime 정책에 따라 translated `spatial_memory`를 Target `storage_device`로, translated `object_pointer`와 Target-generated PE를 Target compute device로 이동한다. Source `pred_masks`와 `presence_logits`는 Target runtime에 이동·주입하지 않는다. Source device 문자열은 provenance일 뿐 Target 장치 설정을 덮어쓰지 않는다. Runtime에서 확인한 dtype은 spatial `bfloat16`, pointer/presence `float32`이며 translator 내부 정밀도와 최종 cast는 학습 config에 기록한다.
 
 ## 3. Translator에 넣지 않는 상태
 
@@ -53,8 +53,9 @@ Injection 직전에는 Target runtime 정책에 따라 `spatial_memory`와 보�
 
 - `maskmem_pos_enc`: Base+ memory encoder의 position module로 grid에 맞춰 재생성한다.
 - temporal position: `frame_indices`와 현재 frame의 차이로 Base+가 자체 정책에 따라 만든다.
-- `pred_masks`: 현재 구현은 source의 low-resolution logits를 opaque payload로 보존한다. 일반 propagation의 핵심 read tensor는 아니지만 switch 이후 prompt correction을 continuation-closed하게 유지하는 데 필요하다.
-- original point/mask prompts와 `frames_tracked_per_obj`: 객체 등록·상호작용 이력을 그대로 복사한다.
+- `pred_masks`: source의 low-resolution logits를 CMMT 외부 표시 archive로만 보존한다. Target history나 decoder refinement 입력에는 주입하지 않는다.
+- `presence_logits`/`object_score_logits`: source 진단 기록으로만 보존한다. Target은 새 frame 또는 correction replay에서 score를 새로 계산한다.
+- original point/mask prompts와 `frames_tracked_per_obj`: 객체 등록·상호작용 장부로 보존한다. 전환 이전 correction은 이 prompt timeline과 원본 RGB로 Target을 안전한 기준점부터 replay해 수정 이후 history를 Target-native state로 교체한다.
 - `cached_features`: 과거 RGB backbone feature를 전달하지 않는다. Fresh target runtime의 cache는 비운다.
 - `temp_output_dict_per_obj`: 미완성 상호작용 상태는 전달하지 않고 target에서 빈 dictionary로 시작한다.
 
@@ -78,6 +79,7 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 | Canonical export·history materialization | 구현됨 |
 | Target PE 재생성 | 구현됨 |
 | object registry·prompt/tracking metadata 복원 | 구현됨 |
+| v1.1의 과거 mask/score 비주입 정책 | 설계 동결; legacy materializer 정렬은 task 06에서 구현·검증 |
 | Pair discrete timeline validator | 구현·CPU unit test 추가 |
 | Base+ checkpoint same-model export→inject | DAVIS `walking`, object 1, switch 10 통과 |
 | Small/Base+ 실제 runtime shape inventory | 단일 paired case 확인 |
@@ -107,7 +109,7 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 - [x] continuous translator I/O와 shape·dtype 경계 고정
 - [x] discrete metadata의 copy·alignment·validity 규칙 고정
 - [x] Target PE 재생성과 runtime device 정책 고정
-- [x] prompt/prediction history의 continuation payload 정책 고정
+- [x] prompt timeline·표시 archive·correction replay 정책 고정
 - [x] 실제 Small/Base+ inventory와 paired example/checksum 기록
 - [x] fail-closed validator와 State Assembly Map 일치 검토
 

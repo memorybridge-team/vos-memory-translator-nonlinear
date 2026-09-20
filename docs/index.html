@@ -59,10 +59,10 @@
         <div><div class="task-number">TASK 02</div><h2>Small/Base+ State I/O 계약</h2></div>
         <span class="status done">Done</span>
       </div>
-      <p><code>maskmem_features</code>, <code>obj_ptr</code>, presence와 discrete history를 무엇을 번역·복사·재생성할지 고정하고 실제 checkpoint tensor로 확인했습니다.</p>
+      <p><code>maskmem_features</code>와 <code>obj_ptr</code>만 번역하고, discrete history는 복사·재구성하며, PE·새 mask·새 score는 Target이 생성하도록 고정했습니다. Source presence/예측 mask는 진단·표시 archive로만 남깁니다.</p>
       <div class="links">
-        <a href="architecture/cmmt-state-assembly-map.html"><strong>State Assembly Map</strong><br><span class="muted">CanonicalState → Target inference_state</span></a>
-        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/design/small_base_state_io_contract.md"><strong>I/O 계약 v1.0</strong><br><span class="muted">shape·dtype·정렬·device 정책</span></a>
+        <a href="architecture/cmmt-state-assembly-map.html"><strong>State Assembly Map</strong><br><span class="muted">CanonicalState → Target inference_state + sidecar</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/design/small_base_state_io_contract.md"><strong>I/O 계약 v1.1</strong><br><span class="muted">shape·dtype·정렬·device·correction 정책</span></a>
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-20_small_base_runtime_inventory"><strong>Runtime inventory</strong><br><span class="muted">Small/Base+ paired tensor와 checksum</span></a>
       </div>
       <p class="evidence">확인된 경계: spatial <code>[1,1,11,64,64,64]</code> bfloat16 · pointer <code>[1,1,11,256]</code> float32 · presence <code>[1,1,11,1]</code> float32</p>

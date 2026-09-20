@@ -18,7 +18,7 @@
 | 단계 | 보드 상태 | 지금의 완료 조건 |
 |---|---|---|
 | 연구 범위·성공 기준 고정 | `Done candidate` — [Issue #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1) | [Baseline·성공·중단 기준](docs/design/01_scope_baselines_success_stop.md) 동결 완료; Project 상태 동기화 대기 |
-| Small/Base+ State I/O 계약 | `Done candidate` — [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2) | [I/O 계약 v1.0](docs/design/small_base_state_io_contract.md), runtime inventory, paired dump, Map 동결 완료 |
+| Small/Base+ State I/O 계약 | `Done candidate` — [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2) | [I/O 계약 v1.1](docs/design/small_base_state_io_contract.md), runtime inventory, paired dump, Map 동결 완료 |
 | 상태 추출·self-injection·target injection | `Todo` — KIMKYUDO | Base+ same-checkpoint export→inject가 과거 replay 없이 다음 프레임을 이어가는 실행 로그·보고서 |
 | paired Small/Base+ state 수집 | `Todo` | video-level split, checksum manifest, compact state pair |
 | 공통 evaluator·baseline | `Todo` | 같은 manifest에서 강한 재인코딩·replay·native 비교 결과 |
