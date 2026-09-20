@@ -88,16 +88,16 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
 
   <div class="edge-detail card" aria-live="polite">
     <div class="detail-heading">
-      <span class="viz-badge" data-detail-mode>화살표 설명</span>
-      <strong data-detail-title>지도에서 화살표를 클릭하세요</strong>
+      <span class="viz-badge" data-detail-mode>상세 설명</span>
+      <strong data-detail-title>지도에서 state 또는 화살표를 클릭하세요</strong>
     </div>
-    <p data-detail-text>선이 나타내는 값의 이동 방식과 그 이유를 쉬운 말로 설명합니다.</p>
+    <p data-detail-text>state를 누르면 값의 의미가, 화살표를 누르면 이동·조립 방식이 표시됩니다.</p>
   </div>
 
   <div class="map-stage">
     <svg class="edge-layer" role="img" aria-labelledby="cmmt-map-svg-title cmmt-map-svg-desc">
       <title id="cmmt-map-svg-title">CanonicalState와 Target SAM 2 상태 사이의 필드 조립 관계</title>
-      <desc id="cmmt-map-svg-desc">학습 변환, 보존, 보조 기록 복원, 위치정보 재생성, 검증, Target 자체 초기화를 서로 다른 색과 선 모양으로 연결한 전체 필드 지도입니다.</desc>
+      <desc id="cmmt-map-svg-desc">학습 변환, 보존, 사용자 기록, 위치정보 재생성, 검증, Target 자체 초기화를 서로 다른 색과 선 모양으로 연결한 전체 필드 지도입니다.</desc>
       <defs></defs>
       <g data-edge-root></g>
     </svg>
@@ -119,7 +119,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   </div>
 
   <div class="map-notes text-small">
-    <strong>읽는 법:</strong> 왼쪽 값이 가운데 조립 규칙을 거쳐 오른쪽 필드가 됩니다. <code>switch_frame</code>은 Target 필드로 복사되지 않고 <code>t+1</code> 시작점을 정합니다. Source PE·device·provenance는 검사에는 남지만 Target 실행값으로 주입되지 않습니다.<br>
+    <strong>읽는 법:</strong> 왼쪽 값이 가운데 조립 규칙을 거쳐 오른쪽 필드가 됩니다. 정보 처리 방식과 조립 작업은 배타적인 분류가 아닙니다. 예를 들어 <code>is_conditioning</code> 값은 그대로 보존하면서 cond/non-cond router가 그 값을 읽어 저장 위치를 정합니다. <code>switch_frame</code>은 Target 필드로 복사되지 않고 <code>t+1</code> 시작점을 정합니다. Source PE·device·provenance는 검사에는 남지만 Target 실행값으로 주입되지 않습니다.<br>
     <strong>기록 수와 읽기 수:</strong> CanonicalState는 전환 시점까지의 유효 record를 보존합니다. <code>K</code>는 저장 record 축이며 SAM 2의 한 추론 step에서 선택해 읽는 <code>num_maskmem</code>과 같은 뜻이 아닙니다.<br>
     <strong>장치 정책:</strong> 번역·조립된 <code>maskmem_features</code>는 Target <code>storage_device</code>로, <code>obj_ptr</code>와 Target PE는 Target compute/device 정책으로 이동합니다. Source device 문자열을 복사하지 않습니다.<br>
     <strong>예측 기록:</strong> Source <code>pred_masks</code>는 화면 검토용 archive로만 그대로 보존하며 Target decoder의 refinement 입력으로 주입하지 않습니다. 새 mask와 <code>object_score_logits</code>는 Target이 새 frame 또는 replay에서 생성합니다.<br>
@@ -222,6 +222,11 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     padding: 0.18rem 0.22rem;
     border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
     transition: opacity 140ms ease, background-color 140ms ease;
+    cursor: pointer;
+  }
+  #cmmt-state-map .field-row:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   #cmmt-state-map .field-row:last-child { border-bottom: 0; }
   #cmmt-state-map .field-row code { overflow-wrap: anywhere; }
@@ -353,6 +358,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
       ['a-valid', 'Validity filter', '유효 slot만 복원'],
       ['a-archive', 'Source prediction archiver', 'UI 기록만 보존']]],
     ['Registry 조립', [
+      ['a-id-copy', 'External object ID keeper', 'ID 값·순서 보존'],
       ['a-registry', 'Object registry rebuild', 'Target index 새로 부여'],
       ['a-object-align', 'Source→Target slot aligner', 'prompt·tracking 정렬']]],
     ['Target 정책', [
@@ -434,7 +440,18 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
         const row = document.createElement('div');
         row.className = 'field-row text-small';
         row.dataset.node = id;
+        row.tabIndex = 0;
+        row.setAttribute('role', 'button');
+        row.setAttribute('aria-label', `${field} state 설명 보기`);
+        row.title = '클릭하여 state 설명 보기';
         row.innerHTML = `<code>${field}</code><span class="meaning">${meaning}</span>`;
+        row.addEventListener('click', () => showNodeDetail(id));
+        row.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            showNodeDetail(id);
+          }
+        });
         group.appendChild(row);
       }
       target.appendChild(group);
@@ -467,9 +484,10 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   add('s-validity', 'a-valid', 'control');
   add('a-valid', 't-output-root', 'control');
 
-  add('s-object-ids', 'a-registry', 'control');
+  add('s-object-ids', 'a-id-copy', 'preserve');
+  add('a-id-copy', 't-obj-ids', 'preserve');
+  add('a-id-copy', 'a-registry', 'control');
   add('s-object-indices', 'a-object-align', 'control');
-  add('a-registry', 't-obj-ids', 'control');
   add('a-registry', 't-id-to-idx', 'control');
   add('a-registry', 't-idx-to-id', 'control');
   add('a-registry', 't-object-slot', 'control');
@@ -565,6 +583,35 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     }
   };
 
+  const nodeDetails = {
+    's-frame-indices': 'Source output_dict의 dictionary key였던 frame 번호를 CanonicalState의 record별 값으로 보존합니다. Target 조립 시 다시 cond/non-cond output dictionary의 key로 사용합니다.',
+    's-slot-order': '고정 길이 K축에서 각 tensor slice가 어느 record에 해당하는지 나타내는 순서입니다. 값은 그대로 보존하고 Record materializer가 frame_indices와 결합해 원래 record 관계를 복원합니다.',
+    's-is-cond': '각 record가 사용자 prompt에 기반한 conditioning 기록인지 자동 추적에서 생긴 non-conditioning 기록인지 나타내는 Boolean입니다. 값은 그대로 보존되지만 Target에는 별도 Boolean 필드로 넣지 않고 두 output dictionary 중 하나를 선택하는 데 사용합니다.',
+    's-validity': '고정 크기 batch를 만들기 위해 추가된 padding slot과 실제 record를 구분하는 Boolean mask입니다. False slot은 Target history에 넣지 않습니다.',
+    's-object-ids': '사용자가 지정한 외부 객체 식별자입니다. 예: bike, person 또는 1, 2. 값과 순서는 보존하며 Target의 obj_ids를 만드는 기준으로 사용합니다.',
+    's-object-indices': 'Source predictor가 객체를 처리하기 위해 내부적으로 부여한 index입니다. 외부 object ID와 prompt·history를 연결하는 데만 사용하고, 새 Target runtime의 내부 index는 Target registry에서 다시 만듭니다.',
+    'a-id-copy': '외부 object ID의 값과 순서를 바꾸지 않고 Target obj_ids로 전달합니다. 그 뒤 같은 목록을 사용해 Target 전용 양방향 index 표를 만듭니다.',
+    'a-order': 'CanonicalState가 batching을 위해 평탄화한 record를 frame_indices와 slot_order에 따라 Target의 중첩 output dictionary로 다시 조립합니다.',
+    'a-route': '보존된 is_conditioning 값을 읽어 record를 cond_frame_outputs 또는 non_cond_frame_outputs에 넣습니다. Boolean의 뜻은 바꾸지 않습니다.',
+    'a-valid': 'validity가 False인 padding record를 제거합니다. 이는 값 변환이 아니라 실제 기록과 빈 공간을 구분하는 검사입니다.',
+    'a-registry': '보존된 외부 object ID 목록을 기준으로 새 Target runtime의 obj_id_to_idx와 obj_idx_to_id를 생성합니다.',
+    'a-object-align': 'Source 내부 index에 연결돼 있던 prompt와 tracking 기록을 외부 object ID를 매개로 새 Target index에 다시 연결합니다.',
+    't-images': '원본 비디오의 내용과 frame 순서는 유지하지만, 이 필드의 tensor는 Target runtime이 자신의 전처리 설정으로 준비합니다. 전환 이후 추론과 과거 correction replay가 같은 원본 RGB를 사용합니다.',
+    't-num-frames': 'Target이 연 비디오의 전체 frame 수입니다. Source metadata와 같아야 하며, Source 값으로 덮어쓰지 않고 일치 여부를 검사합니다.',
+    't-video-height': 'Target이 연 원본 비디오의 높이입니다. Source 계약값과 비교해 다른 영상에 state가 주입되는 것을 막습니다.',
+    't-video-width': 'Target이 연 원본 비디오의 너비입니다. Source 계약값과 비교해 다른 영상에 state가 주입되는 것을 막습니다.',
+    't-offload-video': '전처리된 video frame tensor를 GPU에 계속 둘지 CPU로 옮겨 VRAM을 절약할지 정하는 Target Boolean 설정입니다.',
+    't-offload-state': '완료된 mask와 memory state를 GPU에 계속 둘지 CPU로 옮길지 정하는 Target Boolean 설정입니다.',
+    't-device': 'Target 모델이 image encoder, memory attention, mask decoder 연산을 실행하는 장치입니다. 예: cuda:0.',
+    't-storage-device': '완료된 pred_masks와 memory record를 보관하는 장치입니다. offload_state_to_cpu가 켜지면 일반적으로 CPU가 됩니다.',
+    't-cached-features': 'Target image encoder가 특정 frame에서 계산한 image feature cache입니다. Small feature를 복사하지 않고 Base+가 원본 RGB로 새로 만듭니다.',
+    't-constants': 'Target memory grid에 맞춰 Target이 만든 mask memory positional encoding cache입니다. Source PE를 복사하지 않습니다.',
+    't-obj-ids': 'Source에서 보존한 외부 object ID 목록입니다. 사용자에게 보이는 객체 이름·번호는 handoff 전후 동일하게 유지됩니다.',
+    't-id-to-idx': '외부 object ID에서 새 Target 내부 index를 찾는 표입니다. 새 runtime에서 생성합니다.',
+    't-idx-to-id': '새 Target 내부 index에서 외부 object ID를 찾는 역방향 표입니다. 새 runtime에서 생성합니다.',
+    't-output-root': '객체별로 완료된 conditioning/non-conditioning record를 보관하는 Target의 중첩 dictionary입니다. CanonicalState의 tensor와 metadata를 다시 조립해 만듭니다.'
+  };
+
   const edgeNotes = {
     's-spatial>a-grid': 'Source 공간 기억의 H×W를 Target memory grid와 비교합니다. 다르면 bilinear interpolation으로 맞추고, 현재 Small→Base+처럼 같으면 그대로 통과합니다.',
     'a-grid>a-spatial': '크기가 정렬된 공간 기억만 learned head에 넘깁니다. 따라서 MLP는 위치 크기 문제가 아니라 채널별 표현 의미를 학습합니다.',
@@ -574,7 +621,9 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     'a-route>t-cond-root': 'true인 record를 conditioning history에 넣어 사용자가 직접 지정한 강한 기준 기억으로 유지합니다.',
     'a-route>t-noncond-root': 'false인 record를 non-conditioning history에 넣어 모델이 스스로 만든 일반 추적 기억으로 유지합니다.',
     's-validity>a-valid': 'padding으로 채운 빈 slot은 Target history에 들어가지 않도록 걸러냅니다.',
-    's-object-ids>a-registry': '사용자가 식별하는 외부 object ID를 기준으로 Target의 새 물체 등록부를 만듭니다.',
+    's-object-ids>a-id-copy': '사용자가 식별하는 외부 object ID의 값과 목록 순서를 바꾸지 않고 보존합니다.',
+    'a-id-copy>t-obj-ids': '보존한 외부 ID 목록을 Target obj_ids로 그대로 설정합니다.',
+    'a-id-copy>a-registry': '동일한 외부 ID 목록을 입력으로 사용하되 내부 index 표는 새 Target runtime용으로 다시 만듭니다.',
     's-object-indices>a-object-align': 'Source 내부 index를 이용해 그 물체에 딸린 prompt와 tracking 기록을 정확한 Target slot에 연결합니다.',
     'a-registry>t-id-to-idx': '외부 object ID에서 Target 내부 index를 찾는 정방향 표를 새로 만듭니다.',
     'a-registry>t-idx-to-id': 'Target 내부 index에서 외부 object ID를 찾는 역방향 표를 새로 만듭니다.',
@@ -644,6 +693,15 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     const field = row.querySelector('code')?.textContent?.trim() || id;
     const meaning = row.querySelector('.meaning')?.textContent?.trim();
     return meaning ? `${field} (${meaning})` : field;
+  }
+
+  function showNodeDetail(id) {
+    selectedEdgeIndex = null;
+    root.querySelector('[data-detail-mode]').textContent = 'State 설명';
+    root.querySelector('[data-detail-title]').textContent = nodeText(id);
+    root.querySelector('[data-detail-text]').textContent =
+      nodeDetails[id] || '이 항목은 지도에 표시된 화살표를 선택하면 입력값, 처리 방식과 도착 위치를 확인할 수 있습니다.';
+    updateSelectedEdge();
   }
 
   function showEdgeDetail(edge, index) {
