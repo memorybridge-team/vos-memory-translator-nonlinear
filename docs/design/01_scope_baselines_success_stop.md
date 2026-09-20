@@ -28,7 +28,13 @@ Small이 frame `t`까지 축적한 객체별 memory/state를 nonlinear translato
 - 각 방법의 전달 bytes, 재처리 frame 수, wall time, peak VRAM을 정확도와 함께 기록한다.
 - 입력 정보가 서로 다른 방법을 같은 이름으로 부르지 않는다. 특히 `Last-Mask`, `Last-Visible`, `Replay-k`, `Original+Replay-k`를 구분한다.
 
-## 3. 확정 Baseline
+## 3. 최종 Baseline
+
+이 절의 **주 비교군**은 아래 표에 명시한 항목으로 한정한다. 이는 팀이 합의한
+`Source-only → Target-native/Full Replay → Direct State Copy → 객체별 anchor
+재인코딩 → Original+Replay-k → Nonlinear Translator` 구조다. `All Original
+Prompts`, `Translation + Short Replay`, Target Reset은 주 비교군의 성능을 대신하는
+항목이 아니라, interaction 또는 구현 실패를 해석하기 위한 선택적 분석으로 분리한다.
 
 ### 3.1 전환 필요성과 참조 성능
 
@@ -45,7 +51,6 @@ Base+-native가 Source-only보다 유리하지 않은 slice에서는 Small→Bas
 |---|---|---|---|
 | **Direct State Copy** | Small의 `maskmem_features`, `obj_ptr`, presence와 필수 discrete history/metadata. Target PE는 Base+ 정책으로 생성 | 학습된 번역이 정말 필요한가? | source memory bank에 등록된 모든 객체 |
 | **Nonlinear Translator** | Direct와 동일한 complete state 범위를 component별 nonlinear mapper로 변환 | 제안 방식이 실제 후속 성능을 개선하는가? | Direct와 완전히 동일 |
-| **Translation + Short Replay** | 번역된 complete state와 최근 RGB `k`장 | source 정보 손실을 적은 replay로 보완할 수 있는가? | 번역 state가 모든 등록 객체를 보장 |
 
 Direct와 Translator의 차이는 learned mapping뿐이어야 한다. Direct에서 field를 빼고 Translator에서만 추가하지 않는다.
 
@@ -54,7 +59,6 @@ Direct와 Translator의 차이는 learned mapping뿐이어야 한다. Direct에�
 | 비교군 | Target에 주는 데이터 | 답하는 질문 | 부재·late-prompt 처리 |
 |---|---|---|---|
 | **Original-Prompt(s) Only** | 객체별 최초 실제 prompt와 해당 RGB/frame ID | 처음 지정한 정보만으로 충분한가? | frame 0으로 고정하지 않는다. late-prompt 객체도 자기 최초 prompt를 받는다. |
-| **All Original Prompts** | switch 이전의 실제 prompt와 correction 전체 | 사용자 interaction history만으로 충분한가? | correction이 있는 실험에서 별도 변형으로 사용한다. |
 | **Last-Visible Source Mask** | 객체별 마지막 비어 있지 않은 source 예측 mask와 해당 RGB/frame ID | 각 객체의 최신 유효 관측 하나면 충분한가? | switch 직전 부재해도 그 객체의 마지막 관측을 찾는다. 없으면 Original로 fallback하고 횟수를 보고한다. |
 | **Original + Last-Visible** | 위 두 anchor의 합집합 | 신뢰 가능한 최초 지정과 최신 관측의 조합이면 충분한가? | 중복 `(object, frame)`은 한 번만 처리한다. |
 
@@ -66,11 +70,27 @@ Original과 Last-Visible은 각각 따로 평가한다. 결합군이 단독군�
 |---|---|---|---|
 | **Original-Prompt(s) + Replay-k** | 모든 객체의 original anchor와 switch 전 최근 RGB `k`장, 창 안의 실제 correction | 객체 등록을 보장한 짧은 재처리로 충분한가? | 주요 실용 경쟁군 |
 | **Recent-Window Replay-k** | 창 시작점의 source 예측 mask와 최근 RGB `k`장 | SAM 2의 최근 memory read와 비슷한 저비용 근사가 언제 통하는가? | 진단군. 최근 창에 없는 객체를 완전하게 전달한다고 보지 않는다. |
-| **Last-Mask** | switch frame의 객체별 source 예측 mask | switch 순간 mask 하나로 충분한가? | 진단군. 객체가 부재하면 빈 mask가 되는 약점 자체가 조건 분석 대상이다. |
+| **Last-Mask (= Replay-1)** | switch 직전 frame의 객체별 source 예측 mask와 그 frame의 RGB | switch 순간의 최신 예측 하나로 충분한가? | 진단군. 객체가 부재하면 빈 mask가 되는 약점 자체가 조건 분석 대상이다. |
 
 `Replay-k`는 임의의 객체를 고르는 방법이 아니라 **시간 기준 최근 창의 효과와 비용**을 측정하는 방법이다. 모든 객체의 정보 보장을 요구하는 주 비교군은 `Original-Prompt(s)+Replay-k`다. 최근 관측 의존성이 강한 영상에서만 성능이 좋을 수 있으므로 전체 manifest에서 실행한 뒤 사건별 결과를 나눈다.
 
-### 3.5 진단군과 정확성 검사
+**Last-Mask와 Replay-1의 동일성 규칙.** Recent-Window Replay가 switch 직전
+source prediction을 seed로 삼고 최근 RGB를 정확히 `k`장 재인코딩하는 구현이라면,
+`k=1`은 Last-Mask와 같은 RGB·mask·frame ID를 target에 주므로 **동일한 방법**이다.
+표와 결과에서는 `Last-Mask (= Replay-1)` 한 행만 사용해 중복 비교하지 않는다.
+단, Replay-1이 별도의 target-native state, 다른 seed frame, 또는 추가 prompt를 받는
+구현이면 입력이 달라지므로 Last-Mask라고 부르지 않고 별도 방법으로 기록한다.
+
+### 3.5 선택적 분석 (주 비교군이 아님)
+
+- **All Original Prompts:** correction이 있는 영상에서, switch 이전의 모든 실제
+  prompt/correction을 target에 재적용한다. Original-Prompt(s) Only의 의미를 바꾸지
+  않기 위한 interaction-history 민감도 분석이다.
+- **Translation + Short Replay:** 번역된 complete state에 최근 RGB `k`장을 더해
+  source가 이미 버린 정보를 짧은 replay로 보완하는 hybrid다. translation-only가
+  부족할 때의 후속 방법이며, 주 비교군을 통과한 뒤 Pareto 분석에서만 평가한다.
+
+### 3.6 진단군과 정확성 검사
 
 | 항목 | 역할 |
 |---|---|
