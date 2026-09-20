@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="CMMT CanonicalState에서 Target SAM 2 inference_state로 조립되는 전체 필드와 처리 방식 지도">
-<title>CMMT State Assembly Map</title>
+<meta name="description" content="CMMT CanonicalState의 자동 handoff와 correction replay fallback을 포함한 Target SAM 2 상태 조립 지도">
+<title>CMMT State Assembly & Correction Map</title>
 <style>
 :root {
   color-scheme: light dark;
@@ -54,14 +54,32 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
 <body>
 <div id="cmmt-state-map">
   <h2>CMMT CanonicalState → Target SAM 2 조립 지도</h2>
-  <p class="text-muted">현재 프로젝트의 <code>cmmt.canonical_state.v1</code>과 고정 SAM 2.1 predictor 기준입니다. 선을 선택하면 해당 조립 방식만 강조됩니다.</p>
+  <p class="text-muted">현재 프로젝트의 <code>cmmt.canonical_state.v1</code>과 고정 SAM 2.1 predictor 기준입니다. 핵심 translator와 correction 발생 시의 replay fallback을 분리해 표시합니다.</p>
+
+  <section class="handoff-paths" aria-labelledby="handoff-paths-title">
+    <h3 id="handoff-paths-title">실행 모드</h3>
+    <div class="path-grid">
+      <article class="path-card">
+        <strong>Correction 없음</strong>
+        <p><code>maskmem_features</code>와 <code>obj_ptr</code>만 학습 변환하고, Target이 <code>maskmem_pos_enc</code>를 생성합니다. 과거 RGB replay 없이 <code>t+1</code>부터 진행합니다.</p>
+      </article>
+      <article class="path-card">
+        <strong>전환 이후 correction</strong>
+        <p>현재 RGB와 새 prompt를 Target에 넣습니다. Target이 새 <code>pred_masks</code>, presence score, memory를 만들며 과거 구간 replay는 필요 없습니다.</p>
+      </article>
+      <article class="path-card">
+        <strong>전환 이전 correction</strong>
+        <p>저장된 RGB와 prompt timeline으로 안전한 기준점부터 Target replay를 수행합니다. 수정 지점 이후의 기존 translated history는 Target-native history로 교체합니다.</p>
+      </article>
+    </div>
+  </section>
 
   <div class="viz-controls" aria-label="연결 방식 필터">
     <button class="btn btn-primary" type="button" data-filter="all" aria-pressed="true">전체</button>
     <button class="btn btn-ghost" type="button" data-filter="adapter" aria-pressed="false"><span class="legend-line adapter"></span>Grid adapter</button>
     <button class="btn btn-ghost" type="button" data-filter="learned" aria-pressed="false"><span class="legend-line learned"></span>학습 변환</button>
     <button class="btn btn-ghost" type="button" data-filter="preserve" aria-pressed="false"><span class="legend-line preserve"></span>그대로 보존</button>
-    <button class="btn btn-ghost" type="button" data-filter="support" aria-pressed="false"><span class="legend-line support"></span>보조 history</button>
+    <button class="btn btn-ghost" type="button" data-filter="support" aria-pressed="false"><span class="legend-line support"></span>사용자 기록·UI</button>
     <button class="btn btn-ghost" type="button" data-filter="regenerate" aria-pressed="false"><span class="legend-line regenerate"></span>Target 재생성</button>
     <button class="btn btn-ghost" type="button" data-filter="control" aria-pressed="false"><span class="legend-line control"></span>재구성·검증</button>
     <button class="btn btn-ghost" type="button" data-filter="runtime" aria-pressed="false"><span class="legend-line runtime"></span>Target 자체 준비</button>
@@ -103,8 +121,9 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   <div class="map-notes text-small">
     <strong>읽는 법:</strong> 왼쪽 값이 가운데 조립 규칙을 거쳐 오른쪽 필드가 됩니다. <code>switch_frame</code>은 Target 필드로 복사되지 않고 <code>t+1</code> 시작점을 정합니다. Source PE·device·provenance는 검사에는 남지만 Target 실행값으로 주입되지 않습니다.<br>
     <strong>기록 수와 읽기 수:</strong> CanonicalState는 전환 시점까지의 유효 record를 보존합니다. <code>K</code>는 저장 record 축이며 SAM 2의 한 추론 step에서 선택해 읽는 <code>num_maskmem</code>과 같은 뜻이 아닙니다.<br>
-    <strong>장치 정책:</strong> 번역·조립된 <code>maskmem_features</code>와 <code>pred_masks</code>는 Target <code>storage_device</code>로, <code>obj_ptr</code>·presence score·Target PE는 Target compute/device 정책으로 이동합니다. Source device 문자열을 복사하지 않습니다.<br>
-    <strong>pred_masks:</strong> 일반 memory attention의 핵심 입력이 아니라 predictor history와 prompt correction을 이어 주는 continuation payload입니다.
+    <strong>장치 정책:</strong> 번역·조립된 <code>maskmem_features</code>는 Target <code>storage_device</code>로, <code>obj_ptr</code>와 Target PE는 Target compute/device 정책으로 이동합니다. Source device 문자열을 복사하지 않습니다.<br>
+    <strong>예측 기록:</strong> Source <code>pred_masks</code>는 화면 검토용 archive로만 그대로 보존하며 Target decoder의 refinement 입력으로 주입하지 않습니다. 새 mask와 <code>object_score_logits</code>는 Target이 새 frame 또는 replay에서 생성합니다.<br>
+    <strong>Correction 정책:</strong> 전환 이전 frame을 수정하면 원본 RGB와 prompt timeline을 사용해 안전한 기준점부터 Target replay합니다. <code>pred_masks</code> 번역만으로 수정 이후 history의 일관성을 복원할 수 없습니다.
   </div>
 </div>
 
@@ -115,6 +134,20 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   }
   #cmmt-state-map h2 { margin: 0 0 0.35rem; }
   #cmmt-state-map > p { margin: 0 0 0.8rem; }
+  #cmmt-state-map .handoff-paths { margin: 0 0 0.9rem; }
+  #cmmt-state-map .handoff-paths h3 { margin: 0 0 0.45rem; font-size: 1rem; }
+  #cmmt-state-map .path-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+  #cmmt-state-map .path-card {
+    padding: 0.7rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.55rem;
+    background: var(--card);
+  }
+  #cmmt-state-map .path-card p { margin: 0.35rem 0 0; color: var(--muted-foreground); }
   #cmmt-state-map .viz-controls { margin-bottom: 0.85rem; }
   #cmmt-state-map .btn { display: inline-flex; align-items: center; gap: 0.4rem; }
   #cmmt-state-map .legend-line {
@@ -251,6 +284,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   }
 
   @media (max-width: 760px) {
+    #cmmt-state-map .path-grid { grid-template-columns: 1fr; }
     #cmmt-state-map .map-stage {
       grid-template-columns: 1fr;
       gap: 70px;
@@ -278,8 +312,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   const sourceGroups = [
     ['학습 변환 대상', [
       ['s-spatial', 'spatial_memory', 'maskmem_features'],
-      ['s-pointer', 'object_pointer', 'obj_ptr'],
-      ['s-presence', 'presence_logits', 'object_score_logits']]],
+      ['s-pointer', 'object_pointer', 'obj_ptr']]],
     ['기억의 위치·순서', [
       ['s-frame-indices', 'frame_indices', '각 기억의 프레임'],
       ['s-slot-order', 'slot_order', 'record 조립 순서'],
@@ -293,12 +326,13 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     ['위치정보 정책', [
       ['s-pos-policy', 'positional_information.policy', 'Target 재생성 정책'],
       ['s-pos-records', 'positional_information.records', 'Source PE 관측본']]],
-    ['보조 history와 계약', [
+    ['사용자 기록·표시 archive', [
       ['s-meta-source', 'metadata.source', '출처 기록'],
       ['s-tracked', 'metadata.frames_tracked_per_obj', '추적 진행 기록'],
       ['s-points', 'metadata.preserved_inputs.point_inputs_per_obj', 'point/box prompt'],
       ['s-masks', 'metadata.preserved_inputs.mask_inputs_per_obj', 'mask prompt'],
-      ['s-pred-masks', 'metadata.preserved_pred_masks', '이전 예측 mask'],
+      ['s-pred-masks', 'metadata.preserved_pred_masks', 'Source 화면 표시용'],
+      ['s-presence', 'presence_logits', 'Source 진단 기록'],
       ['s-num-frames', 'metadata.num_frames', '전체 frame 수'],
       ['s-video-height', 'metadata.video_height', '원본 높이'],
       ['s-video-width', 'metadata.video_width', '원본 너비'],
@@ -312,19 +346,22 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     ['학습 모듈', [
       ['a-grid', 'Spatial grid adapter', '필요할 때만 H×W 정렬'],
       ['a-spatial', 'Spatial nonlinear head', '제안 translator'],
-      ['a-pointer', 'Pointer nonlinear head', '제안 translator'],
-      ['a-presence', 'Presence policy head', 'direct·calibrate·nonlinear·ablate']]],
+      ['a-pointer', 'Pointer nonlinear head', '제안 translator']]],
     ['History materializer', [
       ['a-order', 'Record materializer', 'frame·slot 순서 복원'],
       ['a-route', 'Cond/non-cond router', '기록 종류별 분기'],
       ['a-valid', 'Validity filter', '유효 slot만 복원'],
-      ['a-pred', 'Prediction history restorer', 'pred_masks 복원']]],
+      ['a-archive', 'Source prediction archiver', 'UI 기록만 보존']]],
     ['Registry 조립', [
       ['a-registry', 'Object registry rebuild', 'Target index 새로 부여'],
       ['a-object-align', 'Source→Target slot aligner', 'prompt·tracking 정렬']]],
     ['Target 정책', [
       ['a-cutoff', 'Continuation boundary', '다음 시작점 t+1'],
       ['a-pe', 'Target positional factory', 'Target PE 생성']]],
+    ['Correction controller', [
+      ['a-correction-route', 'Correction time router', '전환 전·후 분기'],
+      ['a-replay', 'Target replay fallback', '과거 RGB·prompt 재처리'],
+      ['a-target-write', 'Target-native record writer', '새 결과로 history 교체']]],
     ['검증·비전송', [
       ['a-contract', 'Video contract validator', '길이·해상도 일치 검사'],
       ['a-schema', 'Schema validator', '지원 schema 확인'],
@@ -336,7 +373,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
 
   const targetGroups = [
     ['Target runtime 자체 준비', [
-      ['t-images', 'images', '앞으로 읽을 영상'],
+      ['t-images', 'images', '미래 추론·correction replay용 원본 영상'],
       ['t-num-frames', 'num_frames', 'Target 영상에서 산출'],
       ['t-video-height', 'video_height', 'Target 영상에서 산출'],
       ['t-video-width', 'video_width', 'Target 영상에서 산출'],
@@ -360,16 +397,21 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
       ['t-cond-frame', '   │  └─ frame index', 'dictionary key'],
       ['t-cond-memory', '   │     ├─ maskmem_features', 'translated'],
       ['t-cond-pos', '   │     ├─ maskmem_pos_enc', 'target-generated'],
-      ['t-cond-pred', '   │     ├─ pred_masks', 'preserved'],
-      ['t-cond-pointer', '   │     ├─ obj_ptr', 'translated'],
-      ['t-cond-score', '   │     └─ object_score_logits', 'policy-selected'],
+      ['t-cond-pointer', '   │     └─ obj_ptr', 'translated'],
       ['t-noncond-root', '   └─ non_cond_frame_outputs', 'non-conditioning history'],
       ['t-noncond-frame', '      └─ frame index', 'dictionary key'],
       ['t-noncond-memory', '         ├─ maskmem_features', 'translated'],
       ['t-noncond-pos', '         ├─ maskmem_pos_enc', 'target-generated'],
-      ['t-noncond-pred', '         ├─ pred_masks', 'preserved'],
-      ['t-noncond-pointer', '         ├─ obj_ptr', 'translated'],
-      ['t-noncond-score', '         └─ object_score_logits', 'policy-selected']]],
+      ['t-noncond-pointer', '         └─ obj_ptr', 'translated']]],
+    ['Target가 새로 생성하는 record', [
+      ['t-new-pred', 'pred_masks', '새 frame·replay에서 Target 생성'],
+      ['t-new-score', 'object_score_logits', '새 frame·replay에서 Target 생성'],
+      ['t-new-memory', 'maskmem_features · obj_ptr · PE', 'Target-native memory write']]],
+    ['CMMT 외부 표시 archive', [
+      ['t-source-pred-archive', 'source_prediction_archive', 'Source 결과 표시 전용·추론 비주입']]],
+    ['Correction 실행 정책', [
+      ['t-forward-correction', 'frame ≥ switch: Target correction', '현재 RGB·prompt로 새 record'],
+      ['t-past-correction', 'frame < switch: replay fallback', '안전한 기준점부터 history 재생성']]],
     ['임시 interaction 결과', [
       ['t-temp-root', 'temp_output_dict_per_obj', '주입 시 비어 있음'],
       ['t-temp-cond', '├─ cond_frame_outputs', 'empty'],
@@ -413,9 +455,6 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   add('s-pointer', 'a-pointer', 'learned');
   add('a-pointer', 't-cond-pointer', 'learned');
   add('a-pointer', 't-noncond-pointer', 'learned');
-  add('s-presence', 'a-presence', 'learned');
-  add('a-presence', 't-cond-score', 'learned');
-  add('a-presence', 't-noncond-score', 'learned');
 
   add('s-frame-indices', 'a-order', 'preserve');
   add('s-slot-order', 'a-order', 'preserve');
@@ -438,6 +477,14 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
 
   add('s-switch-frame', 'a-cutoff', 'control');
   add('a-cutoff', 't-next', 'control');
+  add('a-cutoff', 'a-correction-route', 'control');
+  add('a-correction-route', 't-forward-correction', 'control');
+  add('a-correction-route', 'a-replay', 'control');
+  add('a-replay', 't-past-correction', 'regenerate');
+  add('a-replay', 'a-target-write', 'regenerate');
+  add('a-target-write', 't-new-pred', 'regenerate');
+  add('a-target-write', 't-new-score', 'regenerate');
+  add('a-target-write', 't-new-memory', 'regenerate');
 
   add('s-pos-policy', 'a-pe', 'regenerate');
   add('a-pe', 't-constants', 'regenerate');
@@ -451,9 +498,8 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   add('a-object-align', 't-points', 'support');
   add('s-masks', 'a-object-align', 'support');
   add('a-object-align', 't-masks', 'support');
-  add('s-pred-masks', 'a-pred', 'support');
-  add('a-pred', 't-cond-pred', 'support');
-  add('a-pred', 't-noncond-pred', 'support');
+  add('s-pred-masks', 'a-archive', 'support');
+  add('a-archive', 't-source-pred-archive', 'support');
 
   add('s-num-frames', 'a-contract', 'control');
   add('s-video-height', 'a-contract', 'control');
@@ -464,6 +510,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   add('s-schema', 'a-schema', 'control');
 
   add('s-meta-source', 'a-diagnostics', 'none');
+  add('s-presence', 'a-diagnostics', 'none');
   add('s-storage-device', 'a-diagnostics', 'none');
   add('s-compute-device', 'a-diagnostics', 'none');
   add('s-translation', 'a-diagnostics', 'none');
@@ -492,9 +539,9 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
       reason: '프레임 번호와 기록 종류는 의미를 추측해 바꾸면 안 되는 장부 정보입니다.'
     },
     support: {
-      label: '보조 history',
-      action: '번역하지 않고 Target predictor의 해당 history에 복원합니다',
-      reason: '신경망의 주 번역 대상은 아니지만 다음 조작과 추적을 정상적으로 이어가기 위해 필요합니다.'
+      label: '사용자 기록·UI',
+      action: '학습 변환 없이 사용자 입력 기록이나 외부 표시 archive로 보존합니다',
+      reason: 'prompt는 사용자 의도이므로 그대로 유지하고, Source pred_masks는 Target 추론과 분리해 과거 결과 표시에만 사용합니다.'
     },
     regenerate: {
       label: 'Target 재생성',
@@ -522,7 +569,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     's-spatial>a-grid': 'Source 공간 기억의 H×W를 Target memory grid와 비교합니다. 다르면 bilinear interpolation으로 맞추고, 현재 Small→Base+처럼 같으면 그대로 통과합니다.',
     'a-grid>a-spatial': '크기가 정렬된 공간 기억만 learned head에 넘깁니다. 따라서 MLP는 위치 크기 문제가 아니라 채널별 표현 의미를 학습합니다.',
     's-pointer>a-pointer': 'object pointer는 제안 방식에서 별도 nonlinear head로 번역합니다. identity/direct copy는 학습 head의 설명이 아니라 별도 baseline입니다.',
-    's-presence>a-presence': 'presence logit은 direct copy, scalar calibration, nonlinear mapping, 제거 ablation을 비교한 뒤 선택합니다. 아직 보정 방식 하나로 고정하지 않았습니다.',
+    's-presence>a-diagnostics': '과거 Source object_score_logits는 새 Target mask 예측의 memory read에 직접 사용하지 않습니다. 진단·재현 기록으로만 남기고 learned translator 입력에서는 제외합니다.',
     's-is-cond>a-route': '각 record의 true/false 표지를 읽어 사용자 기준 기억과 자동 추적 기억을 서로 다른 보관함으로 나눕니다.',
     'a-route>t-cond-root': 'true인 record를 conditioning history에 넣어 사용자가 직접 지정한 강한 기준 기억으로 유지합니다.',
     'a-route>t-noncond-root': 'false인 record를 non-conditioning history에 넣어 모델이 스스로 만든 일반 추적 기억으로 유지합니다.',
@@ -533,10 +580,18 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     'a-registry>t-idx-to-id': 'Target 내부 index에서 외부 object ID를 찾는 역방향 표를 새로 만듭니다.',
     's-switch-frame>a-cutoff': 'Source가 어디까지 처리했는지 t를 확정합니다. 과거 기록은 t까지만 포함하고 중복 처리를 막습니다.',
     'a-cutoff>t-next': 'Target의 첫 새 추론 프레임을 t+1로 정합니다. switch_frame 자체는 Target inference_state의 영구 필드가 아닙니다.',
+    'a-cutoff>a-correction-route': 'correction frame과 switch_frame을 비교해 전환 이후의 일반 Target correction인지, 전환 이전 history를 다시 만드는 replay fallback인지 결정합니다.',
+    'a-correction-route>t-forward-correction': '전환 이후 frame은 현재 RGB와 prompt를 Target에 넣어 새 record를 만들며 과거 구간 replay가 필요하지 않습니다.',
+    'a-correction-route>a-replay': '전환 이전 frame을 수정하면 translated history만 부분 수정하지 않고 원본 RGB와 prompt timeline을 사용하는 Target replay로 보냅니다.',
+    'a-replay>t-past-correction': '안전한 이전 checkpoint가 있으면 그 다음부터, 없으면 최초 필요한 conditioning frame부터 현재 시점까지 Target으로 다시 처리합니다.',
+    'a-target-write>t-new-pred': '새 frame과 correction replay의 pred_masks는 Source mask를 번역하지 않고 Target decoder가 생성합니다.',
+    'a-target-write>t-new-score': '새 object_score_logits는 Target이 해당 frame에서 새로 계산합니다. 과거 Source score의 수치 기준을 이어받지 않습니다.',
+    'a-target-write>t-new-memory': '새 mask 결과는 Target memory encoder를 거쳐 Target-native maskmem_features, obj_ptr, positional encoding으로 기록됩니다.',
     's-pos-policy>a-pe': 'Source positional tensor를 번역하지 말고 Target position module을 호출하라는 정책을 전달합니다.',
     'a-pe>t-constants': 'Target이 만든 positional encoding을 constants cache에 저장해 같은 grid에서 재사용합니다.',
     's-pos-records>a-diagnostics': 'Source에서 관측한 positional encoding은 비교와 문제 진단에는 쓸 수 있지만 Target PE로 주입하지 않습니다.',
-    's-pred-masks>a-pred': '과거 예측 mask를 learned head에 넣지 않고 record별로 보존합니다. 같은 프레임 prompt 수정과 predictor history 복원에 쓰입니다.',
+    's-pred-masks>a-archive': '과거 Source 예측 mask는 숫자를 바꾸지 않고 별도 표시 archive에 보존합니다. Target output_dict의 refinement logit으로 주입하지 않습니다.',
+    'a-archive>t-source-pred-archive': '사용자는 전환 이전 결과를 그대로 검토할 수 있지만, Target은 이 archive를 새 mask나 memory를 만드는 입력으로 읽지 않습니다.',
     's-num-frames>a-contract': 'Source가 기록한 전체 프레임 수와 Target이 연 영상을 비교합니다. 다르면 잘못된 영상으로 보고 주입을 중단합니다.',
     's-video-height>a-contract': 'Source와 Target 영상 높이가 같은지 확인합니다. 이 값은 Target 값을 덮어쓰지 않습니다.',
     's-video-width>a-contract': 'Source와 Target 영상 너비가 같은지 확인합니다. 이 값은 Target 값을 덮어쓰지 않습니다.',
