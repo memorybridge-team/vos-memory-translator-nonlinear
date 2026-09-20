@@ -26,7 +26,7 @@ Small이 frame `t`까지 축적한 객체별 memory/state를 nonlinear translato
 - 전체 평균과 함께 visible, GT-absent, occlusion, reappearance, distractor, fast motion, long absence를 나눠 보고한다.
 - 같은 영상의 여러 switch를 독립 영상처럼 세지 않고 video-clustered confidence interval을 사용한다.
 - 각 방법의 전달 bytes, 재처리 frame 수, wall time, peak VRAM을 정확도와 함께 기록한다.
-- 입력 정보가 서로 다른 방법을 같은 이름으로 부르지 않는다. 특히 `Last-Mask`, `Last-Visible`, `Replay-k`, `Original+Replay-k`를 구분한다.
+- 입력 정보가 서로 다른 방법을 같은 이름으로 부르지 않는다. 특히 `Last-Visible`과 `Original-Prompt(s)+Replay-k`를 구분한다.
 
 ## 3. 최종 Baseline
 
@@ -68,18 +68,21 @@ Original과 Last-Visible은 각각 따로 평가한다. 결합군이 단독군�
 
 | 비교군 | Target에 주는 데이터 | 답하는 질문 | 위치 |
 |---|---|---|---|
-| **Original-Prompt(s) + Replay-k** | 모든 객체의 original anchor와 switch 전 최근 RGB `k`장, 창 안의 실제 correction | 객체 등록을 보장한 짧은 재처리로 충분한가? | 주요 실용 경쟁군 |
-| **Recent-Window Replay-k** | 창 시작점의 source 예측 mask와 최근 RGB `k`장 | SAM 2의 최근 memory read와 비슷한 저비용 근사가 언제 통하는가? | 진단군. 최근 창에 없는 객체를 완전하게 전달한다고 보지 않는다. |
-| **Last-Mask (= Replay-1)** | switch 직전 frame의 객체별 source 예측 mask와 그 frame의 RGB | switch 순간의 최신 예측 하나로 충분한가? | 진단군. 객체가 부재하면 빈 mask가 되는 약점 자체가 조건 분석 대상이다. |
+| **Original-Prompt(s) + Replay-4** | 모든 객체의 original anchor와 switch 전 최근 RGB 4장, 창 안의 실제 correction | 원래 객체 지정에 짧은 최신 문맥을 더하면 충분한가? | 주요 실용 경쟁군 |
+| **Original-Prompt(s) + Replay-8** | 모든 객체의 original anchor와 switch 전 최근 RGB 8장, 창 안의 실제 correction | SAM 2의 제한된 recent-memory horizon과 비슷한 길이의 문맥이 필요한가? | 주요 실용 경쟁군 |
+| **Original-Prompt(s) + Replay-16** | 모든 객체의 original anchor와 switch 전 최근 RGB 16장, 창 안의 실제 correction | 더 긴 최근 문맥이 accuracy–cost trade-off를 계속 개선하는가? | 주요 실용 경쟁군 |
 
-`Replay-k`는 임의의 객체를 고르는 방법이 아니라 **시간 기준 최근 창의 효과와 비용**을 측정하는 방법이다. 모든 객체의 정보 보장을 요구하는 주 비교군은 `Original-Prompt(s)+Replay-k`다. 최근 관측 의존성이 강한 영상에서만 성능이 좋을 수 있으므로 전체 manifest에서 실행한 뒤 사건별 결과를 나눈다.
+이 세 방법에서 `Replay-k`는 임의의 객체를 고르는 방식이 아니라 **시간 기준 최근 RGB
+창을 target이 다시 처리하는 비용**이다. 모든 switch 이전 등록 객체는 객체별 original
+anchor로 먼저 보장하고, 이후 최근 창을 시간순으로 재처리한다. 즉, 최근 창에 특정 객체가
+없어도 그 객체의 등록 정보 자체는 빠지지 않는다.
 
-**Last-Mask와 Replay-1의 동일성 규칙.** Recent-Window Replay가 switch 직전
-source prediction을 seed로 삼고 최근 RGB를 정확히 `k`장 재인코딩하는 구현이라면,
-`k=1`은 Last-Mask와 같은 RGB·mask·frame ID를 target에 주므로 **동일한 방법**이다.
-표와 결과에서는 `Last-Mask (= Replay-1)` 한 행만 사용해 중복 비교하지 않는다.
-단, Replay-1이 별도의 target-native state, 다른 seed frame, 또는 추가 prompt를 받는
-구현이면 입력이 달라지므로 Last-Mask라고 부르지 않고 별도 방법으로 기록한다.
+`k={4,8,16}`은 짧은 문맥, 기본 SAM 2 recent-memory 범위와 비슷한 문맥, 그보다 긴
+문맥을 각각 나타내도록 고정한다. `8`은 SAM 2 memory bank와 같은 계산을 재현한다는
+뜻이 아니라, `num_maskmem=7` 주변의 최근 문맥 길이를 점검하기 위한 실용적인 중간점이다.
+`k=1`/Last-Mask와 original anchor 없이 최근 창만 재처리하는 Recent-Window Replay-k는
+입력 정보가 너무 약하고 객체 coverage를 보장하지 않으므로 **최종 비교군에서 제외**한다.
+이 방법들은 이후에도 결과 표·평균·Pareto 순위에 넣지 않는다.
 
 ### 3.5 선택적 분석 (주 비교군이 아님)
 

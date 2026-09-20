@@ -13,7 +13,7 @@
 - Model: 공식 SAM 2.1 Small → Base+ 한 방향. 같은 revision의 코드와 각각의 checkpoint를 사용한다.
 - Dataset: DAVIS 2017로 구현과 초기 검증, MOSEv2로 복잡한 장면·재등장, LVOS v2로 장기 추적을 평가한다. 세 데이터셋은 논문 범위에 포함된다.
 - Method: nonlinear. 첫 모델은 component-wise residual MLP. 필요성을 검증하며 gated MLP와 slot/context attention을 비교한다. 새로운 Linear/Ridge 학습은 범위가 아니다.
-- Baseline: Source-only, Base+-native/Full Replay, Direct Copy, 객체별 Original-Prompt, Last-Visible Source Mask, Original+Last-Visible, Original+Replay-k. Last-Mask/최근 Replay-k/Empty-reset proxy는 진단군으로 유지한다.
+- Baseline: Source-only, Base+-native/Full Replay, Direct Copy, 객체별 Original-Prompt, Last-Visible Source Mask, Original+Last-Visible, Original-Prompt(s)+Replay-4/8/16, Nonlinear Translator. Last-Mask와 original anchor 없는 Recent-Window Replay-k는 최종 비교군에서 제외한다. Empty-reset proxy는 구현 진단군으로만 유지한다.
 - 기간: [대한전자공학회 2026 추계학술대회](https://conf.theieie.org/2026f/pages/outlines.vm)의 논문 제출일은 2026-10-19로 확인했다. 정확한 마감 시각·시간대와 업로드 형식은 제출 화면에서 재확인한다. 일정은 필요한 데이터셋·사례·반복 횟수를 줄이는 상한이 아니다. 추가 GPU·작업 자원과 재개 가능한 실행으로 규모를 유지한다.
 
 ## 3. 확인된 기술 사실
@@ -112,7 +112,9 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 
 ## 16. 2026-09-20 Task 01·02 동결과 Notion 자동 기록 권한
 
-- **[결정]** Task 01의 baseline을 전환 참조군, state 번역군, 객체별 anchor 재인코딩군, replay군, 진단/정확성 검사로 분리해 동결했다. 모든 비교군은 같은 등록 객체·prompt timeline·switch manifest를 사용하고 미래 GT를 입력으로 쓰지 않는다. `Original+Replay-k`는 모든 객체의 등록 정보를 보장하는 주요 경쟁군, recent-window Replay-k와 Last-Mask는 조건 의존 진단군이다.
+- **[결정]** Task 01의 baseline을 전환 참조군, state 번역군, 객체별 anchor 재인코딩군, replay군, 진단/정확성 검사로 분리해 동결했다. 모든 비교군은 같은 등록 객체·prompt timeline·switch manifest를 사용하고 미래 GT를 입력으로 쓰지 않는다. `Original-Prompt(s)+Replay-{4,8,16}`은 모든 객체의 등록 정보를 보장하는 주요 경쟁군이다.
 - **[결정]** 성공은 Base+-native의 전환 필요성, Direct/강한 anchor·replay 대비 downstream improvement, Full Replay 대비 비용 절감을 순서대로 판정한다. 무결성 오류는 즉시 수정 gate, Base+ 이득 부재·Direct 충분성·anchor/replay 지배·downstream 개선 부재는 주장 중단 또는 hybrid 전환 조건이다.
 - **[완료]** `docs/design/01_scope_baselines_success_stop.md`와 `docs/design/small_base_state_io_contract.md`를 각각 Task 01·02의 frozen v1.0 산출물로 지정했다. Task 06의 edge-case continuation은 02 완료 조건에서 분리한다.
 - **[지속 권한]** 사용자는 핵심 연구 산출물을 별도 요청 없이 Notion Documents의 `모델API&실험`에 자동 업로드하도록 승인했다. 단순 로그·cache는 올리지 않고 링크만 남기며, 다른 Notion 영역 수정 권한으로 확장하지 않는다.
+- **[결정, 2026-09-20]** `Last-Mask`와 `Recent-Window Replay-1`은 switch 직전 source mask와 동일 RGB/frame을 target에 재인코딩하는 동일 입력 규칙일 때 같은 방법이다. 최종 baseline 표에서는 `Last-Mask (= Replay-1)` 한 행으로만 보고한다. 다른 seed·추가 prompt·target-native state를 쓰는 Replay-1은 별도 방법으로 기록한다. `All Original Prompts`와 `Translation + Short Replay`는 주 비교군이 아니라 interaction/hybrid 선택 분석으로 분리했다.
+- **[결정, 2026-09-20 — 최신]** `Last-Mask (= Replay-1)`과 original anchor 없이 최근 RGB만 재처리하는 `Recent-Window Replay-k`는 객체 coverage가 약해 최종 비교군에서 제거했다. 최신 정보의 효과는 모든 등록 객체의 original prompt를 먼저 보장한 `Original-Prompt(s)+Replay-4/8/16`으로만 측정한다. 4·8·16은 각각 짧은, SAM 2 recent-memory 범위 근방의 중간, 더 긴 문맥을 나타내는 사전 고정 k 값이다.
