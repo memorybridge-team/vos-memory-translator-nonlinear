@@ -1,6 +1,6 @@
 # 01 연구 범위 동결: Baseline·성공 기준·중단 기준
 
-> 상태: **FROZEN v1.0 — 2026-09-20**  
+> 상태: **FROZEN v1.1 — 2026-09-21**
 > 적용 범위: SAM 2.1 Small → Base+, DAVIS 2017·MOSEv2·LVOS v2, nonlinear state translator  
 > 목적: Project task 01의 연구 질문과 판정 규칙을 실험 결과를 보기 전에 고정한다.
 
@@ -49,10 +49,19 @@ Base+-native가 Source-only보다 유리하지 않은 slice에서는 Small→Bas
 
 | 비교군 | 전달 데이터 | 답하는 질문 | 객체 정보 범위 |
 |---|---|---|---|
-| **Direct State Copy** | Small의 `maskmem_features`, `obj_ptr`, presence와 필수 discrete history/metadata. Target PE는 Base+ 정책으로 생성 | 학습된 번역이 정말 필요한가? | source memory bank에 등록된 모든 객체 |
-| **Nonlinear Translator** | Direct와 동일한 complete state 범위를 component별 nonlinear mapper로 변환 | 제안 방식이 실제 후속 성능을 개선하는가? | Direct와 완전히 동일 |
+| **Direct State Copy** | Small의 `maskmem_features`와 `obj_ptr`를 값 변경 없이 복사하고, 필수 discrete history/metadata는 보존. Target PE는 Base+ 정책으로 생성 | 학습된 번역이 정말 필요한가? | source memory bank에 등록된 모든 객체 |
+| **Moment-Matched Copy** | 학습 split의 paired state에서 고정한 Source/Target별 평균·표준편차로 `maskmem_features`와 `obj_ptr`만 affine 보정. 나머지 payload와 Target PE 정책은 Direct와 동일 | 단순한 값 분포 차이만 보정해도 충분한가? | Direct와 완전히 동일 |
+| **Nonlinear Translator** | Direct와 동일한 complete state 범위에서 `maskmem_features`와 `obj_ptr`를 component별 nonlinear mapper로 변환 | 제안 방식이 단순 분포 보정보다 실제 후속 성능을 개선하는가? | Direct와 완전히 동일 |
 
-Direct와 Translator의 차이는 learned mapping뿐이어야 한다. Direct에서 field를 빼고 Translator에서만 추가하지 않는다.
+`object_score_logits`는 learned translator와 Moment-Matched Copy의 입력·출력이 아니며 진단 기록으로만 보존한다. `pred_masks`는 predictor history 복원용 payload이고, `maskmem_pos_enc`는 Target 정책으로 재생성한다.
+
+**Moment-Matched Copy 규칙.** 이 방법은 학습 파라미터가 없는 통계적 calibration baseline이다. spatial memory는 conditioning/non-conditioning별 **channel 단위**, object pointer는 conditioning/non-conditioning별 **dimension 단위**로, 유효 record만 사용해 학습 video의 paired state에서 `(μ_source, σ_source, μ_target, σ_target)`를 한 번 계산하고 고정한다. 각 test record에는 다음만 적용한다.
+
+```text
+x_target_like = ((x_source - μ_source) / max(σ_source, ε)) × σ_target + μ_target
+```
+
+test video의 Base+-native state, future frame, test-set 통계는 평균·표준편차 계산에 쓰지 않는다. 이 baseline은 handoff 시 과거 RGB replay를 수행하지 않으며, 통계 파일의 bytes와 runtime 변환 시간도 함께 기록한다.
 
 ### 3.3 객체별 anchor 재인코딩 대안
 

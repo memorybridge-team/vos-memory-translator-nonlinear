@@ -34,19 +34,20 @@ Base+를 Small의 메모리로 이어 쓰게 하는 것이 주 실험이다. Tin
 | Source-only | 전환하지 않은 Small state | 전환 필요성 참조 |
 | Base+-native / Full Replay | 과거 RGB와 실제 prompt timeline | target 직접 처리 참조 및 비용 |
 | Direct State Copy | Small memory·pointer·필요 metadata | 번역 자체 필요성 |
+| Moment-Matched Copy | 학습 split의 paired state로 고정한 component·conditioning별 평균·표준편차로 Small memory·pointer를 affine 보정 | 단순 분포 보정으로 충분한지 확인 |
 | Original-Prompt(s) Only | 객체별 처음 실제 prompt와 해당 RGB | 최초 지정 정보의 효과 |
 | Last-Visible Source Mask | 객체별 마지막 비어 있지 않은 Small 예측 mask와 해당 RGB | 최신 관측의 효과 |
 | Original + Last-Visible | 위 두 anchor | 조합의 효과 |
-| Original + Replay-k | 객체별 원래 anchor + 최근 RGB k장 | 제한된 재처리의 효과 |
-| Last-Mask / Recent Replay-k | switch mask 또는 최근 창의 source 예측 | 단순·저비용 진단 |
+| Original-Prompt(s) + Replay-4/8/16 | 객체별 원래 anchor + 최근 RGB 4/8/16장 | 객체 등록을 보장한 제한된 재처리의 효과 |
+| Nonlinear Translator | Small memory·pointer를 component별 nonlinear mapper로 변환 | 단순 복사·정규화보다 의미 변환이 필요한지 확인 |
 
-GT mask를 switch 시점에 새로 주지 않는다. Last-Visible 선택은 source의 과거 예측만 사용한다. 각 방법을 동일 manifest 전체에서 실행한 뒤 visible/absent/reappearance 특성별 결과를 나눈다. 같은 checkpoint export→inject는 경쟁군이 아니라 정확성 검사다. Empty-mask Reset은 현재 코드의 proxy임을 표기한다.
+GT mask를 switch 시점에 새로 주지 않는다. Last-Visible 선택은 source의 과거 예측만 사용한다. Moment-Matched Copy의 통계는 학습 split의 paired state로만 계산하며, test video·future frame·test target-native state는 쓰지 않는다. 각 방법을 동일 manifest 전체에서 실행한 뒤 visible/absent/reappearance 특성별 결과를 나눈다. 같은 checkpoint export→inject는 경쟁군이 아니라 정확성 검사다. Empty-mask Reset은 현재 코드의 proxy임을 표기한다.
 
 **산출물:** 각 비교군의 정보 입력·비용 정의, 동일 사례 결과표, 다객체/빈 mask 테스트, 누락 사례 없는 실행 로그.
 
 ## 3주차: Nonlinear 구조와 학습 비교
 
-1. 기존 component-wise residual MLP를 최소 재현 모델로 사용한다. Spatial, pointer, presence를 분리해 mask에 대한 영향을 측정한다.
+1. 기존 component-wise residual MLP를 최소 재현 모델로 사용한다. Spatial memory와 object pointer를 분리해 mask에 대한 영향을 측정한다. positional encoding은 Target에서 재생성하고 score logit은 진단 기록으로만 남긴다.
 2. Component별 scale·loss normalization과 validation 기반 stopping을 확인한다. State MSE와 후속 J&F를 함께 기록한다.
 3. Gated MLP를 두 번째 후보로 비교한다. 원본 source 정보와 변환량을 조절하는 gate가 실제 일반화에 도움이 되는지 본다.
 4. Slot/context attention을 세 번째 후보로 비교한다. 각 구조는 같은 train/validation split에서 비교하며 parameter 수·학습량·handoff 연산량을 함께 보고한다.

@@ -46,7 +46,7 @@ Small이 switch 시점 t까지 처리 → 객체별 source state 추출
 
 [4주 실험 계획](docs/experimental_plan.md)에 각 주의 산출물·중단 기준·평가 규칙이 있습니다. [GitHub 연구 업무 파이프라인](docs/github_task_workflow.md)은 Issue→Project→commit/PR→증거 검증→Done 순서를 정의하고, [Project #2 감사 기록](docs/project_board_audit_2026-09-19.md)은 `01 Scope → 20 Submission` 연구 뼈대와 카드별 완료 기준을 남깁니다. Issue와 PR은 이 20단계를 수행하는 추적·검토 수단이며 별도 연구 단계로 세지 않습니다. [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)는 새 작업자가 검증된 연구 문맥을 빠르게 파악하는 요약본입니다.
 
-주요 비교군은 Source-only, Base+-native/Full Replay, Direct State Copy, 객체별 Original-Prompt, Last-Visible Source Mask, 두 anchor의 결합, Original-Prompt+Replay-k입니다. Last-Mask와 최근 Replay-k도 같은 manifest에서 평가합니다. 모든 방법에 같은 객체·switch·미래 프레임을 사용합니다. 미래 GT는 평가에만 사용합니다.
+주요 비교군은 Source-only, Base+-native/Full Replay, Direct State Copy, Moment-Matched Copy, 객체별 Original-Prompt, Last-Visible Source Mask, 두 anchor의 결합, Original-Prompt(s)+Replay-4/8/16, Nonlinear Translator입니다. Moment-Matched Copy는 학습 split에서 고정한 평균·표준편차로 memory·pointer의 분포만 보정합니다. 모든 방법에 같은 객체·switch·미래 프레임을 사용하며, 미래 GT는 평가에만 사용합니다.
 
 Nonlinear 후보는 component-wise residual MLP, gated MLP, slot/context attention을 포함합니다. 각 구조를 동일 분할과 공정한 비용 계측으로 비교하고, 결과가 요구하면 추가 구조와 loss를 검토합니다.
 
