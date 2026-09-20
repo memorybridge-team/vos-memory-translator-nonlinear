@@ -229,7 +229,10 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     outline-offset: 2px;
   }
   #cmmt-state-map .field-row:last-child { border-bottom: 0; }
-  #cmmt-state-map .field-row code { overflow-wrap: anywhere; }
+  #cmmt-state-map .field-row code {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
   #cmmt-state-map .field-row .meaning { color: var(--muted-foreground); }
   #cmmt-state-map .field-row.is-dim { opacity: 0.22; }
   #cmmt-state-map .field-row.is-focus {
@@ -704,6 +707,22 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     updateSelectedEdge();
   }
 
+  function showModeDetail(mode) {
+    selectedEdgeIndex = null;
+    if (mode === 'all') {
+      root.querySelector('[data-detail-mode]').textContent = '전체 연결 방식';
+      root.querySelector('[data-detail-title]').textContent = '모든 state 처리 방식';
+      root.querySelector('[data-detail-text]').textContent =
+        '학습 변환은 표현 tensor를 바꾸고, 그대로 보존은 값의 의미를 유지합니다. 재구성·검증은 보존된 값을 어느 Target 위치에 둘지 정하며, Target 재생성은 Target 자신의 정책으로 새 값을 만드는 방식입니다.';
+    } else {
+      const detail = modeDetails[mode];
+      root.querySelector('[data-detail-mode]').textContent = detail.label;
+      root.querySelector('[data-detail-title]').textContent = detail.label;
+      root.querySelector('[data-detail-text]').textContent = `${detail.action} ${detail.reason}`;
+    }
+    updateSelectedEdge();
+  }
+
   function showEdgeDetail(edge, index) {
     selectedEdgeIndex = index;
     const detail = modeDetails[edge.mode];
@@ -817,6 +836,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
         peer.classList.toggle('btn-ghost', !active);
       });
       applyFilter(button.dataset.filter);
+      showModeDetail(button.dataset.filter);
     });
   });
 
