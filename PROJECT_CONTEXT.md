@@ -182,3 +182,9 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[확인]** PR branch에서 DAVIS `walking`에 object 1을 frame 0과 frame 5에 다시 prompt하고 switch frame 10을 적용한 same-checkpoint prompt-timeline round-trip을 실행했다.
 - **[확인]** Target injection 후 future 61 frames에서 mean MSE `0`, max error `0`, mean binary IoU `1.0`, peak CUDA memory 약 `0.98GB`, wall time 약 `46.5 s`로 통과했다.
 - **[해석]** 동일 checkpoint의 prompt correction history도 최소 handoff 계약으로 보존된다. 이는 cross-model nonlinear translator 성능이 아니라 Task 06 구현 gate 증거다. 여러 sequence/switch 및 Small→Base+ injection은 여전히 남아 있다.
+
+## 25. 2026-09-22 — Task 06 반복 switch 검증
+
+- **[확인]** 최신 `task/02-06-minimal-handoff-contract` (`94a818b`)를 RunPod 별도 worktree에서 실행했다. DAVIS `walking`, object 1, switch 30과 DAVIS `india`, object 3, switch 35의 Base+ same-checkpoint round-trip을 각각 수행했다.
+- **[결과]** 두 실행 모두 injection 중 과거 backbone call `0`, mean MSE `0`, max error `0`, mean binary IoU `1.0`이었다. `walking`은 후속 frame 31–71, wall time `41.39 s`, peak CUDA memory 약 `0.97GB`; `india`는 후속 frame 36–80, wall time `44.73 s`, peak CUDA memory 약 `0.97GB`였다.
+- **[해석]** 최소 handoff state의 same-checkpoint continuation이 하나의 switch 위치에만 우연히 맞은 결과는 아니라는 증거가 추가됐다. 다만 cross-model Nonlinear Translator, 더 넓은 video/switch matrix, benchmark dataset manifest·official metric은 별도 gate로 남는다.
