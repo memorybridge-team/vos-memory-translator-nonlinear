@@ -140,3 +140,11 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[Pilot]** DAVIS `walking`, object 1, switch 10에서 Small→Base+ Direct Copy는 11 history records를 replay 없이 기계적으로 주입했지만 Base+-native 대비 후속 61 frames의 mean binary IoU가 `0.0`이었다. Spatial-memory cosine은 `0.0211`, object-pointer cosine은 `-0.0220`이었다. 한 case 결과이므로 전체 일반화 결론은 아니지만, 동일 shape의 직접 복사만으로 표현 의미가 정렬되지 않으며 Moment-Matched/Nonlinear Translator 비교가 필요하다는 근거다.
 - **[상태]** Task 06은 다객체·late prompt·부재/재등장·cross-model target injection gate까지 통과 또는 실행 증거를 확보했다. Prompt correction과 여러 sequence/switch 반복 검증이 남아 `In Progress`다.
 - **[산출물]** `reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/`에 세 원본 JSON과 해석을 보존한다.
+
+## 19. 2026-09-21 — Task 03 protocol과 협업 추적 보정
+
+- **[확인]** Project #2의 Task 03·06은 `In Progress`지만 canonical repository Issue가 아닌 Draft 카드였다. 따라서 기존 Task 06 commit·보고서가 카드 활동과 직접 연결되지 않았다. 실험 결과는 유효하지만 협업 추적은 불완전했다.
+- **[결정]** Task 03은 dataset/split 역할, `(dataset, release, split, video, object, switch)` manifest, difficulty taxonomy, baseline 입력, metric·통계·누수 규칙을 고정한다. Task 06은 export/inject 구현과 continuation closure만 담당하며 baseline evaluator 구현은 Task 08이 담당한다.
+- **[문서]** `docs/design/03_benchmark_protocol.md`에 DAVIS 2017·MOSEv2·LVOS v2, Source-only/Base+-native/Direct/Moment-Matched/anchor/Replay-4·8·16/Nonlinear 비교군, visible·absence·reappearance·prompt/object/visual taxonomy, video-clustered CI를 정리했다.
+- **[상태]** 데이터셋 이용조건/download snapshot, split manifest checksum, MOSEv2/LVOS loader·공식 metric 검증이 남아 Task 03은 `In Progress`다. Task 06은 prompt correction과 반복 switch 검증이 남아 `In Progress`다.
+- **[협업 규칙]** 코드·실험·문서 task는 Draft로 두지 않고 canonical repository Issue로 추적한다. 진행 중 Draft 누락을 발견하면 기존 결과를 버리지 않고 Issue로 전환해 commit·보고서를 소급 연결한 뒤 다음 작업부터 정상 흐름을 따른다.

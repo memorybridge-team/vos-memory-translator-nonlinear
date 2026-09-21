@@ -68,6 +68,19 @@
       <p class="evidence">확인된 경계: spatial <code>[1,1,11,64,64,64]</code> bfloat16 · pointer <code>[1,1,11,256]</code> float32 · presence <code>[1,1,11,1]</code> float32</p>
     </article>
 
+    <article class="task" id="task-03">
+      <div class="task-head">
+        <div><div class="task-number">TASK 03</div><h2>Dataset·난이도·Baseline·Metric 동결</h2></div>
+        <span class="status progress">In Progress</span>
+      </div>
+      <p>DAVIS 2017·MOSEv2·LVOS v2의 역할, 공통 case manifest, 객체·사건별 난이도 분류, 주 비교군의 입력 데이터와 J&F·재등장·부재 오류·비용 지표를 하나의 protocol로 고정했습니다. 실제 배포 이용조건·split manifest checksum·MOSEv2/LVOS loader 검증이 남았습니다.</p>
+      <div class="links">
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/design/03_benchmark_protocol.md"><strong>Benchmark protocol v1.0</strong><br><span class="muted">dataset · taxonomy · baseline · metric · leakage 규칙</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/design/01_scope_baselines_success_stop.md"><strong>Task 01 판정 기준</strong><br><span class="muted">성공·중단 기준과 비교군 입력 원칙</span></a>
+      </div>
+      <p class="evidence">주 비교군: Source-only · Base+-native/Full Replay · Direct · Moment-Matched · Original · Last-Visible · Original+Last-Visible · Original+Replay-4/8/16 · Nonlinear.</p>
+    </article>
+
     <article class="task" id="task-06">
       <div class="task-head">
         <div><div class="task-number">TASK 06</div><h2>State 추출·Self-injection·Target injection</h2></div>

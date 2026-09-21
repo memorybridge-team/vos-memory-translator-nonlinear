@@ -17,9 +17,10 @@
 
 | 단계 | 보드 상태 | 지금의 완료 조건 |
 |---|---|---|
-| 연구 범위·성공 기준 고정 | `Done candidate` — [Issue #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1) | [Baseline·성공·중단 기준](docs/design/01_scope_baselines_success_stop.md) 동결 완료; Project 상태 동기화 대기 |
-| Small/Base+ State I/O 계약 | `Done candidate` — [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2) | [I/O 계약 v1.1](docs/design/small_base_state_io_contract.md), runtime inventory, paired dump, Map 동결 완료 |
-| 상태 추출·self-injection·target injection | `Todo` — KIMKYUDO | Base+ same-checkpoint export→inject가 과거 replay 없이 다음 프레임을 이어가는 실행 로그·보고서 |
+| 연구 범위·성공 기준 고정 | `Done` — [Issue #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1) | [Baseline·성공·중단 기준](docs/design/01_scope_baselines_success_stop.md) 동결 완료 |
+| Small/Base+ State I/O 계약 | `Done` — [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2) | [I/O 계약 v1.1](docs/design/small_base_state_io_contract.md), runtime inventory, paired dump, Map 동결 완료 |
+| dataset·난이도·baseline·metric 동결 | `In Progress` | [Benchmark protocol v1.0](docs/design/03_benchmark_protocol.md); 이용조건·split manifest·loader 검증이 남음 |
+| 상태 추출·self-injection·target injection | `In Progress` — KIMKYUDO | 단일/다객체·late prompt·재등장 exact, Small→Base+ injection 실행 완료; correction gate가 남음 |
 | paired Small/Base+ state 수집 | `Todo` | video-level split, checksum manifest, compact state pair |
 | 공통 evaluator·baseline | `Todo` | 같은 manifest에서 강한 재인코딩·replay·native 비교 결과 |
 | nonlinear 후보 학습·비교 | `Todo` | MLP/gated MLP/slot-context 후보의 downstream·비용 비교 |
@@ -62,6 +63,7 @@ Nonlinear 후보는 component-wise residual MLP, gated MLP, slot/context attenti
 | `docs/github_task_workflow.md` | Issue·Project·commit/PR·완료 증거 운영 순서 |
 | `docs/project_board_audit_2026-09-19.md` | Project #2의 01→20 task 감사·수정 기록 |
 | `docs/design/small_base_state_io_contract.md` | Small/Base+ memory tensor와 translator 입력·복사·재생성 정책 |
+| `docs/design/03_benchmark_protocol.md` | 세 dataset, difficulty taxonomy, baseline 입력, metric·통계·누수 방지 계약 |
 | `docs/architecture/` | 상태 조립 구조 설명 |
 | `reports/legacy/` | 이전 모델 쌍의 제한적 결과; 새 실험 결과가 아님 |
 

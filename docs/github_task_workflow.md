@@ -9,6 +9,10 @@
 5. 작은 단위로 commit하고 PR에 Issue를 연결한다.
 6. 완료 기준, 재현 명령, 결과 링크가 모두 있을 때만 Issue를 닫고 `Done`으로 바꾼다.
 
+코드·실험을 이미 시작했는데 카드가 Draft인 것을 발견하면 작업을 폐기하지 않는다. 즉시
+canonical repository Issue로 전환하고, 기존 commit·보고서·실험 명령을 소급 연결한 뒤
+다음 작업부터 정상 흐름을 따른다. Draft 카드만 둔 상태에서 새 실험을 계속하지 않는다.
+
 GitHub Project의 기존 workflow는 Issue 자동 추가와 닫힌 Issue의 `Done` 이동에 사용한다. 로컬 도구는 연구 증거가 빠진 채 `Done`이 되는 것을 막는다.
 
 ## 명령 예시
