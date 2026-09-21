@@ -176,3 +176,9 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[확인]** RunPod의 기존 미커밋 `main` 작업 트리를 보존하고 `/workspace/cmmt-pr` 별도 worktree에서 `origin/codex/minimal-handoff-contract` (`024760f`)를 checkout했다.
 - **[확인]** PR branch 코드로 DAVIS `walking`, object 1, switch 10의 Base+ same-checkpoint smoke를 다시 실행했다. future 61 frames에서 mean MSE `0`, max error `0`, mean binary IoU `1.0`, injection 중 과거 backbone call `0`, peak CUDA memory 약 `0.97GB`, wall time 약 `45.4 s`였다.
 - **[해석]** PR branch도 최소 handoff strict gate를 통과했다. 이는 구현 계약의 회귀가 없다는 증거이며, Small→Base+ translator 품질이나 Task 06 전체 완료를 의미하지 않는다.
+
+## 24. 2026-09-21 — PR branch prompt correction gate
+
+- **[확인]** PR branch에서 DAVIS `walking`에 object 1을 frame 0과 frame 5에 다시 prompt하고 switch frame 10을 적용한 same-checkpoint prompt-timeline round-trip을 실행했다.
+- **[확인]** Target injection 후 future 61 frames에서 mean MSE `0`, max error `0`, mean binary IoU `1.0`, peak CUDA memory 약 `0.98GB`, wall time 약 `46.5 s`로 통과했다.
+- **[해석]** 동일 checkpoint의 prompt correction history도 최소 handoff 계약으로 보존된다. 이는 cross-model nonlinear translator 성능이 아니라 Task 06 구현 gate 증거다. 여러 sequence/switch 및 Small→Base+ injection은 여전히 남아 있다.
