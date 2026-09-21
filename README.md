@@ -27,6 +27,18 @@
 
 실제 코드·실험 작업은 위 보드 카드를 canonical Issue로 승격한 뒤 `In Progress`로 바꾸고, branch의 commit·실행 로그·보고서를 연결합니다. 완료 기준과 재현 명령이 검증되기 전에는 `Done`으로 옮기지 않습니다. [Project #2 Tasks](https://github.com/orgs/memorybridge-team/projects/2/views/1)에서 전체 현황을 확인할 수 있습니다.
 
+## 브랜치 이름 규칙
+
+팀원이 이름만 보고 목적을 알 수 있도록 다음 형식을 사용합니다.
+
+- `task/03-benchmark-protocol` — 특정 Project task 구현·문서화
+- `task/06-continuation-injection` — runtime/state injection 작업
+- `experiment/small-base-direct-copy` — 재현 가능한 실험·비교군
+- `fix/memory-shape-mismatch` — 결함 수정
+- `docs/reproduction-guide` — 문서 전용 변경
+
+기존 `feature/task-06-continuation-injection`은 이전 작업의 역사적 branch로 보존합니다. 현재 최소 handoff 계약 전체를 검증하는 변경은 `codex/minimal-handoff-contract`처럼 범위가 넓은 branch로 분리했으며, 앞으로 새 작업은 위 의미 기반 이름을 우선합니다.
+
 기존 코드를 가져온 경위와 제외한 자료는 [MIGRATION.md](MIGRATION.md)에 기록했습니다. 새 저장소의 Git 커밋 작성자와 과거 코드의 실제 작성 기여는 별개의 정보입니다.
 
 ## 연구 흐름
