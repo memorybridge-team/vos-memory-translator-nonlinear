@@ -19,6 +19,7 @@ Small이 frame `t`까지 축적한 객체별 memory/state를 nonlinear translato
 ## 2. 모든 비교군에 공통인 공정성 규칙
 
 - 동일한 `(video, registered object set, prompt timeline, switch frame, future frames)` manifest를 사용한다.
+- Source와 Target이 같은 영상·frame 순서·preprocessing을 사용한다는 것은 실험 manifest가 보장한다. 영상 hash와 `num_frames`·높이·너비는 translator 입력이나 handoff payload가 아니라 dataset 준비 단계의 assertion으로만 취급한다.
 - switch 이전에 등록된 **모든 객체**를 비교군 입력 범위에 포함한다. 최근 창에 보이지 않았다는 이유로 객체를 제외하지 않는다.
 - 미래 GT mask는 handoff 입력 선택에 사용하지 않고 평가에만 쓴다.
 - source 예측 mask를 쓰는 방법은 GT가 아니라 해당 실행에서 얻은 source prediction을 사용한다.
@@ -145,7 +146,7 @@ held-out video에서 다음을 모두 확인한다.
 
 - same-checkpoint injection이 일치하지 않거나 객체·frame 정렬 오류가 난다.
 - 미래 GT, test video 또는 Base+-native future state가 translator 입력·선택에 누출된다.
-- checkpoint/config/preprocessing/prompt timeline/hash가 pair 양쪽에서 다르다.
+- checkpoint/config/preprocessing/prompt timeline 또는 dataset/pair manifest가 양쪽에서 다르다.
 - evaluator가 공식 mask 규칙과 일치하지 않거나 실행 재현 정보가 없다.
 
 이 조건은 연구 아이디어의 실패가 아니라 실험 무결성 실패다. 원인을 고치고 해당 결과를 폐기한 뒤 다시 실행한다.

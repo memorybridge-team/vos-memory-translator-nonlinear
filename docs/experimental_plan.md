@@ -18,6 +18,8 @@ Baseline의 정확한 입력 데이터, 공정성 규칙, 성공·중단 판정�
 
 Base+를 Small의 메모리로 이어 쓰게 하는 것이 주 실험이다. Tiny→Large 및 Tiny→Base+의 과거 결과는 코드와 위험 분석에 활용하되 새 pair의 결과로 취급하지 않는다. 새 모델 쌍이 추가로 필요하다는 실험적 근거가 생기면 논문 목표와 비교 가능성을 검토해 확장한다.
 
+Source와 Target은 동일 영상·동일 frame 순서·동일 preprocessing을 사용한다고 연구 조건으로 고정한다. 영상 checksum과 frame 수·해상도 검사는 dataset/manifest 생성 오류를 찾는 실험 준비 절차이며, CMMT memory handoff payload나 translator API 입력으로 계산하지 않는다. 분산 서비스에서의 영상 identity 검증은 연구 범위 밖의 별도 handoff protocol로 둔다.
+
 ## 1주차: 상태 계약과 자료 준비
 
 - 공식 SAM 2 revision, Small/Base+ checkpoint hash, DAVIS/MOSEv2/LVOS v2의 이용 조건·version·split·해상도·fps를 기록한다.
@@ -33,7 +35,7 @@ Base+를 Small의 메모리로 이어 쓰게 하는 것이 주 실험이다. Tin
 |---|---|---|
 | Source-only | 전환하지 않은 Small state | 전환 필요성 참조 |
 | Base+-native / Full Replay | 과거 RGB와 실제 prompt timeline | target 직접 처리 참조 및 비용 |
-| Direct State Copy | Small memory·pointer·필요 metadata | 번역 자체 필요성 |
+| Direct State Copy | Small memory·pointer·history 조립에 필요한 최소 metadata | 번역 자체 필요성 |
 | Moment-Matched Copy | 학습 split의 paired state로 고정한 component·conditioning별 평균·표준편차로 Small memory·pointer를 affine 보정 | 단순 분포 보정으로 충분한지 확인 |
 | Original-Prompt(s) Only | 객체별 처음 실제 prompt와 해당 RGB | 최초 지정 정보의 효과 |
 | Last-Visible Source Mask | 객체별 마지막 비어 있지 않은 Small 예측 mask와 해당 RGB | 최신 관측의 효과 |
@@ -42,6 +44,8 @@ Base+를 Small의 메모리로 이어 쓰게 하는 것이 주 실험이다. Tin
 | Nonlinear Translator | Small memory·pointer를 component별 nonlinear mapper로 변환 | 단순 복사·정규화보다 의미 변환이 필요한지 확인 |
 
 GT mask를 switch 시점에 새로 주지 않는다. Last-Visible 선택은 source의 과거 예측만 사용한다. Moment-Matched Copy의 통계는 학습 split의 paired state로만 계산하며, test video·future frame·test target-native state는 쓰지 않는다. 각 방법을 동일 manifest 전체에서 실행한 뒤 visible/absent/reappearance 특성별 결과를 나눈다. 같은 checkpoint export→inject는 경쟁군이 아니라 정확성 검사다. Empty-mask Reset은 현재 코드의 proxy임을 표기한다.
+
+전송 bytes에는 `maskmem_features`, `obj_ptr`와 실제로 전달하는 history 조립 metadata만 포함한다. Dataset manifest, 원본 RGB, checkpoint hash, 영상 checksum, Target이 자체 산출한 `num_frames`·높이·너비는 handoff payload에서 제외한다.
 
 **산출물:** 각 비교군의 정보 입력·비용 정의, 동일 사례 결과표, 다객체/빈 mask 테스트, 누락 사례 없는 실행 로그.
 

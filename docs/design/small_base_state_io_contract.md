@@ -15,6 +15,8 @@ SAM 2.1 Small과 Base+는 backbone 크기는 다르지만 video-memory 경계의
 
 Translator가 학습할 연속 입력·출력은 `spatial_memory`, `object_pointer` 두 종류다. `presence_logits`는 Source 진단 기록으로만 보존하며 Target history에 주입하지 않는다. Frame 번호, 객체 ID, conditioning 여부, record 순서와 validity는 학습하지 않고 정확히 복사한다. Spatial positional encoding은 source 것을 번역하거나 복사하지 않고 Base+가 다시 생성한다.
 
+연구 단계에서는 Source와 Target이 같은 영상, 같은 frame 순서, 같은 preprocessing과 switch 시점을 사용한다고 실험 manifest에서 고정한다. 따라서 `num_frames`, `video_height`, `video_width`와 영상 fingerprint는 memory handoff payload 및 translator API에 포함하지 않는다. 앞의 세 값은 Target runtime이 자신의 영상에서 산출하고, hash 기반 영상 식별은 향후 분산 서비스 handoff protocol의 선택적 책임으로 분리한다.
+
 ## 1. 확인된 모델 경계
 
 | 항목 | Small | Base+ | handoff 판단 |
@@ -58,19 +60,20 @@ Export 직전에는 Source가 `non_blocking=True`로 GPU→CPU offload한 최신
 - original point/mask prompts와 `frames_tracked_per_obj`: 객체 등록·상호작용 장부로 보존한다. 전환 이전 correction은 이 prompt timeline과 원본 RGB로 Target을 안전한 기준점부터 replay해 수정 이후 history를 Target-native state로 교체한다.
 - `cached_features`: 과거 RGB backbone feature를 전달하지 않는다. Fresh target runtime의 cache는 비운다.
 - `temp_output_dict_per_obj`: 미완성 상호작용 상태는 전달하지 않고 target에서 빈 dictionary로 시작한다.
+- `num_frames`, `video_height`, `video_width`: Target runtime이 같은 영상에서 직접 산출한다. 로컬 cache·loader가 dataset 무결성 assertion에 사용할 수는 있지만 연구 handoff payload와 전송 bytes에서는 제외한다.
+- `video_fingerprint`, `prefix_fingerprint`: 연구 단계에서는 동일 영상을 manifest로 보장하므로 CanonicalState와 translator API에 추가하지 않는다. 장치·서버 간 서비스화에서 필요하면 model state 밖의 handoff envelope로 구현한다.
 
 ## 4. Paired-state 정렬 규칙
 
 학습 pair `(Small state, Base+ native state)`는 다음이 모두 같아야 한다.
 
-1. video와 preprocessing
+1. 실험 manifest가 지정한 동일 video, frame 순서와 preprocessing
 2. prompt timeline과 object ID
 3. switch frame
 4. `[B,O,K]` record 축
 5. `frame_indices`, `slot_order`, `is_conditioning`, `validity`
-6. video frame 수와 원본 높이·너비 metadata
 
-Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다. 반대로 위 이산 계약이 다르면 tensor shape가 맞더라도 서로 다른 시간·객체 record를 학습시키는 것이므로 fail closed한다. 이를 위해 `validate_paired_state_contract`가 padding, slot, switch mismatch까지 거부하도록 구현했다.
+Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다. 반대로 위 이산 계약이 다르면 tensor shape가 맞더라도 서로 다른 시간·객체 record를 학습시키는 것이므로 fail closed한다. 이를 위해 `validate_paired_state_contract`가 padding, slot, switch mismatch까지 거부하도록 구현했다. 현재 로컬 paired-cache validator가 frame 수·해상도도 검사하는 것은 dataset 생성 오류를 찾기 위한 실험 assertion이며, 해당 값을 runtime handoff payload로 정의한다는 뜻은 아니다.
 
 ## 5. 현재 구현과 검증 상태
 
@@ -114,7 +117,7 @@ Prompt correction과 여러 sequence/switch에서의 반복 검증은 이 계약
 
 - Small/Base+ 실제 경계: spatial `[1,1,11,64,64,64]` bfloat16, pointer `[1,1,11,256]` float32, presence `[1,1,11,1]` float32
 - paired cache: `166,882,485 bytes`, SHA-256 `5e9bca17217d522335acf80a454834cf2beab22d4dd8f6204fcd221d2bf1a5f0`
-- validator: schema, switch frame, object/frame/slot/conditioning/validity, 영상 크기 불일치를 fail closed
+- validator: schema, switch frame, object/frame/slot/conditioning/validity 불일치를 fail closed; 영상 크기 검사는 로컬 paired-data assertion으로만 사용
 - 시각 계약: [`State Assembly Map`](../architecture/cmmt-state-assembly-map.html)
 - runtime inventory: [`reports/runtime/2026-09-20_small_base_runtime_inventory/`](../../reports/runtime/2026-09-20_small_base_runtime_inventory/)
 - v1.1 minimal-history strict round-trip: [`reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/`](../../reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/)

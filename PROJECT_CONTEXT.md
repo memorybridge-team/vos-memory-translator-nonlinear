@@ -141,7 +141,14 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[상태]** Task 06은 다객체·late prompt·부재/재등장·cross-model target injection gate까지 통과 또는 실행 증거를 확보했다. Prompt correction과 여러 sequence/switch 반복 검증이 남아 `In Progress`다.
 - **[산출물]** `reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/`에 세 원본 JSON과 해석을 보존한다.
 
-## 19. 2026-09-21 — Task 03 protocol과 협업 추적 보정
+## 19. 2026-09-21 — 연구용 최소 handoff payload와 동일 영상 전제
+
+- **[결정]** 연구 단계에서는 Source와 Target이 동일 영상·동일 frame 순서·동일 preprocessing·동일 switch 시점을 사용한다고 manifest에서 고정한다. 연구 질문은 영상 식별 protocol이 아니라 memory translation에 한정한다.
+- **[결정]** `num_frames`, `video_height`, `video_width`는 Target runtime이 자신의 영상에서 산출하며 CMMT handoff payload와 전송 bytes에서 제외한다. 로컬 loader/cache에서 쓰는 검사는 dataset 생성 오류를 찾는 assertion으로만 해석한다.
+- **[결정]** `video_fingerprint`와 `prefix_fingerprint`는 CanonicalState나 translator API에 추가하지 않는다. 향후 서로 다른 장치·서버 사이의 서비스화에서 필요하면 model state 밖의 선택적 handoff envelope로 구현한다.
+- **[고정 payload]** 번역 대상은 `maskmem_features`, `obj_ptr`이고, history 조립에는 `frame_indices`, `slot_order`, `is_conditioning`, `validity`, `object_ids`, `switch_frame` 등 필요한 이산 metadata만 전달한다. Target PE와 video runtime 값은 Target이 생성한다.
+
+## 20. 2026-09-21 — Task 03 protocol과 협업 추적 보정
 
 - **[확인]** Project #2의 Task 03·06은 `In Progress`지만 canonical repository Issue가 아닌 Draft 카드였다. 따라서 기존 Task 06 commit·보고서가 카드 활동과 직접 연결되지 않았다. 실험 결과는 유효하지만 협업 추적은 불완전했다.
 - **[결정]** Task 03은 dataset/split 역할, `(dataset, release, split, video, object, switch)` manifest, difficulty taxonomy, baseline 입력, metric·통계·누수 규칙을 고정한다. Task 06은 export/inject 구현과 continuation closure만 담당하며 baseline evaluator 구현은 Task 08이 담당한다.
