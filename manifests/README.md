@@ -37,3 +37,16 @@ cmmt-davis-build-manifest \
 ```bash
 PYTHONPATH=src python -c "from vos_memory_inspector.mose import build_mosev2_evaluation_manifest, write_mosev2_evaluation_manifest; m=build_mosev2_evaluation_manifest('/path/to/MOSEv2/extracted', split='valid'); write_mosev2_evaluation_manifest(m, 'manifests/mosev2_valid_v1.json')"
 ```
+
+## LVOS v2 validation
+
+LVOS v2 loader는 공식 `val_meta.json`과 선택적 `val_meta_attribute.json`을 읽어
+object frame range 안에서만 switch 후보를 만든다. Eval archive 다운로드가 완료되면
+다음 명령으로 manifest를 생성한다.
+
+```bash
+cmmt-lvos-build-manifest \
+  --root /path/to/LVOS-v2 \
+  --split val --seed 7 \
+  --output manifests/lvosv2_val_v1.json
+```
