@@ -141,9 +141,9 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - [x] 데이터셋 세 종류와 연구 역할을 고정했다.
 - [x] 주 비교군·제외 비교군·진단군과 각 입력 데이터를 고정했다.
 - [x] difficulty taxonomy, metric, clustered 통계 단위를 고정했다.
-- [ ] 각 dataset 배포본의 실제 이용조건과 download snapshot/checksum을 기록한다.
-- [ ] fit/development/evaluation video ID manifest와 checksum을 생성한다.
-- [ ] 객체별 prompt/correction 및 switch selection manifest schema를 실제 loader로 검증한다.
+- [ ] 각 dataset 배포본의 실제 이용조건과 download snapshot/checksum을 기록한다. (DAVIS와 MOSEv2 validation 기록 완료; LVOS v2 대기)
+- [ ] fit/development/evaluation video ID manifest와 checksum을 생성한다. (DAVIS validation 및 MOSEv2 validation 생성 완료; LVOS v2 대기)
+- [ ] 객체별 prompt/correction 및 switch selection manifest schema를 실제 loader로 검증한다. (DAVIS와 MOSEv2 first-frame prompt/switch 검증 완료; LVOS v2 대기)
 - [ ] MOSEv2/LVOS v2 공식 metric 구현·명칭과 자체 switch metric의 구분을 검증한다.
 
 위 미완료 항목 전에는 Task 03을 `Done`으로 바꾸지 않는다. 결과를 본 뒤 taxonomy, k 값,

@@ -19,7 +19,7 @@
 |---|---|---|
 | 연구 범위·성공 기준 고정 | `Done` — [Issue #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1) | [Baseline·성공·중단 기준](docs/design/01_scope_baselines_success_stop.md) 동결 완료 |
 | Small/Base+ State I/O 계약 | `Done` — [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2) | [I/O 계약 v1.1](docs/design/small_base_state_io_contract.md), runtime inventory, paired dump, Map 동결 완료 |
-| dataset·난이도·baseline·metric 동결 | `In Progress` | [Benchmark protocol v1.0](docs/design/03_benchmark_protocol.md); 이용조건·split manifest·loader 검증이 남음 |
+| dataset·난이도·baseline·metric 동결 | `In Progress` | [Benchmark protocol v1.0](docs/design/03_benchmark_protocol.md); DAVIS·MOSEv2 validation manifest/loader 완료, LVOS v2 이용조건·manifest·loader 검증이 남음 |
 | 상태 추출·self-injection·target injection | `In Progress` — KIMKYUDO | 단일/다객체·late prompt·재등장 exact, Small→Base+ injection 실행 완료; correction gate가 남음 |
 | paired Small/Base+ state 수집 | `Todo` | video-level split, checksum manifest, compact state pair |
 | 공통 evaluator·baseline | `Todo` | 같은 manifest에서 강한 재인코딩·replay·native 비교 결과 |
@@ -76,6 +76,8 @@ Nonlinear 후보는 component-wise residual MLP, gated MLP, slot/context attenti
 | `docs/project_board_audit_2026-09-19.md` | Project #2의 01→20 task 감사·수정 기록 |
 | `docs/design/small_base_state_io_contract.md` | Small/Base+ memory tensor와 translator 입력·복사·재생성 정책 |
 | `docs/design/03_benchmark_protocol.md` | 세 dataset, difficulty taxonomy, baseline 입력, metric·통계·누수 방지 계약 |
+| `src/vos_memory_inspector/mose.py` | MOSEv2 validation first-frame-only manifest builder |
+| `manifests/mosev2_valid_v1.json` | MOSEv2 validation 고정 switch/object manifest; 원본 데이터는 포함하지 않음 |
 | `docs/architecture/` | 상태 조립 구조 설명 |
 | `reports/legacy/` | 이전 모델 쌍의 제한적 결과; 새 실험 결과가 아님 |
 

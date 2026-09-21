@@ -21,3 +21,19 @@ cmmt-davis-build-manifest \
   --split val --resolution 480p --seed 7 \
   --output manifests/davis2017_val_v1.json
 ```
+
+## MOSEv2 validation v1
+
+- File: `mosev2_valid_v1.json`
+- Dataset: MOSEv2 v2 validation split
+- Videos: `433`
+- Cases: `1,720` (three fixed temporal switch candidates per first-frame object)
+- File SHA-256: `1adccb98aa5a73d48c34eb72ed8990f1cc00925e6cc2242c40dc0ce43263fd00`
+- Annotation policy: validation publishes only the first-frame mask. Future visibility,
+  disappearance and reappearance tags are unavailable locally and are not inferred.
+
+생성 명령:
+
+```bash
+PYTHONPATH=src python -c "from vos_memory_inspector.mose import build_mosev2_evaluation_manifest, write_mosev2_evaluation_manifest; m=build_mosev2_evaluation_manifest('/path/to/MOSEv2/extracted', split='valid'); write_mosev2_evaluation_manifest(m, 'manifests/mosev2_valid_v1.json')"
+```
