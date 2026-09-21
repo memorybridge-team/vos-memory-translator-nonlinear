@@ -123,3 +123,11 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[결정, 2026-09-21]** State Assembly Map과 Small→Base+ I/O 계약을 v1.1로 통일했다. 번역 대상은 `maskmem_features`와 `obj_ptr`뿐이며, Target PE는 재생성한다. 과거 Source `pred_masks`는 Target `inference_state` 밖의 표시 sidecar archive, `presence_logits`/`object_score_logits`는 진단 기록으로만 남긴다. Target의 새 mask·score·memory는 새 frame 또는 correction replay에서만 생성한다.
 - **[구현, 2026-09-21]** 로컬 materializer/injector에서 과거 `pred_masks`와 `object_score_logits` 주입을 제거하고 Target history를 `maskmem_features`·Target-generated `maskmem_pos_enc`·`obj_ptr` 세 필드로 제한했다. Source mask archive와 score diagnostic은 CanonicalState에만 남는다. 정적 compile과 CPU 계약 test를 추가했지만 로컬 Python에는 torch/pytest가 없어 전체 test 실행은 아직 못 했다.
 - **[제한, 2026-09-21]** 고정 공식 구현상 `switch_frame + 1` 이후 memory read는 위 세 필드만 쓰지만, 과거 conditioning frame 출력·same-frame refinement는 `pred_masks`를 요구한다. 따라서 전환 이전 correction은 Target replay로 보내야 하며, 실제 checkpoint의 no-replay continuation·다객체·late prompt·부재/재등장·correction 검증 전에는 Task 06 또는 v1.1 runtime 구현 완료라고 주장하지 않는다.
+
+## 17. 2026-09-21 — v1.1 최소 history strict runtime gate
+
+- **[실패 원인 확인]** 과거 `pred_masks`/`object_score_logits`를 제외한 첫 Base+ self-injection 실행은 mean binary IoU `0.9999767`이었지만 max logit error `3.421504`로 strict gate에 실패했다. 주입 직전 비교에서 frame 0–9는 exact였고 최신 frame 10의 CPU-offloaded `maskmem_features`만 MSE `0.6701763`, max error `4.15625`였다.
+- **[구현]** Pinned SAM 2가 최신 memory를 `non_blocking=True`로 GPU→CPU offload하므로, `canonicalize_sam2_inference_state`가 export 전에 producer CUDA device를 동기화하도록 수정했다. 이 race-condition fix에는 CPU 회귀 test와 실제 checkpoint history parity 진단 도구를 추가했다.
+- **[확인]** 수정 뒤 DAVIS `walking`, object 1, switch 10의 11개 history record에서 `maskmem_features`, Target-generated `maskmem_pos_enc`, `obj_ptr`가 모두 bit-exact였다. 이후 61 frames의 Base+ native/injected logits도 mean MSE `0`, max error `0`, binary IoU `1.0`, injection 중 과거 backbone call `0`으로 strict gate를 통과했다.
+- **[해석]** 이 결과는 v1.1 최소 read-state가 단일 객체·첫 frame prompt no-replay continuation에 충분하다는 구현 증거다. Small→Base+ 번역 성능 증거는 아니며, Task 06은 다객체·late prompt·absence/reappearance·correction·cross-model target injection이 남아 `In Progress`다.
+- **[산출물]** `reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/`에 원인 분석, 재현 명령, report JSON과 history diagnostic을 보존한다.

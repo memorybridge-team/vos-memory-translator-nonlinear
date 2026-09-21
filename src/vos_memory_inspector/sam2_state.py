@@ -92,6 +92,21 @@ def canonicalize_sam2_inference_state(
     metadata; they are not translator inputs.
     """
 
+    # Pinned SAM 2 offloads ``maskmem_features`` and ``pred_masks`` to CPU with
+    # ``non_blocking=True``.  The most recently produced record can therefore still
+    # be in flight when a caller exports state immediately after a propagation
+    # yield.  Reading that host tensor before the copy completes silently captures
+    # a partially written memory feature.  Synchronize the producer device once at
+    # the export boundary so every copied record is a stable snapshot.
+    compute_device = torch.device(inference_state.get("device", "cpu"))
+    storage_device = torch.device(inference_state.get("storage_device", compute_device))
+    if (
+        compute_device.type == "cuda"
+        and storage_device.type == "cpu"
+        and torch.cuda.is_available()
+    ):
+        torch.cuda.synchronize(compute_device)
+
     object_indices, records_by_object = _collect_records(inference_state, switch_frame)
     complete = [
         record

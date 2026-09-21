@@ -138,6 +138,41 @@ def test_sam2_multi_object_canonicalization_and_materialization() -> None:
     assert len(state.metadata["preserved_pred_masks"]) == 4
 
 
+def test_sam2_canonicalization_synchronizes_cuda_cpu_offload(monkeypatch) -> None:
+    output = {
+        "maskmem_features": torch.ones((1, 3, 2, 2)),
+        "maskmem_pos_enc": [torch.zeros((1, 3, 2, 2))],
+        "pred_masks": torch.ones((1, 1, 8, 8)),
+        "obj_ptr": torch.ones((1, 4)),
+        "object_score_logits": torch.ones((1, 1)),
+    }
+    inference_state = {
+        "obj_idx_to_id": {0: 1},
+        "obj_ids": [1],
+        "output_dict_per_obj": {
+            0: {
+                "cond_frame_outputs": {0: output},
+                "non_cond_frame_outputs": {},
+            }
+        },
+        "point_inputs_per_obj": {0: {}},
+        "mask_inputs_per_obj": {0: {}},
+        "frames_tracked_per_obj": {0: {0: {"reverse": False}}},
+        "device": "cuda:0",
+        "storage_device": "cpu",
+        "num_frames": 1,
+        "video_height": 8,
+        "video_width": 8,
+    }
+    synchronized: list[torch.device] = []
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "synchronize", synchronized.append)
+
+    canonicalize_sam2_inference_state(inference_state, switch_frame=0)
+
+    assert synchronized == [torch.device("cuda:0")]
+
+
 def test_sam2_injection_restores_registry_history_and_target_position() -> None:
     class Position(torch.nn.Module):
         def forward(self, x: torch.Tensor) -> torch.Tensor:
