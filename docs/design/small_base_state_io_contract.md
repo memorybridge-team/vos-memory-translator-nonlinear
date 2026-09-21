@@ -79,7 +79,7 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 | Canonical export·history materialization | 구현됨 |
 | Target PE 재생성 | 구현됨 |
 | object registry·prompt/tracking metadata 복원 | 구현됨 |
-| v1.1의 과거 mask/score 비주입 정책 | 설계 동결; legacy materializer 정렬은 task 06에서 구현·검증 |
+| v1.1의 과거 mask/score 비주입 정책 | 로컬 materializer/injector와 CPU 계약 test 반영; 실제 checkpoint runtime 검증은 task 06에 남음 |
 | Pair discrete timeline validator | 구현·CPU unit test 추가 |
 | Base+ checkpoint same-model export→inject | DAVIS `walking`, object 1, switch 10 통과 |
 | Small/Base+ 실제 runtime shape inventory | 단일 paired case 확인 |
@@ -93,6 +93,10 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 이 결과로 단일 객체·첫 frame prompt의 실행 경계는 통과했다. 같은 조건의 Small/Base+ paired example도 생성해 두 모델의 shape·dtype·timeline 일치를 확인했다. `.pt` cache는 166,882,485 bytes이므로 Git에는 checksum만 남기고 RunPod network volume에 보존한다. 상세 보고서는 [`reports/runtime/2026-09-20_small_base_runtime_inventory/`](../../reports/runtime/2026-09-20_small_base_runtime_inventory/)에 있다.
 
 다객체, late prompt, absent/reappearance, prompt correction과 여러 sequence/switch에서의 반복 검증은 이 계약을 소비하는 task 06의 완료 조건이다. task 02는 실제 Small/Base+ inventory, paired dump, 필드 정책, fail-closed validator와 State Assembly Map을 기준으로 검토·동결한다.
+
+### v1.1 구현 안전 조건
+
+고정한 공식 SAM 2 코드에서 다음 frame의 memory attention은 과거 record의 `maskmem_features`, `maskmem_pos_enc`, `obj_ptr`만 읽는다. 반면 이미 저장된 conditioning frame을 그대로 출력하거나 같은 과거 frame에 correction을 추가하는 기본 경로는 그 record의 `pred_masks`를 읽는다. 따라서 v1.1 injection은 반드시 `switch_frame + 1`에서 시작하며, `frame <= switch_frame` correction은 기본 refinement API를 직접 호출하지 않고 원본 RGB·prompt timeline을 이용한 Target replay로 보낸다. 이 조건을 어기는 실행은 지원되는 continuation이 아니다.
 
 ## 7. 동결 근거와 변경 관리
 

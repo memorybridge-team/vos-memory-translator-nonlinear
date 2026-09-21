@@ -54,7 +54,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
 <body>
 <div id="cmmt-state-map">
   <h2>CMMT CanonicalState → Target SAM 2 조립 지도</h2>
-  <p class="text-muted">현재 <code>cmmt.canonical_state.v1</code> export를 소비하는 <strong>v1.1 Target 조립 계약</strong>과 고정 SAM 2.1 predictor 기준입니다. 핵심 translator와 correction 발생 시의 replay fallback을 분리해 표시합니다. 이 지도는 <strong>목표 계약</strong>이며, 기존 injector가 과거 <code>pred_masks</code>/<code>object_score_logits</code>를 history에 쓰는 v1.0 동작은 Task 06에서 이 계약에 맞춰 제거·검증합니다.</p>
+  <p class="text-muted">현재 <code>cmmt.canonical_state.v1</code> export를 소비하는 <strong>v1.1 Target 조립 계약</strong>과 고정 SAM 2.1 predictor 기준입니다. 핵심 translator와 correction 발생 시의 replay fallback을 분리해 표시합니다. 로컬 injector는 과거 <code>pred_masks</code>/<code>object_score_logits</code>를 제외한 최소 read-state를 조립하도록 수정됐으며, 실제 checkpoint의 다객체·correction·재등장 runtime 검증은 Task 06에 남아 있습니다.</p>
 
   <section class="handoff-paths" aria-labelledby="handoff-paths-title">
     <h3 id="handoff-paths-title">실행 모드</h3>

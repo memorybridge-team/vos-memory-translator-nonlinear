@@ -16,7 +16,7 @@ from .state_schema import CanonicalState
 
 COND_KEY = "cond_frame_outputs"
 NON_COND_KEY = "non_cond_frame_outputs"
-COMPACT_OUTPUT_KEYS = (
+SOURCE_COMPACT_OUTPUT_KEYS = (
     "maskmem_features",
     "maskmem_pos_enc",
     "pred_masks",
@@ -229,23 +229,23 @@ def materialize_sam2_history(
     positional_factory: Callable[
         [Any, int, bool, torch.Tensor], list[torch.Tensor] | None
     ],
-    mask_factory: Callable[
-        [Any, int, bool, torch.Tensor], torch.Tensor
-    ]
-    | None = None,
 ) -> dict[int, dict[str, dict[int, dict[str, Any]]]]:
-    """Materialize translated compact histories for a target predictor.
+    """Materialize the minimal v1.1 history consumed by SAM 2 memory attention.
 
     ``positional_factory`` must be target-owned.  This intentional boundary keeps
     source positional encodings out of the learned translator and makes an actual
     injection smoke test fail closed when target regeneration is unavailable.
+
+    Historical Source ``pred_masks`` and ``object_score_logits`` are deliberately
+    absent. Pinned SAM 2 reads only memory features, their positional encodings and
+    object pointers when propagating from ``switch_frame + 1``. A correction on or
+    before the switch must use the replay path instead of this translated history.
     """
 
     state.validate()
     if state.spatial_memory.shape[0] != 1:
         raise ValueError("SAM 2 materialization currently requires B=1")
     result: dict[int, dict[str, dict[int, dict[str, Any]]]] = {}
-    preserved_masks = state.metadata.get("preserved_pred_masks", {})
     for object_slot, object_id in enumerate(state.object_ids):
         result[object_slot] = {COND_KEY: {}, NON_COND_KEY: {}}
         for record_slot in range(state.spatial_memory.shape[2]):
@@ -259,23 +259,10 @@ def materialize_sam2_history(
                 raise ValueError(
                     "target positional_factory returned None for a valid memory record"
                 )
-            record_key = f"object={object_slot}/record={record_slot}"
-            mask = preserved_masks.get(record_key)
-            if not isinstance(mask, torch.Tensor):
-                raise ValueError(
-                    f"missing preserved pred_masks for {record_key}; history is not "
-                    "continuation-closed"
-                )
-            if mask_factory is not None:
-                mask = mask_factory(object_id, frame, is_cond, mask)
             output = {
                 "maskmem_features": feature,
                 "maskmem_pos_enc": positional,
-                "pred_masks": mask,
                 "obj_ptr": state.object_pointer[0, object_slot, record_slot].unsqueeze(0),
-                "object_score_logits": state.presence_logits[
-                    0, object_slot, record_slot
-                ].unsqueeze(0),
             }
             storage_key = COND_KEY if is_cond else NON_COND_KEY
             result[object_slot][storage_key][frame] = output
@@ -358,9 +345,11 @@ def inject_sam2_canonical_state(
     """Inject a canonical history into a fresh target predictor state.
 
     The fresh target state must contain video/runtime-owned fields but no
-    registered objects or temporary interactions.  Continuous tensors are
-    placed on the target's storage/compute devices, while record identity and
-    prompt/tracking metadata are copied exactly.
+    registered objects or temporary interactions. Only the v1.1 read-state
+    tensors are placed on the target's storage/compute devices, while record
+    identity and prompt/tracking metadata are copied exactly. Source masks and
+    scores remain in the external CanonicalState archive and are never inserted
+    into ``inference_state``.
     """
 
     state.validate()
@@ -418,14 +407,10 @@ def inject_sam2_canonical_state(
                 output["maskmem_features"] = output["maskmem_features"].to(
                     storage_device
                 )
-                output["pred_masks"] = output["pred_masks"].to(storage_device)
                 output["maskmem_pos_enc"] = [
                     value.to(compute_device) for value in output["maskmem_pos_enc"]
                 ]
                 output["obj_ptr"] = output["obj_ptr"].to(compute_device)
-                output["object_score_logits"] = output[
-                    "object_score_logits"
-                ].to(compute_device)
         inference_state["output_dict_per_obj"][object_slot] = history
         inference_state["temp_output_dict_per_obj"][object_slot] = {
             COND_KEY: {},

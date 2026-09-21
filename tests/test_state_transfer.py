@@ -127,6 +127,15 @@ def test_sam2_multi_object_canonicalization_and_materialization() -> None:
         2,
     )
     assert history[1]["non_cond_frame_outputs"][2]["obj_ptr"].shape == (1, 4)
+    for object_history in history.values():
+        for records in object_history.values():
+            for translated_record in records.values():
+                assert set(translated_record) == {
+                    "maskmem_features",
+                    "maskmem_pos_enc",
+                    "obj_ptr",
+                }
+    assert len(state.metadata["preserved_pred_masks"]) == 4
 
 
 def test_sam2_injection_restores_registry_history_and_target_position() -> None:
@@ -194,6 +203,11 @@ def test_sam2_injection_restores_registry_history_and_target_position() -> None:
     restored = target["output_dict_per_obj"][0]
     assert torch.all(restored["cond_frame_outputs"][0]["maskmem_pos_enc"][0] == 9)
     assert not torch.any(restored["cond_frame_outputs"][0]["maskmem_pos_enc"][0] == -1)
+    for records in restored.values():
+        for translated_record in records.values():
+            assert "pred_masks" not in translated_record
+            assert "object_score_logits" not in translated_record
+    assert len(canonical.metadata["preserved_pred_masks"]) == 2
 
 
 def test_direct_adapts_shape_and_preserves_discrete_state() -> None:
