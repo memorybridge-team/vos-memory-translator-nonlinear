@@ -71,6 +71,10 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
         <strong>전환 이전 correction</strong>
         <p>저장된 RGB와 prompt timeline으로 안전한 기준점부터 Target replay를 수행합니다. 수정 지점 이후의 기존 translated history는 Target-native history로 교체합니다.</p>
       </article>
+      <article class="path-card">
+        <strong>영상 계약 검증</strong>
+        <p><code>num_frames</code>·<code>video_height</code>·<code>video_width</code>는 빠른 구조 검사에 유지합니다. 같은 영상과 같은 과거 구간인지는 별도 <code>video_fingerprint</code>·<code>prefix_fingerprint</code>로 확인합니다. 모두 번역 대상 memory가 아니라 검증 metadata입니다.</p>
+      </article>
     </div>
   </section>
 
@@ -341,12 +345,15 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
       ['s-masks', 'metadata.preserved_inputs.mask_inputs_per_obj', 'mask prompt'],
       ['s-pred-masks', 'metadata.preserved_pred_masks', 'Source 화면 표시용'],
       ['s-presence', 'presence_logits', 'Source 진단 기록'],
+      ['s-storage-device', 'metadata.storage_device', 'Source 저장 장치'],
+      ['s-compute-device', 'metadata.compute_device', 'Source 연산 장치'],
+      ['s-translation', 'metadata.translation', '번역 provenance · 선택']]],
+    ['영상 계약 metadata', [
       ['s-num-frames', 'metadata.num_frames', '전체 frame 수'],
       ['s-video-height', 'metadata.video_height', '원본 높이'],
       ['s-video-width', 'metadata.video_width', '원본 너비'],
-      ['s-storage-device', 'metadata.storage_device', 'Source 저장 장치'],
-      ['s-compute-device', 'metadata.compute_device', 'Source 연산 장치'],
-      ['s-translation', 'metadata.translation', '번역 provenance · 선택'],
+      ['s-video-fingerprint', 'metadata.video_fingerprint', '전체 영상 SHA-256 · v1.2 예정'],
+      ['s-prefix-fingerprint', 'metadata.prefix_fingerprint', 'frame 0…t SHA-256 · v1.2 예정'],
       ['s-schema', 'schema_version', 'cmmt.canonical_state.v1']]]
   ];
 
@@ -372,7 +379,8 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
       ['a-replay', 'Target replay fallback', '과거 RGB·prompt 재처리'],
       ['a-target-write', 'Target-native record writer', '새 결과로 history 교체']]],
     ['검증·비전송', [
-      ['a-contract', 'Video contract validator', '길이·해상도 일치 검사'],
+      ['a-contract', 'Video structure validator', '길이·해상도 일치 검사'],
+      ['a-identity', 'Video identity validator', '전체 영상·prefix hash 비교'],
       ['a-schema', 'Schema validator', '지원 schema 확인'],
       ['a-diagnostics', 'Report / diagnostics only', 'Target에 주입하지 않음']]],
     ['Target 자체 초기화', [
@@ -525,6 +533,8 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   add('s-num-frames', 'a-contract', 'control');
   add('s-video-height', 'a-contract', 'control');
   add('s-video-width', 'a-contract', 'control');
+  add('s-video-fingerprint', 'a-identity', 'control');
+  add('s-prefix-fingerprint', 'a-identity', 'control');
   add('a-contract', 't-num-frames', 'control');
   add('a-contract', 't-video-height', 'control');
   add('a-contract', 't-video-width', 'control');
@@ -536,6 +546,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   add('s-compute-device', 'a-diagnostics', 'none');
   add('s-translation', 'a-diagnostics', 'none');
 
+  add('a-runtime', 'a-identity', 'runtime');
   for (const id of ['t-images', 't-num-frames', 't-video-height', 't-video-width',
     't-offload-video', 't-offload-state', 't-device', 't-storage-device',
     't-cached-features', 't-constants']) add('a-runtime', id, 'runtime');
@@ -593,6 +604,13 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     's-validity': '고정 크기 batch를 만들기 위해 추가된 padding slot과 실제 record를 구분하는 Boolean mask입니다. False slot은 Target history에 넣지 않습니다.',
     's-object-ids': '사용자가 지정한 외부 객체 식별자입니다. 예: bike, person 또는 1, 2. 값과 순서는 보존하며 Target의 obj_ids를 만드는 기준으로 사용합니다.',
     's-object-indices': 'Source predictor가 객체를 처리하기 위해 내부적으로 부여한 index입니다. 외부 object ID와 prompt·history를 연결하는 데만 사용하고, 새 Target runtime의 내부 index는 Target registry에서 다시 만듭니다.',
+    's-num-frames': '영상 동일성을 증명하는 값이 아니라 Target 영상과 frame 범위가 구조적으로 맞는지 빠르게 확인하는 metadata입니다.',
+    's-video-height': '영상 동일성 증명이 아니라 mask 좌표와 출력 복원이 가능한 해상도인지 빠르게 확인하는 metadata입니다.',
+    's-video-width': '영상 동일성 증명이 아니라 mask 좌표와 출력 복원이 가능한 해상도인지 빠르게 확인하는 metadata입니다.',
+    's-video-fingerprint': '서로 다른 영상이 같은 길이와 해상도를 가질 수 있으므로, 전체 frame manifest와 각 frame 내용으로 계산하는 SHA-256입니다. CanonicalState v1.2에 추가할 예정인 검증 metadata이며 learned translator 입력이 아닙니다.',
+    's-prefix-fingerprint': 'switch frame t까지의 frame 순서와 내용을 묶어 계산하는 SHA-256입니다. 전달된 memory가 Target이 보고 있는 동일한 과거에서 만들어졌는지 검사하며 learned translator 입력이 아닙니다.',
+    'a-contract': 'Source의 frame 수와 해상도를 Target runtime이 직접 읽은 값과 비교하는 빠른 구조 검사입니다. 값을 Target에 복사해 덮어쓰지 않습니다.',
+    'a-identity': 'Target이 같은 규칙으로 계산한 전체 영상·prefix SHA-256을 Source metadata와 비교합니다. 다르면 state 주입을 중단합니다.',
     'a-id-copy': '외부 object ID의 값과 순서를 바꾸지 않고 Target obj_ids로 전달합니다. 그 뒤 같은 목록을 사용해 Target 전용 양방향 index 표를 만듭니다.',
     'a-order': 'CanonicalState가 batching을 위해 평탄화한 record를 frame_indices와 slot_order에 따라 Target의 중첩 output dictionary로 다시 조립합니다.',
     'a-route': '보존된 is_conditioning 값을 읽어 record를 cond_frame_outputs 또는 non_cond_frame_outputs에 넣습니다. Boolean의 뜻은 바꾸지 않습니다.',
@@ -647,6 +665,9 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     's-num-frames>a-contract': 'Source가 기록한 전체 프레임 수와 Target이 연 영상을 비교합니다. 다르면 잘못된 영상으로 보고 주입을 중단합니다.',
     's-video-height>a-contract': 'Source와 Target 영상 높이가 같은지 확인합니다. 이 값은 Target 값을 덮어쓰지 않습니다.',
     's-video-width>a-contract': 'Source와 Target 영상 너비가 같은지 확인합니다. 이 값은 Target 값을 덮어쓰지 않습니다.',
+    's-video-fingerprint>a-identity': '전체 영상의 frame 순서와 내용이 같은지 SHA-256으로 확인합니다. 길이·해상도가 같아도 내용이 다른 영상을 구분합니다.',
+    's-prefix-fingerprint>a-identity': 'switch frame까지 실제로 동일한 frame prefix를 사용했는지 SHA-256으로 확인합니다. 이 검증값은 memory tensor로 주입하지 않습니다.',
+    'a-runtime>a-identity': 'Target이 연 원본 영상에서 동일한 canonical hash 규칙으로 비교값을 계산합니다. fingerprint는 Target inference_state의 영구 필드가 아닙니다.',
     's-schema>a-schema': '저장 상태의 schema 버전이 현재 코드가 이해할 수 있는 형식인지 먼저 검사합니다.',
     's-storage-device>a-diagnostics': 'Source가 어느 장치에 저장했는지는 로그로만 남깁니다. Target은 자신의 storage_device를 사용합니다.',
     's-compute-device>a-diagnostics': 'Source GPU/CPU 정보는 로그로만 남깁니다. Target 연산 장치는 새 runtime 설정을 따릅니다.'
