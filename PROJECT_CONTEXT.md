@@ -163,3 +163,10 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[구현]** Ridge/Linear/Residual-MLP 학습 loss와 평가 aggregate를 spatial memory와 object pointer 두 component로 제한했다. Presence는 diagnostic metric과 archive에만 남는다. Residual-MLP artifact schema는 v2로 올렸다.
 - **[해석]** 기존 Task 06 후속-mask 결과는 실제 Target memory read가 이미 두 translated field와 Target PE만 사용했으므로 유효하다. 기존 Direct JSON의 `translated_bytes`는 legacy metric이며 같은 11-record payload의 새 값은 `5,778,641 bytes`다.
 - **[남은 검증]** 로컬 compile은 통과했으나 로컬 Python에 torch/pytest가 없어 전체 runtime test는 RunPod에서 재실행해야 한다. Task 06 Done 전 same-checkpoint smoke 1회를 계약 회귀 검사로 다시 실행한다.
+
+## 22. 2026-09-21 — RunPod 최소 계약 회귀 검증 재개
+
+- **[환경]** RunPod SSH `157.157.221.29:43472` 연결에 성공했고 NVIDIA L4 23,034 MiB와 CUDA 12.8, `torch.cuda.is_available=True`를 확인했다.
+- **[확인]** RunPod에서 `PYTHONPATH=. pytest -q`를 실행해 전체 테스트 `52 passed`를 확인했다. 최초 실행의 `scripts` import 오류는 연구 코드 오류가 아니라 실행 경로 설정 문제였으며, 경로를 보정해 재실행했다.
+- **[확인]** DAVIS `walking`, object 1, switch frame 10, Base+ same-checkpoint runtime smoke가 통과했다. 11개 history record 주입 후 future 61 frames에서 mean MSE `0`, max error `0`, mean binary IoU `1.0`, injection 중 과거 backbone call `0`이었다. peak CUDA memory는 `976,665,088` bytes, wall time은 약 `45.6 s`였다.
+- **[해석]** 최소 handoff 계약의 same-checkpoint 구현 회귀는 통과했지만 Small→Base+ nonlinear translator의 성능을 의미하지 않는다. Task 06은 prompt correction·반복 switch·cross-model nonlinear injection이 남아 `In Progress`다.
