@@ -123,7 +123,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   </div>
 
   <div class="map-notes text-small">
-    <strong>읽는 법:</strong> 왼쪽 값이 가운데 조립 규칙을 거쳐 오른쪽 필드가 됩니다. 정보 처리 방식과 조립 작업은 배타적인 분류가 아닙니다. 예를 들어 <code>is_conditioning</code> 값은 그대로 보존하면서 cond/non-cond router가 그 값을 읽어 저장 위치를 정합니다. <code>switch_frame</code>은 Target 필드로 복사되지 않고 <code>t+1</code> 시작점을 정합니다. Source PE·device·provenance는 검사에는 남지만 Target 실행값으로 주입되지 않습니다.<br>
+    <strong>읽는 법:</strong> 왼쪽 값이 가운데 조립 규칙을 거쳐 오른쪽 필드가 됩니다. 정보 처리 방식과 조립 작업은 배타적인 분류가 아닙니다. 예를 들어 <code>is_conditioning</code> 값은 그대로 보존하면서 cond/non-cond router가 그 값을 읽어 저장 위치를 정합니다. <code>switch_frame</code> 값도 handoff metadata에 그대로 보존하며, controller가 이를 읽어 <code>t+1</code> 시작점을 정합니다. Target inference_state의 영구 필드로 주입하지는 않습니다. Source PE·device·provenance는 검사에는 남지만 Target 실행값으로 주입되지 않습니다.<br>
     <strong>기록 수와 읽기 수:</strong> CanonicalState는 전환 시점까지의 유효 record를 보존합니다. <code>K</code>는 저장 record 축이며 SAM 2의 한 추론 step에서 선택해 읽는 <code>num_maskmem</code>과 같은 뜻이 아닙니다.<br>
     <strong>장치 정책:</strong> 번역·조립된 <code>maskmem_features</code>는 Target <code>storage_device</code>로, <code>obj_ptr</code>와 Target PE는 Target compute/device 정책으로 이동합니다. Source device 문자열을 복사하지 않습니다.<br>
     <strong>예측 기록:</strong> Source <code>pred_masks</code>는 <em>Target inference_state 밖</em>의 화면 검토용 sidecar archive로만 보존하며 Target decoder의 refinement 입력으로 주입하지 않습니다. 과거 Source <code>object_score_logits</code>도 진단 전용입니다. 새 mask와 score는 Target이 새 frame 또는 replay에서 생성합니다.<br>
@@ -497,7 +497,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   add('a-registry', 't-object-slot', 'control');
   add('a-object-align', 'a-registry', 'control');
 
-  add('s-switch-frame', 'a-cutoff', 'control');
+  add('s-switch-frame', 'a-cutoff', 'preserve');
   add('a-cutoff', 't-next', 'control');
   add('a-cutoff', 'a-correction-route', 'control');
   add('a-correction-route', 't-forward-correction', 'control');
@@ -588,6 +588,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     's-validity': '고정 크기 batch를 만들기 위해 추가된 padding slot과 실제 record를 구분하는 Boolean mask입니다. False slot은 Target history에 넣지 않습니다.',
     's-object-ids': '사용자가 지정한 외부 객체 식별자입니다. 예: bike, person 또는 1, 2. 값과 순서는 보존하며 Target의 obj_ids를 만드는 기준으로 사용합니다.',
     's-object-indices': 'Source predictor가 객체를 처리하기 위해 내부적으로 부여한 index입니다. 외부 object ID와 prompt·history를 연결하는 데만 사용하고, 새 Target runtime의 내부 index는 Target registry에서 다시 만듭니다.',
+    's-switch-frame': 'Source가 마지막으로 처리한 frame t입니다. 값은 handoff metadata에 그대로 보존하며, Target continuation과 correction 분기의 기준으로 사용합니다.',
     'a-id-copy': '외부 object ID의 값과 순서를 바꾸지 않고 Target obj_ids로 전달합니다. 그 뒤 같은 목록을 사용해 Target 전용 양방향 index 표를 만듭니다.',
     'a-order': 'CanonicalState가 batching을 위해 평탄화한 record를 frame_indices와 slot_order에 따라 Target의 중첩 output dictionary로 다시 조립합니다.',
     'a-route': '보존된 is_conditioning 값을 읽어 record를 cond_frame_outputs 또는 non_cond_frame_outputs에 넣습니다. Boolean의 뜻은 바꾸지 않습니다.',
@@ -625,7 +626,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     's-object-indices>a-object-align': 'Source 내부 index를 이용해 그 물체에 딸린 prompt와 tracking 기록을 정확한 Target slot에 연결합니다.',
     'a-registry>t-id-to-idx': '외부 object ID에서 Target 내부 index를 찾는 정방향 표를 새로 만듭니다.',
     'a-registry>t-idx-to-id': 'Target 내부 index에서 외부 object ID를 찾는 역방향 표를 새로 만듭니다.',
-    's-switch-frame>a-cutoff': 'Source가 어디까지 처리했는지 t를 확정합니다. 과거 기록은 t까지만 포함하고 중복 처리를 막습니다.',
+    's-switch-frame>a-cutoff': 'Source가 마지막으로 처리한 frame t 값을 변경하지 않고 그대로 전달합니다. Continuation boundary가 이 값을 읽어 과거 기록의 끝과 다음 시작점을 결정합니다.',
     'a-cutoff>t-next': 'Target의 첫 새 추론 프레임을 t+1로 정합니다. switch_frame 자체는 Target inference_state의 영구 필드가 아닙니다.',
     'a-cutoff>a-correction-route': 'correction frame과 switch_frame을 비교해 전환 이후의 일반 Target correction인지, 전환 이전 history를 다시 만드는 replay fallback인지 결정합니다.',
     'a-correction-route>t-forward-correction': '전환 이후 frame은 현재 RGB와 prompt를 Target에 넣어 새 record를 만들며 과거 구간 replay가 필요하지 않습니다.',
