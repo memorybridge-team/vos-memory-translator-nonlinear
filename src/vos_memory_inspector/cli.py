@@ -23,11 +23,13 @@ from .paired_experiment import (
 )
 from .runner import run_video_probe
 from .roundtrip import (
+    MaskPromptEvent,
     prepare_cross_model_case_reference,
     run_cached_baseline,
     run_cached_translator_handoff,
     run_cross_model_direct_handoff,
     run_cross_model_translator_handoff,
+    run_same_checkpoint_prompt_timeline_roundtrip,
     run_same_checkpoint_roundtrip,
 )
 from .state_inspector import inspect_state, write_inspection_report
@@ -378,6 +380,60 @@ def roundtrip_main(argv: list[str] | None = None) -> None:
         video_dir=args.video_dir,
         prompt_mask=args.prompt_mask,
         object_id=args.object_id,
+        switch_frame=args.switch_frame,
+        device=args.device,
+        offload_video_to_cpu=not args.keep_video_on_device,
+        offload_state_to_cpu=not args.keep_state_on_device,
+        seed=args.seed,
+    )
+    if args.json is not None:
+        args.json.parent.mkdir(parents=True, exist_ok=True)
+        args.json.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps(report, indent=2))
+
+
+def prompt_timeline_roundtrip_main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run same-checkpoint SAM 2 export/inject validation for a multi-object "
+            "mask-prompt timeline."
+        )
+    )
+    parser.add_argument("--sam2-repo", required=True, type=Path)
+    parser.add_argument("--config", required=True)
+    parser.add_argument("--checkpoint", required=True, type=Path)
+    parser.add_argument("--model-id", required=True)
+    parser.add_argument("--video-dir", required=True, type=Path)
+    parser.add_argument(
+        "--prompt-event",
+        action="append",
+        nargs=3,
+        metavar=("FRAME", "OBJECT_ID", "MASK_PATH"),
+        required=True,
+        help="Repeat for each user mask prompt in the timeline.",
+    )
+    parser.add_argument("--switch-frame", type=int, required=True)
+    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--keep-video-on-device", action="store_true")
+    parser.add_argument("--keep-state-on-device", action="store_true")
+    parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--json", type=Path)
+    args = parser.parse_args(argv)
+    events = [
+        MaskPromptEvent(
+            frame_index=int(frame),
+            object_id=int(object_id),
+            mask_path=Path(mask_path),
+        )
+        for frame, object_id, mask_path in args.prompt_event
+    ]
+    report = run_same_checkpoint_prompt_timeline_roundtrip(
+        sam2_repo=args.sam2_repo,
+        config_file=args.config,
+        checkpoint=args.checkpoint,
+        model_id=args.model_id,
+        video_dir=args.video_dir,
+        prompt_events=events,
         switch_frame=args.switch_frame,
         device=args.device,
         offload_video_to_cpu=not args.keep_video_on_device,

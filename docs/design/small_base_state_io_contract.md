@@ -79,12 +79,13 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 | Canonical export·history materialization | 구현됨 |
 | Target PE 재생성 | 구현됨 |
 | object registry·prompt/tracking metadata 복원 | 구현됨 |
-| v1.1의 과거 mask/score 비주입 정책 | Base+ 단일 객체·첫 frame prompt의 실제 checkpoint strict round-trip 통과; edge case는 task 06에 남음 |
+| v1.1의 과거 mask/score 비주입 정책 | Base+ 단일 객체, 다객체·late prompt, 부재·재등장 strict round-trip 통과; correction은 task 06에 남음 |
 | 비동기 GPU→CPU export 안정성 | export 경계 CUDA 동기화와 회귀 test, 주입 전 11-record exact parity로 확인 |
 | Pair discrete timeline validator | 구현·CPU unit test 추가 |
 | Base+ checkpoint same-model export→inject | DAVIS `walking`, object 1, switch 10 통과 |
 | Small/Base+ 실제 runtime shape inventory | 단일 paired case 확인 |
-| 다객체·prompt correction 뒤 continuation closure | task 06 구현·동작 검증 범위 |
+| 다객체·late prompt·부재/재등장 continuation closure | task 06 실제 checkpoint strict round-trip 통과 |
+| prompt correction 뒤 continuation closure | task 06 구현·동작 검증 범위 |
 | Small→Base+ paired-state 예시 dump | 생성·checksum 기록 완료 |
 
 ## 6. GPU 재개 시 첫 실행
@@ -99,7 +100,11 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 후속 61개 frame의 logits가 모두 exact가 됐다. 원인·실패 결과·수정 후 증거는
 [`reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/`](../../reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/)에 있다.
 
-다객체, late prompt, absent/reappearance, prompt correction과 여러 sequence/switch에서의 반복 검증은 이 계약을 소비하는 task 06의 완료 조건이다. task 02는 실제 Small/Base+ inventory, paired dump, 필드 정책, fail-closed validator와 State Assembly Map을 기준으로 검토·동결한다.
+2026-09-21 추가 gate에서 DAVIS `bike-packing`의 두 객체를 frame 0과 10에 각각 등록하고 switch 20에서 Base+ state를 복원했다. 이후 48 frames가 mean MSE `0`, max error `0`, binary IoU `1.0`이었으며 injection 중 과거 backbone 호출은 `0`이었다. DAVIS `india`의 부재·재등장 구간에서도 object 3, switch 35 이후 45 frames가 같은 exact 기준을 통과했다.
+
+같은 날 Small→Base+ Direct Copy는 11개 history record를 replay 없이 정상 주입했지만, DAVIS `walking` switch 10 이후 61 frames에서 Base+-native 대비 mean binary IoU `0.0`이었다. spatial-memory cosine `0.0211`, object-pointer cosine `-0.0220`으로 표현 의미가 정렬되지 않았다. 이는 한 사례의 pilot이며 전체 성능 결론은 아니지만 cross-model injector의 기계적 동작과 learned/calibrated translation 필요성 검증을 분리해 보여 준다. 원본 증거는 [`reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/`](../../reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/)에 있다.
+
+Prompt correction과 여러 sequence/switch에서의 반복 검증은 이 계약을 소비하는 task 06의 남은 완료 조건이다. task 02는 실제 Small/Base+ inventory, paired dump, 필드 정책, fail-closed validator와 State Assembly Map을 기준으로 검토·동결한다.
 
 ### v1.1 구현 안전 조건
 
@@ -113,6 +118,7 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 - 시각 계약: [`State Assembly Map`](../architecture/cmmt-state-assembly-map.html)
 - runtime inventory: [`reports/runtime/2026-09-20_small_base_runtime_inventory/`](../../reports/runtime/2026-09-20_small_base_runtime_inventory/)
 - v1.1 minimal-history strict round-trip: [`reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/`](../../reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/)
+- task 06 edge cases and Direct Copy pilot: [`reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/`](../../reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/)
 
 이 계약 이후 새 field, dtype, shape, copy/translate/regenerate 정책을 바꾸면 계약 버전을 올리고 다음을 함께 갱신한다: validator test, Map, example dump, checksum, 영향받는 paired-state shard 목록. Task 06의 edge-case 실패가 현재 계약의 누락을 드러낸 경우에도 조용히 덮어쓰지 않고 v1.1 이상의 변경 기록을 남긴다.
 

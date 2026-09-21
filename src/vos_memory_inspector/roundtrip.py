@@ -6,6 +6,7 @@ import gc
 import random
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,100 @@ from .translators import DirectCopyTranslator
 
 
 CACHED_BASELINES = ("target_reset", "last_mask", "replay_k", "full_replay")
+
+
+@dataclass(frozen=True)
+class MaskPromptEvent:
+    """One user-provided object mask at a specific video frame."""
+
+    frame_index: int
+    object_id: int
+    mask_path: Path
+
+
+def _validate_prompt_events(
+    prompt_events: list[MaskPromptEvent], *, switch_frame: int, num_frames: int
+) -> list[MaskPromptEvent]:
+    if not prompt_events:
+        raise ValueError("at least one mask prompt event is required")
+    ordered = sorted(prompt_events, key=lambda event: (event.frame_index, event.object_id))
+    seen: set[tuple[int, int]] = set()
+    for event in ordered:
+        identity = (event.frame_index, event.object_id)
+        if identity in seen:
+            raise ValueError(f"duplicate prompt event frame/object: {identity}")
+        seen.add(identity)
+        if not 0 <= event.frame_index <= switch_frame:
+            raise ValueError(
+                f"prompt frame {event.frame_index} must be between 0 and switch "
+                f"frame {switch_frame}"
+            )
+        if event.frame_index >= num_frames:
+            raise ValueError(
+                f"prompt frame {event.frame_index} exceeds video length {num_frames}"
+            )
+        if not event.mask_path.is_file():
+            raise FileNotFoundError(f"prompt mask not found: {event.mask_path}")
+    return ordered
+
+
+def _collect_native_prompt_timeline(
+    predictor: Any,
+    inference_state: dict[str, Any],
+    *,
+    prompt_events: list[MaskPromptEvent],
+    switch_frame: int,
+) -> tuple[Any, dict[int, torch.Tensor]]:
+    """Run a prompt timeline and collect native state plus post-switch masks."""
+
+    events = _validate_prompt_events(
+        prompt_events,
+        switch_frame=switch_frame,
+        num_frames=int(inference_state["num_frames"]),
+    )
+    events_by_frame: dict[int, list[MaskPromptEvent]] = {}
+    for event in events:
+        events_by_frame.setdefault(event.frame_index, []).append(event)
+
+    canonical = None
+    future: dict[int, torch.Tensor] = {}
+    cursor = min(events_by_frame)
+    for prompt_frame in sorted(events_by_frame):
+        if cursor < prompt_frame:
+            for _frame_idx, _object_ids, _masks in predictor.propagate_in_video(
+                inference_state,
+                start_frame_idx=cursor,
+                max_frame_num_to_track=prompt_frame - cursor - 1,
+                reverse=False,
+            ):
+                pass
+        for event in events_by_frame[prompt_frame]:
+            predictor.add_new_mask(
+                inference_state,
+                frame_idx=event.frame_index,
+                obj_id=event.object_id,
+                mask=load_binary_prompt(event.mask_path, event.object_id),
+            )
+        cursor = prompt_frame
+
+    for frame_idx, _object_ids, masks in predictor.propagate_in_video(
+        inference_state,
+        start_frame_idx=cursor,
+        max_frame_num_to_track=int(inference_state["num_frames"]) - cursor,
+        reverse=False,
+    ):
+        frame = int(frame_idx)
+        if frame == switch_frame:
+            canonical = canonicalize_sam2_inference_state(
+                inference_state,
+                switch_frame=switch_frame,
+                strict=True,
+            )
+        if frame > switch_frame:
+            future[frame] = masks.detach().cpu().float()
+    if canonical is None:
+        raise RuntimeError("native prompt-timeline run did not reach switch_frame")
+    return canonical, future
 
 
 def _seed_everything(seed: int) -> None:
@@ -820,6 +915,136 @@ def run_same_checkpoint_roundtrip(
         "upstream_commit": commit,
         "video_id": video_dir.name,
         "switch_frame": switch_frame,
+        "future_frames": sorted(injected_future),
+        "injection": injection,
+        "backbone_calls_before_injection": calls_before_injection,
+        "backbone_calls_during_injection": calls_after_injection
+        - calls_before_injection,
+        "backbone_calls_during_future_continuation": len(backbone_calls)
+        - calls_after_injection,
+        "comparison": comparison,
+        "seed": seed,
+        "device": device,
+        "resources": _resource_measurement(started_at, device),
+    }
+    del injected_state, injected_predictor
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    return report
+
+
+def run_same_checkpoint_prompt_timeline_roundtrip(
+    *,
+    sam2_repo: str | Path,
+    config_file: str,
+    checkpoint: str | Path,
+    model_id: str,
+    video_dir: str | Path,
+    prompt_events: list[MaskPromptEvent],
+    switch_frame: int,
+    device: str = "cuda",
+    offload_video_to_cpu: bool = True,
+    offload_state_to_cpu: bool = True,
+    seed: int = 7,
+) -> dict[str, Any]:
+    """Validate export→inject continuation for multi-object prompt timelines."""
+
+    sam2_repo = Path(sam2_repo).resolve()
+    checkpoint = Path(checkpoint).resolve()
+    video_dir = Path(video_dir).resolve()
+    normalized_events = [
+        MaskPromptEvent(
+            frame_index=int(event.frame_index),
+            object_id=int(event.object_id),
+            mask_path=Path(event.mask_path).resolve(),
+        )
+        for event in prompt_events
+    ]
+    commit = verify_sam2_checkout(sam2_repo)
+    if not checkpoint.is_file():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint}")
+    if str(sam2_repo) not in sys.path:
+        sys.path.insert(0, str(sam2_repo))
+    from sam2.build_sam import build_sam2_video_predictor
+
+    started_at = _start_resource_measurement(device)
+    _seed_everything(seed)
+    native_predictor = build_sam2_video_predictor(
+        config_file=config_file,
+        ckpt_path=str(checkpoint),
+        device=device,
+    )
+    native_state = native_predictor.init_state(
+        video_path=str(video_dir),
+        offload_video_to_cpu=offload_video_to_cpu,
+        offload_state_to_cpu=offload_state_to_cpu,
+    )
+    if not 0 <= switch_frame < int(native_state["num_frames"]) - 1:
+        raise ValueError("switch_frame must leave at least one continuation frame")
+    canonical, native_future = _collect_native_prompt_timeline(
+        native_predictor,
+        native_state,
+        prompt_events=normalized_events,
+        switch_frame=switch_frame,
+    )
+    num_frames = int(native_state["num_frames"])
+    del native_state, native_predictor
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    _seed_everything(seed)
+    injected_predictor = build_sam2_video_predictor(
+        config_file=config_file,
+        ckpt_path=str(checkpoint),
+        device=device,
+    )
+    backbone_calls: list[tuple[int, ...]] = []
+    original_forward_image = injected_predictor.forward_image
+
+    def counted_forward_image(image: torch.Tensor):
+        backbone_calls.append(tuple(image.shape))
+        return original_forward_image(image)
+
+    injected_predictor.forward_image = counted_forward_image
+    injected_state = init_sam2_inference_state_without_warmup(
+        injected_predictor,
+        video_path=str(video_dir),
+        offload_video_to_cpu=offload_video_to_cpu,
+        offload_state_to_cpu=offload_state_to_cpu,
+    )
+    calls_before_injection = len(backbone_calls)
+    injection = inject_sam2_canonical_state(
+        canonical,
+        predictor=injected_predictor,
+        inference_state=injected_state,
+    )
+    calls_after_injection = len(backbone_calls)
+    injected_future: dict[int, torch.Tensor] = {}
+    start_frame = switch_frame + 1
+    for frame_idx, _object_ids, masks in injected_predictor.propagate_in_video(
+        injected_state,
+        start_frame_idx=start_frame,
+        max_frame_num_to_track=num_frames - start_frame,
+        reverse=False,
+    ):
+        injected_future[int(frame_idx)] = masks.detach().cpu().float()
+    comparison = _compare_future_masks(native_future, injected_future)
+    report = {
+        "schema_version": "cmmt.sam2_prompt_timeline_roundtrip.v1",
+        "model_id": model_id,
+        "upstream_commit": commit,
+        "video_id": video_dir.name,
+        "switch_frame": switch_frame,
+        "prompt_events": [
+            {
+                "frame_index": event.frame_index,
+                "object_id": event.object_id,
+                "mask_file": event.mask_path.name,
+            }
+            for event in normalized_events
+        ],
         "future_frames": sorted(injected_future),
         "injection": injection,
         "backbone_calls_before_injection": calls_before_injection,

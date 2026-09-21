@@ -7,6 +7,8 @@ import torch
 
 from vos_memory_inspector.case_cache import load_case_cache, write_case_cache
 from vos_memory_inspector.roundtrip import (
+    MaskPromptEvent,
+    _validate_prompt_events,
     binary_prompt_from_mask_logits,
     plan_cached_baseline,
 )
@@ -28,6 +30,37 @@ def _state(switch_frame: int, value: float) -> CanonicalState:
         switch_frame=switch_frame,
         metadata={"preserved_pred_masks": {}},
     ).validate()
+
+
+def test_prompt_timeline_validation_orders_events_and_rejects_invalid_input(
+    tmp_path: Path,
+) -> None:
+    prompt0 = tmp_path / "frame0.png"
+    prompt10 = tmp_path / "frame10.png"
+    prompt0.touch()
+    prompt10.touch()
+    events = _validate_prompt_events(
+        [
+            MaskPromptEvent(10, 2, prompt10),
+            MaskPromptEvent(0, 1, prompt0),
+        ],
+        switch_frame=20,
+        num_frames=30,
+    )
+    assert [(event.frame_index, event.object_id) for event in events] == [(0, 1), (10, 2)]
+
+    with pytest.raises(ValueError, match="duplicate prompt event"):
+        _validate_prompt_events(
+            [MaskPromptEvent(0, 1, prompt0), MaskPromptEvent(0, 1, prompt0)],
+            switch_frame=20,
+            num_frames=30,
+        )
+    with pytest.raises(ValueError, match="between 0 and switch"):
+        _validate_prompt_events(
+            [MaskPromptEvent(21, 2, prompt10)],
+            switch_frame=20,
+            num_frames=30,
+        )
 
 
 def test_case_cache_roundtrip_and_checksum(tmp_path: Path) -> None:

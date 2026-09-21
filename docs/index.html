@@ -73,13 +73,14 @@
         <div><div class="task-number">TASK 06</div><h2>State 추출·Self-injection·Target injection</h2></div>
         <span class="status progress">In Progress</span>
       </div>
-      <p>Base+ state를 새 Base+ predictor에 replay 없이 주입하는 단일 객체 gate를 통과했습니다. 다객체, late prompt, 부재·재등장, prompt correction과 Small→Base+ target injection은 후속 검증입니다.</p>
+      <p>Base+ state를 새 Base+ predictor에 replay 없이 주입하는 단일 객체·다객체·late prompt·부재/재등장 gate를 통과했습니다. Small→Base+ Direct Copy도 기계적으로 주입됐지만 Target-native mask와 전 프레임 IoU 0으로 실패해 번역 필요성을 확인했습니다. 남은 핵심 gate는 prompt correction입니다.</p>
       <div class="links">
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-20_base_plus_self_injection"><strong>Base+ self-injection 보고서</strong><br><span class="muted">61 frames · IoU 1.0 · replay 0</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-21_task06_edge_case_and_direct_injection"><strong>Task 06 edge-case 보고서</strong><br><span class="muted">다객체·재등장 exact · Direct Copy IoU 0</span></a>
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/runpod_l4_operations.md"><strong>RunPod 재현 방법</strong><br><span class="muted">환경·checkpoint·실행 절차</span></a>
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/pull/3"><strong>현재 구현 PR #3</strong><br><span class="muted">코드·검증 기록·diff</span></a>
       </div>
-      <p class="evidence">현재 gate: DAVIS <code>walking</code>, object 1, switch frame 10 이후 61 frames에서 native/injected IoU 1.0, MSE 0.0, injection 중 과거 backbone call 0.</p>
+      <p class="evidence">현재 gate: same-checkpoint 단일 객체 61 frames, 다객체·late prompt 48 frames, 부재·재등장 45 frames가 모두 exact이며 replay 0. Cross-model Direct Copy는 실행됐지만 후속 61 frames IoU 0.0. Task 06은 correction 검증 전까지 In Progress입니다.</p>
     </article>
   </section>
 

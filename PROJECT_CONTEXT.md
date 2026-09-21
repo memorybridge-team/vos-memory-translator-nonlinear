@@ -131,3 +131,12 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[확인]** 수정 뒤 DAVIS `walking`, object 1, switch 10의 11개 history record에서 `maskmem_features`, Target-generated `maskmem_pos_enc`, `obj_ptr`가 모두 bit-exact였다. 이후 61 frames의 Base+ native/injected logits도 mean MSE `0`, max error `0`, binary IoU `1.0`, injection 중 과거 backbone call `0`으로 strict gate를 통과했다.
 - **[해석]** 이 결과는 v1.1 최소 read-state가 단일 객체·첫 frame prompt no-replay continuation에 충분하다는 구현 증거다. Small→Base+ 번역 성능 증거는 아니며, Task 06은 다객체·late prompt·absence/reappearance·correction·cross-model target injection이 남아 `In Progress`다.
 - **[산출물]** `reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/`에 원인 분석, 재현 명령, report JSON과 history diagnostic을 보존한다.
+
+## 18. 2026-09-21 — Task 06 edge-case와 cross-model Direct Copy gate
+
+- **[구현]** 서로 다른 frame에서 객체를 추가하는 prompt timeline round-trip runner와 CLI를 추가했다. Prompt event는 frame/object/mask 계약을 검증하고, 다음 prompt 직전까지만 propagation하도록 inclusive API 경계를 처리한다. RunPod 전체 test는 `52 passed`였다.
+- **[확인]** DAVIS `bike-packing`에서 object 1@frame 0, object 2@frame 10, switch 20의 Base+→Base+ history 32 records를 주입했다. 후속 48 frames의 mean MSE `0`, max error `0`, mean binary IoU `1.0`, injection 중 과거 backbone call `0`이었다.
+- **[확인]** DAVIS `india`의 object 3, switch 35 부재·재등장 사례에서도 후속 45 frames가 mean MSE `0`, max error `0`, mean binary IoU `1.0`, injection 중 과거 backbone call `0`이었다.
+- **[Pilot]** DAVIS `walking`, object 1, switch 10에서 Small→Base+ Direct Copy는 11 history records를 replay 없이 기계적으로 주입했지만 Base+-native 대비 후속 61 frames의 mean binary IoU가 `0.0`이었다. Spatial-memory cosine은 `0.0211`, object-pointer cosine은 `-0.0220`이었다. 한 case 결과이므로 전체 일반화 결론은 아니지만, 동일 shape의 직접 복사만으로 표현 의미가 정렬되지 않으며 Moment-Matched/Nonlinear Translator 비교가 필요하다는 근거다.
+- **[상태]** Task 06은 다객체·late prompt·부재/재등장·cross-model target injection gate까지 통과 또는 실행 증거를 확보했다. Prompt correction과 여러 sequence/switch 반복 검증이 남아 `In Progress`다.
+- **[산출물]** `reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/`에 세 원본 JSON과 해석을 보존한다.
