@@ -155,3 +155,11 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[문서]** `docs/design/03_benchmark_protocol.md`에 DAVIS 2017·MOSEv2·LVOS v2, Source-only/Base+-native/Direct/Moment-Matched/anchor/Replay-4·8·16/Nonlinear 비교군, visible·absence·reappearance·prompt/object/visual taxonomy, video-clustered CI를 정리했다.
 - **[상태]** 데이터셋 이용조건/download snapshot, split manifest checksum, MOSEv2/LVOS loader·공식 metric 검증이 남아 Task 03은 `In Progress`다. Task 06은 prompt correction과 반복 switch 검증이 남아 `In Progress`다.
 - **[협업 규칙]** 코드·실험·문서 task는 Draft로 두지 않고 canonical repository Issue로 추적한다. 진행 중 Draft 누락을 발견하면 기존 결과를 버리지 않고 Issue로 전환해 commit·보고서를 소급 연결한 뒤 다음 작업부터 정상 흐름을 따른다.
+
+## 21. 2026-09-21 — 최소 payload의 코드·지표 반영
+
+- **[구현]** Canonical exporter에서 `num_frames`, `video_height`, `video_width`, Source 내부 object index, prompt 입력과 `frames_tracked_per_obj`를 제거했다. Injector는 Target runtime의 영상 값과 Source metadata를 비교하지 않으며, 외부 `object_ids`로 registry를 만들고 prompt/tracking dictionary를 빈 값으로 시작한다.
+- **[구현]** `handoff_bytes()`를 추가해 `maskmem_features`, `obj_ptr`, `frame_indices`, `slot_order`, `is_conditioning`, `validity`, `object_ids`, `switch_frame`만 센다. Presence·Source mask·prompt manifest·PE·영상 metadata/checksum은 제외한다.
+- **[구현]** Ridge/Linear/Residual-MLP 학습 loss와 평가 aggregate를 spatial memory와 object pointer 두 component로 제한했다. Presence는 diagnostic metric과 archive에만 남는다. Residual-MLP artifact schema는 v2로 올렸다.
+- **[해석]** 기존 Task 06 후속-mask 결과는 실제 Target memory read가 이미 두 translated field와 Target PE만 사용했으므로 유효하다. 기존 Direct JSON의 `translated_bytes`는 legacy metric이며 같은 11-record payload의 새 값은 `5,778,641 bytes`다.
+- **[남은 검증]** 로컬 compile은 통과했으나 로컬 Python에 torch/pytest가 없어 전체 runtime test는 RunPod에서 재실행해야 한다. Task 06 Done 전 same-checkpoint smoke 1회를 계약 회귀 검사로 다시 실행한다.

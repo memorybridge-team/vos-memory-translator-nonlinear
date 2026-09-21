@@ -8,6 +8,7 @@ runtime; the axis contracts below are the only fixed part of the representation.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+import json
 from typing import Any, Mapping
 
 import torch
@@ -139,6 +140,12 @@ class CanonicalState:
         return StateSpec.from_state(self)
 
     def continuous_bytes(self) -> int:
+        """Bytes in the archived continuous tensors, including diagnostics.
+
+        This is deliberately not the research handoff-byte metric because
+        ``presence_logits`` is retained for analysis but is not injected.
+        """
+
         self.validate()
         return sum(
             tensor.numel() * tensor.element_size()
@@ -148,6 +155,38 @@ class CanonicalState:
                 self.presence_logits,
             )
         )
+
+    def handoff_bytes(self) -> int:
+        """Bytes in the minimal continuation payload used by the target.
+
+        The payload contains the two translated tensors plus the discrete
+        assembly fields. Target-generated positional encodings, diagnostic
+        tensors, prompts, video properties, and dataset fingerprints are not
+        counted. Object IDs are counted using their deterministic JSON UTF-8
+        representation and ``switch_frame`` as a signed 64-bit integer.
+        """
+
+        self.validate()
+        tensor_bytes = sum(
+            tensor.numel() * tensor.element_size()
+            for tensor in (
+                self.spatial_memory,
+                self.object_pointer,
+                self.frame_indices,
+                self.slot_order,
+                self.is_conditioning,
+                self.validity,
+            )
+        )
+        object_id_bytes = len(
+            json.dumps(
+                list(self.object_ids),
+                ensure_ascii=False,
+                separators=(",", ":"),
+                default=str,
+            ).encode("utf-8")
+        )
+        return tensor_bytes + object_id_bytes + 8
 
     def valid_record_count(self) -> int:
         return int(self.validity.sum().item())
@@ -204,6 +243,7 @@ class CanonicalState:
             "object_ids": [str(value) for value in self.object_ids],
             "valid_record_count": self.valid_record_count(),
             "continuous_bytes": self.continuous_bytes(),
+            "handoff_bytes": self.handoff_bytes(),
             "tensors": {
                 name: {
                     "shape": list(tensor.shape),
@@ -260,15 +300,4 @@ def validate_paired_state_contract(
         if not torch.equal(source_value, target_value):
             raise ValueError(f"paired source/target {name} must match exactly")
 
-    for key in ("num_frames", "video_height", "video_width"):
-        source_value = source.metadata.get(key)
-        target_value = target.metadata.get(key)
-        if (
-            source_value is not None
-            and target_value is not None
-            and source_value != target_value
-        ):
-            raise ValueError(
-                f"paired source/target metadata[{key!r}] must match exactly"
-            )
     return source.validity

@@ -88,8 +88,9 @@ def canonicalize_sam2_inference_state(
 
     The function does not assume specific model dimensions.  It discovers the first
     complete compact output and validates every later record against it.  Prompt
-    tensors, frame-tracking metadata and stored masks are retained as opaque
-    metadata; they are not translator inputs.
+    Source masks are retained as diagnostic archive metadata. Video dimensions,
+    prompt inputs and frame-tracking records are runtime/dataset-owned and are
+    not part of the minimal handoff payload.
     """
 
     # Pinned SAM 2 offloads ``maskmem_features`` and ``pred_masks`` to CPU with
@@ -197,22 +198,9 @@ def canonicalize_sam2_inference_state(
     object_ids = tuple(_object_id(inference_state, index) for index in object_indices)
     metadata = {
         "source": "sam2_inference_state",
-        "object_indices": object_indices,
-        "frames_tracked_per_obj": deepcopy(
-            inference_state.get("frames_tracked_per_obj", {})
-        ),
-        "preserved_inputs": {
-            "point_inputs_per_obj": deepcopy(
-                inference_state.get("point_inputs_per_obj", {})
-            ),
-            "mask_inputs_per_obj": deepcopy(inference_state.get("mask_inputs_per_obj", {})),
-        },
         "preserved_pred_masks": preserved_masks,
         "storage_device": str(inference_state.get("storage_device", "unknown")),
         "compute_device": str(inference_state.get("device", "unknown")),
-        "num_frames": inference_state.get("num_frames"),
-        "video_height": inference_state.get("video_height"),
-        "video_width": inference_state.get("video_width"),
     }
     return CanonicalState(
         spatial_memory=spatial,
@@ -362,9 +350,11 @@ def inject_sam2_canonical_state(
     The fresh target state must contain video/runtime-owned fields but no
     registered objects or temporary interactions. Only the v1.1 read-state
     tensors are placed on the target's storage/compute devices, while record
-    identity and prompt/tracking metadata are copied exactly. Source masks and
-    scores remain in the external CanonicalState archive and are never inserted
-    into ``inference_state``.
+    identity metadata are copied exactly. Prompt/tracking dictionaries start
+    empty because they are not required for next-frame continuation. Source
+    masks and scores remain in the external CanonicalState archive and are never
+    inserted into ``inference_state``. Video length and size are owned by the
+    target runtime and are intentionally not compared with Source metadata here.
     """
 
     state.validate()
@@ -372,19 +362,6 @@ def inject_sam2_canonical_state(
         raise ValueError("target inference_state must be fresh before injection")
     if any(inference_state.get("temp_output_dict_per_obj", {}).values()):
         raise ValueError("target inference_state contains temporary outputs")
-    expected = {
-        "num_frames": state.metadata.get("num_frames"),
-        "video_height": state.metadata.get("video_height"),
-        "video_width": state.metadata.get("video_width"),
-    }
-    mismatches = {
-        key: (expected_value, inference_state.get(key))
-        for key, expected_value in expected.items()
-        if expected_value is not None and expected_value != inference_state.get(key)
-    }
-    if mismatches:
-        raise ValueError(f"target video contract differs from exported state: {mismatches}")
-
     positional_factory = make_target_sam2_positional_factory(
         predictor, inference_state
     )
@@ -394,12 +371,6 @@ def inject_sam2_canonical_state(
     )
     compute_device = torch.device(inference_state["device"])
     storage_device = torch.device(inference_state["storage_device"])
-    source_indices = state.metadata.get("object_indices", list(range(len(state.object_ids))))
-    preserved_inputs = state.metadata.get("preserved_inputs", {})
-    preserved_points = preserved_inputs.get("point_inputs_per_obj", {})
-    preserved_masks = preserved_inputs.get("mask_inputs_per_obj", {})
-    preserved_tracking = state.metadata.get("frames_tracked_per_obj", {})
-
     inference_state["obj_id_to_idx"] = OrderedDict(
         (object_id, object_slot)
         for object_slot, object_id in enumerate(state.object_ids)
@@ -415,7 +386,7 @@ def inject_sam2_canonical_state(
     inference_state["temp_output_dict_per_obj"] = {}
     inference_state["frames_tracked_per_obj"] = {}
 
-    for object_slot, source_index in enumerate(source_indices):
+    for object_slot, _object_id_value in enumerate(state.object_ids):
         history = histories[object_slot]
         for records in history.values():
             for output in records.values():
@@ -431,15 +402,9 @@ def inject_sam2_canonical_state(
             COND_KEY: {},
             NON_COND_KEY: {},
         }
-        inference_state["point_inputs_per_obj"][object_slot] = _move_nested_tensors(
-            preserved_points.get(source_index, {}), compute_device
-        )
-        inference_state["mask_inputs_per_obj"][object_slot] = _move_nested_tensors(
-            preserved_masks.get(source_index, {}), compute_device
-        )
-        inference_state["frames_tracked_per_obj"][object_slot] = deepcopy(
-            preserved_tracking.get(source_index, {})
-        )
+        inference_state["point_inputs_per_obj"][object_slot] = {}
+        inference_state["mask_inputs_per_obj"][object_slot] = {}
+        inference_state["frames_tracked_per_obj"][object_slot] = {}
 
     return {
         "objects": len(state.object_ids),

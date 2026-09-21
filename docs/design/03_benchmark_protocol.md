@@ -3,6 +3,7 @@
 > 상태: **IN PROGRESS**  
 > 범위: SAM 2.1 Small → Base+ nonlinear state handoff  
 > 목적: 결과를 보기 전에 dataset, case taxonomy, baseline 입력, metric과 통계 단위를 고정한다.
+> 협업 추적: [GitHub Issue #4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4)
 
 ## 1. Task 경계
 
@@ -105,6 +106,8 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - Moment-Matched statistics는 training video의 paired state로만 계산한다.
 - test/official-val의 Target-native state나 future frame을 translator fitting·선택에 쓰지 않는다.
 - 각 방법의 입력 RGB 수, mask/prompt 수, state bytes, Target backbone call을 함께 기록한다.
+- `state bytes`는 실제 handoff API가 옮기는 `maskmem_features`, `obj_ptr`, `frame_indices`, `slot_order`, `is_conditioning`, `validity`, `object_ids`, `switch_frame`만 센다. `presence_logits`, Source mask archive, prompt manifest, 영상 checksum, `num_frames`·높이·너비와 Target-generated PE는 제외한다.
+- 영상·checkpoint·split checksum은 paired-data 무결성을 확인하는 실험 manifest 필드이며, handoff payload나 전송량의 일부로 보고하지 않는다.
 
 ## 6. 지표와 통계 단위
 
@@ -145,4 +148,3 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 
 위 미완료 항목 전에는 Task 03을 `Done`으로 바꾸지 않는다. 결과를 본 뒤 taxonomy, k 값,
 metric 또는 split을 유리하게 바꾸려면 날짜·이유·영향받는 run을 decision log에 남긴다.
-

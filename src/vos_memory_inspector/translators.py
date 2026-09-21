@@ -138,13 +138,11 @@ class RidgeStateTranslator:
         target_spec: StateSpec,
         feature_map: AffineMap,
         pointer_map: AffineMap,
-        presence_map: AffineMap,
         ridge_lambda: float,
     ):
         self.target_spec = target_spec
         self.feature_map = feature_map
         self.pointer_map = pointer_map
-        self.presence_map = presence_map
         self.ridge_lambda = ridge_lambda
 
     @classmethod
@@ -162,8 +160,6 @@ class RidgeStateTranslator:
         feature_y: list[torch.Tensor] = []
         pointer_x: list[torch.Tensor] = []
         pointer_y: list[torch.Tensor] = []
-        presence_x: list[torch.Tensor] = []
-        presence_y: list[torch.Tensor] = []
         for source, target in pair_list:
             if target.spec != target_spec:
                 raise ValueError("all target states must share one runtime StateSpec")
@@ -179,8 +175,6 @@ class RidgeStateTranslator:
             feature_y.append(sy.reshape(-1, sy.shape[-1]))
             pointer_x.append(source.object_pointer[valid])
             pointer_y.append(target.object_pointer[valid.to(target.validity.device)])
-            presence_x.append(source.presence_logits[valid])
-            presence_y.append(target.presence_logits[valid.to(target.validity.device)])
         return cls(
             target_spec=target_spec,
             feature_map=fit_affine_closed_form(
@@ -188,9 +182,6 @@ class RidgeStateTranslator:
             ),
             pointer_map=fit_affine_closed_form(
                 torch.cat(pointer_x), torch.cat(pointer_y), ridge_lambda=ridge_lambda
-            ),
-            presence_map=fit_affine_closed_form(
-                torch.cat(presence_x), torch.cat(presence_y), ridge_lambda=ridge_lambda
             ),
             ridge_lambda=ridge_lambda,
         )
@@ -202,11 +193,10 @@ class RidgeStateTranslator:
         )
         spatial = self.feature_map(spatial.movedim(3, -1)).movedim(-1, 3)
         pointer = self.pointer_map(source.object_pointer)
-        presence = self.presence_map(source.presence_logits)
         return source.with_continuous(
             spatial_memory=spatial,
             object_pointer=pointer,
-            presence_logits=presence,
+            presence_logits=source.presence_logits.clone(),
             positional_information=_target_positional(self.target_spec),
             translation_metadata={
                 "translator": self.name,
@@ -216,10 +206,7 @@ class RidgeStateTranslator:
         )
 
     def parameter_count(self) -> int:
-        return sum(
-            mapping.parameter_count
-            for mapping in (self.feature_map, self.pointer_map, self.presence_map)
-        )
+        return self.feature_map.parameter_count + self.pointer_map.parameter_count
 
     def to_payload(self) -> dict[str, Any]:
         return {
@@ -229,8 +216,6 @@ class RidgeStateTranslator:
             "feature_bias": self.feature_map.bias.detach().cpu(),
             "pointer_weight": self.pointer_map.weight.detach().cpu(),
             "pointer_bias": self.pointer_map.bias.detach().cpu(),
-            "presence_weight": self.presence_map.weight.detach().cpu(),
-            "presence_bias": self.presence_map.bias.detach().cpu(),
         }
 
     @classmethod
@@ -242,8 +227,6 @@ class RidgeStateTranslator:
             "feature_bias",
             "pointer_weight",
             "pointer_bias",
-            "presence_weight",
-            "presence_bias",
         }
         missing = sorted(required - set(payload))
         if missing:
@@ -264,7 +247,6 @@ class RidgeStateTranslator:
             target_spec=target_spec,
             feature_map=AffineMap(payload["feature_weight"], payload["feature_bias"]),
             pointer_map=AffineMap(payload["pointer_weight"], payload["pointer_bias"]),
-            presence_map=AffineMap(payload["presence_weight"], payload["presence_bias"]),
             ridge_lambda=float(payload["ridge_lambda"]),
         )
 
@@ -313,9 +295,6 @@ class _LearnedStateTranslator(nn.Module):
     def _pointer_head(self, tensor: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 
-    def _presence_head(self, tensor: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError
-
     def forward(self, source: CanonicalState) -> CanonicalState:
         source.validate()
         if source.spec != self.source_spec:
@@ -327,11 +306,10 @@ class _LearnedStateTranslator(nn.Module):
         )
         spatial = self._feature_head(spatial.movedim(3, -1)).movedim(-1, 3)
         pointer = self._pointer_head(source.object_pointer)
-        presence = self._presence_head(source.presence_logits)
         return source.with_continuous(
             spatial_memory=spatial,
             object_pointer=pointer,
-            presence_logits=presence,
+            presence_logits=source.presence_logits.clone(),
             positional_information=_target_positional(self.target_spec),
             translation_metadata={
                 "translator": self.name,
@@ -354,7 +332,6 @@ class LinearStateTranslator(_LearnedStateTranslator):
             source_spec.feature_channels, target_spec.feature_channels
         )
         self.pointer = nn.Linear(source_spec.pointer_dim, target_spec.pointer_dim)
-        self.presence = nn.Linear(1, 1)
 
     def _feature_head(self, tensor: torch.Tensor) -> torch.Tensor:
         return self.feature(
@@ -365,12 +342,6 @@ class LinearStateTranslator(_LearnedStateTranslator):
         return self.pointer(
             tensor.to(device=self.pointer.weight.device, dtype=self.pointer.weight.dtype)
         )
-
-    def _presence_head(self, tensor: torch.Tensor) -> torch.Tensor:
-        return self.presence(
-            tensor.to(device=self.presence.weight.device, dtype=self.presence.weight.dtype)
-        )
-
 
 class ResidualMLPStateTranslator(_LearnedStateTranslator):
     """Separate two-layer MLP heads; identity residuals only when shapes match."""
@@ -398,7 +369,6 @@ class ResidualMLPStateTranslator(_LearnedStateTranslator):
             nn.GELU(),
             nn.Linear(hidden_dim, target_spec.pointer_dim),
         )
-        self.presence = nn.Linear(1, 1)
         self.feature_residual = (
             source_spec.feature_channels == target_spec.feature_channels
             and source_spec.height == target_spec.height
@@ -422,19 +392,11 @@ class ResidualMLPStateTranslator(_LearnedStateTranslator):
         output = self.pointer(calibrated)
         return output + calibrated if self.pointer_residual else output
 
-    def _presence_head(self, tensor: torch.Tensor) -> torch.Tensor:
-        # Scalar presence always has equal input/output shape, so calibration is residual.
-        calibrated = tensor.to(
-            device=self.presence.weight.device,
-            dtype=self.presence.weight.dtype,
-        )
-        return self.presence(calibrated) + calibrated
-
     def to_payload(self) -> dict[str, Any]:
         """Serialize architecture metadata with CPU weights for safe reuse."""
 
         return {
-            "schema_version": "cmmt.residual_mlp_translator.v1",
+            "schema_version": "cmmt.residual_mlp_translator.v2",
             "translator": self.name,
             "source_spec": self.source_spec.to_dict(),
             "target_spec": self.target_spec.to_dict(),
@@ -446,7 +408,7 @@ class ResidualMLPStateTranslator(_LearnedStateTranslator):
 
     @classmethod
     def from_payload(cls, payload: Mapping[str, Any]) -> "ResidualMLPStateTranslator":
-        if payload.get("schema_version") != "cmmt.residual_mlp_translator.v1":
+        if payload.get("schema_version") != "cmmt.residual_mlp_translator.v2":
             raise ValueError("unsupported residual MLP translator payload")
         source_spec = StateSpec(**dict(payload["source_spec"]))
         target_spec = StateSpec(**dict(payload["target_spec"]))
@@ -469,7 +431,6 @@ class LearnedComponentPolicyTranslator:
     _ALLOWED_COMPONENTS = {
         "spatial_memory",
         "object_pointer",
-        "presence_logits",
     }
 
     def __init__(
@@ -519,6 +480,7 @@ class LearnedComponentPolicyTranslator:
                     )
                     for component in sorted(self._ALLOWED_COMPONENTS)
                 },
+                "presence_logits": "diagnostic_only",
                 "grid_adapter": "bilinear",
             },
         )
@@ -537,11 +499,7 @@ def state_mse_loss(prediction: CanonicalState, target: CanonicalState) -> torch.
         (prediction.object_pointer - target.object_pointer.to(prediction.object_pointer.device))
         ** 2
     )[valid.to(prediction.object_pointer.device)].mean()
-    presence_loss = (
-        (prediction.presence_logits - target.presence_logits.to(prediction.presence_logits.device))
-        ** 2
-    )[valid.to(prediction.presence_logits.device)].mean()
-    return spatial_loss + pointer_loss + presence_loss
+    return spatial_loss + pointer_loss
 
 
 def fit_gradient_translator(
@@ -628,12 +586,4 @@ def _sampled_state_mse_loss(
             device=predicted_pointer.device, dtype=predicted_pointer.dtype
         ),
     )
-    source_presence = source.presence_logits[valid]
-    predicted_presence = translator._presence_head(source_presence)
-    presence_loss = F.mse_loss(
-        predicted_presence,
-        target.presence_logits[valid].to(
-            device=predicted_presence.device, dtype=predicted_presence.dtype
-        ),
-    )
-    return spatial_loss + pointer_loss + presence_loss
+    return spatial_loss + pointer_loss

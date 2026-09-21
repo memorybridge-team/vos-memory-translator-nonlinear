@@ -117,7 +117,7 @@ anchor로 먼저 보장하고, 이후 최근 창을 시간순으로 재처리한
 ### A. 구현 성공
 
 - same-checkpoint self-injection이 정해진 tolerance 안에서 native continuation과 일치한다.
-- 과거 RGB backbone replay가 0회이며, 모든 등록 객체·frame·prompt history가 누락 없이 복원된다.
+- 과거 RGB backbone replay가 0회이며, 모든 등록 객체와 유효 memory record가 누락 없이 복원된다. Prompt timeline은 handoff state가 아니라 interaction manifest가 보존한다.
 - 다객체, late prompt, 부재·재등장, prompt correction에서도 fail-closed 계약을 지킨다.
 
 이 단계는 translator 성능 성공이 아니라 task 06의 구현 gate다.

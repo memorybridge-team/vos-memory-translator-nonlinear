@@ -212,12 +212,10 @@ def run_synthetic_experiment(
         predicted_readout = (
             predicted.spatial_memory.mean()
             + predicted.object_pointer.mean()
-            + predicted.presence_logits.mean()
         )
         oracle_readout = (
             oracle.spatial_memory.mean()
             + oracle.object_pointer.mean()
-            + oracle.presence_logits.mean()
         )
         continuation_smoke = {
             "kind": "synthetic_readout_only",

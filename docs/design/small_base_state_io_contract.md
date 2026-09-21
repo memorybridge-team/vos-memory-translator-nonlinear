@@ -8,6 +8,8 @@
 >
 > 단일 객체 Base+ self-injection과 확장 continuation 검증은 이 계약을 소비하는 task 06의 증거다.
 > 기준 upstream: Meta SAM 2 commit `2b90b9f5ceec907a1c18123530e92e794ad901a4`
+>
+> 구현·검증 추적: [GitHub Issue #5](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/5)
 
 ## 결론
 
@@ -57,7 +59,7 @@ Export 직전에는 Source가 `non_blocking=True`로 GPU→CPU offload한 최신
 - temporal position: `frame_indices`와 현재 frame의 차이로 Base+가 자체 정책에 따라 만든다.
 - `pred_masks`: source의 low-resolution logits를 CMMT 외부 표시 archive로만 보존한다. Target history나 decoder refinement 입력에는 주입하지 않는다.
 - `presence_logits`/`object_score_logits`: source 진단 기록으로만 보존한다. Target은 새 frame 또는 correction replay에서 score를 새로 계산한다.
-- original point/mask prompts와 `frames_tracked_per_obj`: 객체 등록·상호작용 장부로 보존한다. 전환 이전 correction은 이 prompt timeline과 원본 RGB로 Target을 안전한 기준점부터 replay해 수정 이후 history를 Target-native state로 교체한다.
+- original point/mask prompts와 `frames_tracked_per_obj`: CanonicalState와 handoff payload에 넣지 않는다. 전환 이전 correction에 필요한 실제 prompt timeline은 dataset/interaction manifest가 별도 보존하며, 원본 RGB와 함께 Target replay 입력으로 사용한다.
 - `cached_features`: 과거 RGB backbone feature를 전달하지 않는다. Fresh target runtime의 cache는 비운다.
 - `temp_output_dict_per_obj`: 미완성 상호작용 상태는 전달하지 않고 target에서 빈 dictionary로 시작한다.
 - `num_frames`, `video_height`, `video_width`: Target runtime이 같은 영상에서 직접 산출한다. 로컬 cache·loader가 dataset 무결성 assertion에 사용할 수는 있지만 연구 handoff payload와 전송 bytes에서는 제외한다.
@@ -81,14 +83,14 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 |---|---|
 | Canonical export·history materialization | 구현됨 |
 | Target PE 재생성 | 구현됨 |
-| object registry·prompt/tracking metadata 복원 | 구현됨 |
+| object registry 복원, prompt/tracking dictionary 초기화 | 구현됨 — `object_ids`로 registry를 만들고 interaction dictionary는 빈 값으로 시작 |
 | v1.1의 과거 mask/score 비주입 정책 | Base+ 단일 객체, 다객체·late prompt, 부재·재등장 strict round-trip 통과; correction은 task 06에 남음 |
 | 비동기 GPU→CPU export 안정성 | export 경계 CUDA 동기화와 회귀 test, 주입 전 11-record exact parity로 확인 |
 | Pair discrete timeline validator | 구현·CPU unit test 추가 |
 | Base+ checkpoint same-model export→inject | DAVIS `walking`, object 1, switch 10 통과 |
 | Small/Base+ 실제 runtime shape inventory | 단일 paired case 확인 |
 | 다객체·late prompt·부재/재등장 continuation closure | task 06 실제 checkpoint strict round-trip 통과 |
-| prompt correction 뒤 continuation closure | task 06 구현·동작 검증 범위 |
+| prompt correction 뒤 continuation closure | task 06 미검증 gate |
 | Small→Base+ paired-state 예시 dump | 생성·checksum 기록 완료 |
 
 ## 6. GPU 재개 시 첫 실행
@@ -117,7 +119,7 @@ Prompt correction과 여러 sequence/switch에서의 반복 검증은 이 계약
 
 - Small/Base+ 실제 경계: spatial `[1,1,11,64,64,64]` bfloat16, pointer `[1,1,11,256]` float32, presence `[1,1,11,1]` float32
 - paired cache: `166,882,485 bytes`, SHA-256 `5e9bca17217d522335acf80a454834cf2beab22d4dd8f6204fcd221d2bf1a5f0`
-- validator: schema, switch frame, object/frame/slot/conditioning/validity 불일치를 fail closed; 영상 크기 검사는 로컬 paired-data assertion으로만 사용
+- validator: schema, switch frame, object/frame/slot/conditioning/validity 불일치를 fail closed; 영상 길이·크기·checksum 검사는 CanonicalState 밖 dataset/cache assertion으로만 사용
 - 시각 계약: [`State Assembly Map`](../architecture/cmmt-state-assembly-map.html)
 - runtime inventory: [`reports/runtime/2026-09-20_small_base_runtime_inventory/`](../../reports/runtime/2026-09-20_small_base_runtime_inventory/)
 - v1.1 minimal-history strict round-trip: [`reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/`](../../reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/)
