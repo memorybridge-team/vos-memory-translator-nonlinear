@@ -16,6 +16,7 @@ from .evaluation_manifest import (
     write_evaluation_manifest,
 )
 from .mose import build_mosev2_evaluation_manifest
+from .lvos import build_lvosv2_evaluation_manifest
 from .paired_experiment import (
     load_case_cache_pair,
     load_canonical_state,
@@ -296,6 +297,37 @@ def mose_manifest_main(argv: list[str] | None = None) -> None:
             indent=2,
         )
     )
+
+
+def lvos_manifest_main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Build a deterministic LVOS v2 metadata-driven evaluation manifest."
+    )
+    parser.add_argument("--root", required=True, type=Path)
+    parser.add_argument("--split", default="val")
+    parser.add_argument("--regular-quantile", action="append", type=float, default=[])
+    parser.add_argument("--min-prefix-frames", type=int, default=5)
+    parser.add_argument("--min-future-frames", type=int, default=20)
+    parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--output", required=True, type=Path)
+    args = parser.parse_args(argv)
+    manifest = build_lvosv2_evaluation_manifest(
+        args.root,
+        split=args.split,
+        regular_quantiles=tuple(args.regular_quantile) or (0.25, 0.5, 0.75),
+        min_prefix_frames=args.min_prefix_frames,
+        min_future_frames=args.min_future_frames,
+        seed=args.seed,
+    )
+    write_evaluation_manifest(manifest, args.output)
+    print(json.dumps({
+        "output": str(args.output.resolve()),
+        "split": manifest["split"],
+        "sequences": manifest["sequence_count"],
+        "cases": manifest["case_count"],
+        "excluded": len(manifest["excluded"]),
+        "content_sha256": manifest["content_sha256"],
+    }, indent=2))
 
 
 def state_inspect_main(argv: list[str] | None = None) -> None:
