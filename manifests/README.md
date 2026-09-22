@@ -55,3 +55,20 @@ cmmt-lvos-build-manifest \
   --split val --seed 7 \
   --output manifests/lvosv2_val_v1.json
 ```
+
+## LVOS v2 train v1
+
+- File: `lvosv2_train_v1.json`
+- Dataset: LVOS v2 official train split
+- Videos: `420`
+- Cases: `1,803` (object frame range 안의 세 temporal switch 후보)
+- Archive size: `22,414,546,249` bytes
+- Manifest content SHA-256: `4c6b663d8af3dfa9c2a5eed0b5d955121710ed9c925fcedcf01837f499a6ed19`
+- `meta.json`의 object별 frame range를 사용하며, train mask는 로컬에서 future 평가에 사용할 수 있다.
+
+```bash
+cmmt-lvos-build-manifest \
+  --root /path/to/LVOS-v2 \
+  --split train --seed 7 \
+  --output manifests/lvosv2_train_v1.json
+```
