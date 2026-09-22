@@ -56,6 +56,21 @@ cmmt-mose-build-manifest \
   --output manifests/mosev2_train_v1.json
 ```
 
+## Video-level fit/development 후보
+
+train manifest의 case를 video ID 기준으로 seed 7, 80/20 비율로 나누며 한 영상의
+객체·switch case가 fit과 development에 동시에 들어가지 않게 한다.
+
+```bash
+python scripts/build_video_splits.py \
+  --input manifests/mosev2_train_v1.json \
+  --output-prefix manifests/mosev2_train_v1
+```
+
+현재 생성된 후보는 MOSEv2가 fit 2,680 videos/16,931 cases와 development 615/3,910,
+LVOS v2가 fit 347/1,488와 development 73/315이다. 최종 freeze 전 DAVIS train도
+같은 스크립트로 생성하고 split checksum을 기록한다.
+
 ## LVOS v2 validation
 
 LVOS v2 Eval archive는 공식 `valid.zip`으로 확보했다. RunPod에서 압축 해제한 결과는
