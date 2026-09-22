@@ -40,9 +40,14 @@ PYTHONPATH=src python -c "from vos_memory_inspector.mose import build_mosev2_eva
 
 ## LVOS v2 validation
 
-LVOS v2 loader는 공식 `val_meta.json`과 선택적 `val_meta_attribute.json`을 읽어
-object frame range 안에서만 switch 후보를 만든다. Eval archive 다운로드가 완료되면
-다음 명령으로 manifest를 생성한다.
+LVOS v2 Eval archive는 공식 `valid.zip`으로 확보했다. RunPod에서 압축 해제한 결과는
+140개 video directory, JPEG 66,056개, annotation 66,056개이며 archive SHA-256은
+`beb488046f74e0cb4154a0cb2bcc2c79cae858da0693e5adabcf966a5712d4e2`이다.
+manifest 파일은 140 sequences·717 cases를 담고, content SHA-256은
+`3a3e3c7610a08e251f109d77d516723392b14484be81ad3eb604aa3a63a1b5c1`이다.
+LVOS v2 loader는 공식 metadata의 object frame range 안에서만 switch 후보를 만든다.
+현재 archive의 `meta.json`은 loader 입력용 `val_meta.json`으로 파생해 사용했으며,
+attribute·prompt/correction loader 검증은 후속 작업이다.
 
 ```bash
 cmmt-lvos-build-manifest \
