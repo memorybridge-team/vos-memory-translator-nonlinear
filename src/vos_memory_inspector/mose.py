@@ -163,3 +163,65 @@ def write_mosev2_evaluation_manifest(manifest: dict[str, Any], output: str | Pat
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
+
+def build_mosev2_train_manifest(
+    root: str | Path,
+    *,
+    split: str = "train",
+    regular_quantiles: tuple[float, ...] = (0.25, 0.5, 0.75),
+    min_prefix_frames: int = 5,
+    min_future_frames: int = 20,
+    seed: int = 7,
+) -> dict[str, Any]:
+    """Build a metadata-driven manifest for the dense-annotation train split.
+
+    Unlike validation, train metadata lists every video/object and train masks
+    are dense.  Switch candidates are therefore selected from the video range,
+    while object IDs and frame counts come from ``meta_train.json``.
+    """
+    root = Path(root).resolve()
+    split_root = _split_root(root, split)
+    metadata_path = split_root / f"meta_{split}.json"
+    if not metadata_path.is_file():
+        metadata_path = split_root / "train_meta.json"
+    if not metadata_path.is_file():
+        metadata_path = root.parent / f"meta_{split}.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    videos = metadata.get("videos", {})
+    cases: list[dict[str, Any]] = []
+    excluded: list[dict[str, Any]] = []
+    for video_id in sorted(videos):
+        video = videos[video_id]
+        frame_count = int(video.get("length", len(video.get("frames", []))))
+        object_ids = [str(value) for value in video.get("objects", [])]
+        eligible = list(range(min_prefix_frames - 1, frame_count - min_future_frames))
+        if not eligible or not object_ids:
+            excluded.append({"video_id": video_id, "reason": "insufficient_range_or_objects"})
+            continue
+        selected = sorted({eligible[int(round(q * (len(eligible) - 1)))] for q in regular_quantiles})
+        for object_id in object_ids:
+            for switch_frame in selected:
+                cases.append({
+                    "case_id": f"{split}:{video_id}:obj{object_id}:switch{switch_frame}",
+                    "dataset": "MOSEv2", "release": "v2", "official_split": split,
+                    "video_id": video_id, "object_id": object_id,
+                    "switch_frame": switch_frame, "first_prompt_frame": 0,
+                    "future_end_frame": frame_count - 1, "frame_count": frame_count,
+                    "tags": ["train_dense_annotations"],
+                    "future_gt_available": True,
+                    "annotation_policy": "dense_train_annotations",
+                })
+    manifest: dict[str, Any] = {
+        "schema_version": "cmmt.mosev2_train_manifest.v1", "dataset": "MOSEv2",
+        "release": "v2", "dataset_root_policy": "runtime_argument_not_stored",
+        "split": split, "seed": seed,
+        "selection_policy": {"regular_quantiles": list(regular_quantiles),
+                              "min_prefix_frames": min_prefix_frames,
+                              "min_future_frames": min_future_frames,
+                              "switch_frame_indexing": "zero_based_sorted_rgb_order"},
+        "annotation_policy": "dense_train_annotations", "sequence_count": len(videos),
+        "case_count": len(cases), "cases": cases, "excluded": excluded,
+    }
+    canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":"))
+    manifest["content_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return manifest

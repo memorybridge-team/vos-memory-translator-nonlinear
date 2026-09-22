@@ -15,7 +15,7 @@ from .evaluation_manifest import (
     build_davis_evaluation_manifest,
     write_evaluation_manifest,
 )
-from .mose import build_mosev2_evaluation_manifest
+from .mose import build_mosev2_evaluation_manifest, build_mosev2_train_manifest
 from .lvos import build_lvosv2_evaluation_manifest
 from .paired_experiment import (
     load_case_cache_pair,
@@ -275,13 +275,12 @@ def mose_manifest_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args(argv)
-    manifest = build_mosev2_evaluation_manifest(
-        args.root,
-        split=args.split,
+    builder = build_mosev2_train_manifest if args.split == "train" else build_mosev2_evaluation_manifest
+    manifest = builder(
+        args.root, split=args.split,
         regular_quantiles=tuple(args.regular_quantile) or (0.25, 0.5, 0.75),
         min_prefix_frames=args.min_prefix_frames,
-        min_future_frames=args.min_future_frames,
-        seed=args.seed,
+        min_future_frames=args.min_future_frames, seed=args.seed,
     )
     write_evaluation_manifest(manifest, args.output)
     print(

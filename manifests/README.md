@@ -38,6 +38,24 @@ cmmt-davis-build-manifest \
 PYTHONPATH=src python -c "from vos_memory_inspector.mose import build_mosev2_evaluation_manifest, write_mosev2_evaluation_manifest; m=build_mosev2_evaluation_manifest('/path/to/MOSEv2/extracted', split='valid'); write_mosev2_evaluation_manifest(m, 'manifests/mosev2_valid_v1.json')"
 ```
 
+## MOSEv2 train v1
+
+- File: `mosev2_train_v1.json`
+- Videos: `3,666`
+- Cases: `20,841`
+- Annotation policy: dense train annotations from `meta_train.json`
+- Manifest content SHA-256: `1734d1cb031a7e7ee3ee3324be7166fd0add726d5cba7289d8a692d08c60c014`
+
+Train은 validation처럼 first-frame-only가 아니므로 `meta_train.json`의 객체 목록과 영상 길이를 사용해
+동일한 3개 temporal switch 후보를 만든다.
+
+```bash
+cmmt-mose-build-manifest \
+  --root /path/to/MOSEv2/extracted \
+  --split train --seed 7 \
+  --output manifests/mosev2_train_v1.json
+```
+
 ## LVOS v2 validation
 
 LVOS v2 Eval archive는 공식 `valid.zip`으로 확보했다. RunPod에서 압축 해제한 결과는
