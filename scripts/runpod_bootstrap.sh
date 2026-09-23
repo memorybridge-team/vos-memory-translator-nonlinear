@@ -10,7 +10,13 @@ project_dir="$(cd "$1" && pwd)"
 sam2_dir="${project_dir}/.external/sam2"
 checkpoint_dir="${project_dir}/checkpoints"
 venv_dir="${project_dir}/.venv"
-sam2_commit="2b90b9f5ceec907a1c18123530e92e794ad901a4"
+if [[ -f "${project_dir}/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "${project_dir}/.env"
+  set +a
+fi
+sam2_commit="${SAM2_UPSTREAM_COMMIT:-2b90b9f5ceec907a1c18123530e92e794ad901a4}"
 
 # RunPod's base Python can be externally managed (PEP 668).  Keep every
 # project package in a venv while reusing the image's CUDA-enabled PyTorch.
