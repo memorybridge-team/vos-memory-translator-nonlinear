@@ -16,7 +16,8 @@ def _bucket(video_id: str, seed: int) -> float:
 def build_splits(source: dict, *, seed: int = 7, fit_fraction: float = 0.8) -> tuple[dict, dict]:
     if not 0.0 < fit_fraction < 1.0:
         raise ValueError("fit_fraction must be between 0 and 1")
-    videos = sorted({str(case["video_id"]) for case in source["cases"]})
+    video_key = "video_id" if any("video_id" in case for case in source["cases"]) else "sequence"
+    videos = sorted({str(case[video_key]) for case in source["cases"]})
     fit_videos = {video for video in videos if _bucket(video, seed) < fit_fraction}
     # Avoid an empty side for tiny smoke manifests.
     if not fit_videos:
@@ -25,11 +26,21 @@ def build_splits(source: dict, *, seed: int = 7, fit_fraction: float = 0.8) -> t
         fit_videos.remove(videos[-1])
 
     def make(name: str, selected: set[str]) -> dict:
-        cases = [case for case in source["cases"] if str(case["video_id"]) in selected]
-        result = dict(source)
-        result.update({"split": name, "cases": cases, "case_count": len(cases)})
-        result["video_count"] = len(selected)
-        result["source_manifest_content_sha256"] = source["content_sha256"]
+        cases = [case for case in source["cases"] if str(case[video_key]) in selected]
+        result = {
+            "schema_version": "cmmt.video_split_manifest.v1",
+            "dataset": source["dataset"],
+            "release": source.get("release"),
+            "source_split": source["split"],
+            "split": name,
+            "seed": seed,
+            "fit_fraction": fit_fraction,
+            "video_key": video_key,
+            "videos": sorted(selected),
+            "video_count": len(selected),
+            "case_count": len(cases),
+            "source_manifest_content_sha256": source["content_sha256"],
+        }
         canonical = json.dumps(result, sort_keys=True, separators=(",", ":"))
         result["content_sha256"] = hashlib.sha256(canonical.encode()).hexdigest()
         return result

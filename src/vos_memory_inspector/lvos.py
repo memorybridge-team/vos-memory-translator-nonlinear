@@ -61,18 +61,25 @@ def build_lvosv2_evaluation_manifest(
 
     cases: list[dict[str, Any]] = []
     excluded: list[dict[str, Any]] = []
+    frames_root = split_root / "JPEGImages"
+    if not frames_root.is_dir():
+        raise FileNotFoundError(f"LVOS split must contain JPEGImages: {split_root}")
     for video_id in sorted(metadata["videos"]):
         video = metadata["videos"][video_id]
         attr_video = attributes.get("videos", {}).get(video_id, {})
+        available_frame_ids = sorted(
+            int(path.stem) for path in frames_root.joinpath(video_id).glob("*.jpg")
+        )
         for object_id in sorted(video.get("objects", {}), key=str):
             frame_range = video["objects"][object_id].get("frame_range", {})
             start = int(frame_range.get("start", 0))
             end = int(frame_range.get("end", start - 1))
             frame_nums = int(frame_range.get("frame_nums", end - start + 1))
-            first_switch = start + min_prefix_frames - 1
-            last_switch = end - min_future_frames
-            eligible = list(range(first_switch, last_switch + 1))
-            if not eligible:
+            object_frame_ids = [value for value in available_frame_ids if start <= value <= end]
+            eligible_positions = list(
+                range(min_prefix_frames - 1, len(object_frame_ids) - min_future_frames)
+            )
+            if not eligible_positions:
                 excluded.append(
                     {
                         "video_id": video_id,
@@ -83,12 +90,10 @@ def build_lvosv2_evaluation_manifest(
                     }
                 )
                 continue
-            selected = sorted(
-                {
-                    eligible[int(round(q * (len(eligible) - 1)))]
-                    for q in regular_quantiles
-                }
-            )
+            selected = sorted({
+                object_frame_ids[eligible_positions[int(round(q * (len(eligible_positions) - 1)))]]
+                for q in regular_quantiles
+            })
             tags = sorted(set(attr_video.get("attributes", [])))
             for switch_frame in selected:
                 cases.append(
@@ -134,4 +139,3 @@ def build_lvosv2_evaluation_manifest(
     canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":"))
     manifest["content_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     return manifest
-

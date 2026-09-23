@@ -190,22 +190,39 @@ def build_mosev2_train_manifest(
     videos = metadata.get("videos", {})
     cases: list[dict[str, Any]] = []
     excluded: list[dict[str, Any]] = []
+    frames_root = split_root / "JPEGImages"
+    annotations_root = split_root / "Annotations"
+    if not frames_root.is_dir() or not annotations_root.is_dir():
+        raise FileNotFoundError("MOSEv2 train split must contain JPEGImages and Annotations")
     for video_id in sorted(videos):
         video = videos[video_id]
         frame_count = int(video.get("length", len(video.get("frames", []))))
-        object_ids = [str(value) for value in video.get("objects", [])]
-        eligible = list(range(min_prefix_frames - 1, frame_count - min_future_frames))
-        if not eligible or not object_ids:
+        object_ids = {int(value) for value in video.get("objects", [])}
+        first_seen: dict[int, int] = {}
+        for frame_index, path in enumerate(sorted(annotations_root.joinpath(video_id).glob("*.png"))):
+            with Image.open(path) as image:
+                labels = np.asarray(image)
+            for object_id in object_ids.intersection(int(value) for value in np.unique(labels)):
+                first_seen.setdefault(object_id, frame_index)
+        if not object_ids:
             excluded.append({"video_id": video_id, "reason": "insufficient_range_or_objects"})
             continue
-        selected = sorted({eligible[int(round(q * (len(eligible) - 1)))] for q in regular_quantiles})
-        for object_id in object_ids:
+        for object_id in sorted(object_ids):
+            prompt_frame = first_seen.get(object_id)
+            if prompt_frame is None:
+                excluded.append({"video_id": video_id, "object_id": str(object_id), "reason": "object_absent_from_masks"})
+                continue
+            eligible = list(range(prompt_frame + min_prefix_frames - 1, frame_count - min_future_frames))
+            if not eligible:
+                excluded.append({"video_id": video_id, "object_id": str(object_id), "reason": "insufficient_prefix_or_future_frames"})
+                continue
+            selected = sorted({eligible[int(round(q * (len(eligible) - 1)))] for q in regular_quantiles})
             for switch_frame in selected:
                 cases.append({
                     "case_id": f"{split}:{video_id}:obj{object_id}:switch{switch_frame}",
                     "dataset": "MOSEv2", "release": "v2", "official_split": split,
                     "video_id": video_id, "object_id": object_id,
-                    "switch_frame": switch_frame, "first_prompt_frame": 0,
+                    "switch_frame": switch_frame, "first_prompt_frame": prompt_frame,
                     "future_end_frame": frame_count - 1, "frame_count": frame_count,
                     "tags": ["train_dense_annotations"],
                     "future_gt_available": True,

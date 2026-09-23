@@ -1,6 +1,6 @@
 # Task 03 — Benchmark protocol v1.0
 
-> 상태: **IN PROGRESS**  
+> 상태: **DONE**  
 > 범위: SAM 2.1 Small → Base+ nonlinear state handoff  
 > 목적: 결과를 보기 전에 dataset, case taxonomy, baseline 입력, metric과 통계 단위를 고정한다.
 > 협업 추적: [GitHub Issue #4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4)
@@ -34,6 +34,11 @@ GitHub 저장소의 코드 license와 dataset 자체의 이용조건을 같은 �
 Git에 넣지 않는다. 실제 사용 snapshot에는 download source, archive/file checksum,
 추출 날짜와 split manifest checksum을 남긴다.
 
+고정 이용조건은 다음과 같다. DAVIS 재배포는 CC BY-NC 4.0, MOSEv2는
+CC BY-NC-SA 4.0 및 비상업 연구 용도, LVOS annotation은 CC BY 4.0이고 원본
+영상 데이터는 비상업 연구 용도다. LVOS evaluation toolkit의 BSD-3-Clause는
+평가 코드의 license이며 dataset license로 확장하지 않는다.
+
 ## 3. 공통 case manifest
 
 평가 단위는 다음 key를 가진다.
@@ -56,6 +61,12 @@ Git에 넣지 않는다. 실제 사용 snapshot에는 download source, archive/f
 Source와 모든 Target 방법은 같은 manifest와 같은 prompt/correction timeline을 사용한다.
 미래 GT는 metric·사후 stratification에만 쓰며 runtime 입력, baseline 선택, translator
 입력 또는 replay frame 선택에는 쓰지 않는다.
+
+Dataset manifest가 제공하는 실제 interaction은 객체별 최초 mask prompt까지다.
+공개 데이터셋에 존재하지 않는 사용자 correction을 GT에서 임의로 만들어 주 비교군에
+입력하지 않는다. Correction 실험은 별도의 interaction manifest에
+`(frame_index, object_id, prompt_type, mask_reference)`를 명시하고, 동일 interaction을
+모든 방법에 제공한다. correction이 없는 표준 benchmark case의 timeline은 빈 목록이다.
 
 ## 4. Difficulty taxonomy
 
@@ -121,6 +132,14 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - 다객체 identity break/ID switch는 구현된 판정 규칙이 있을 때만 보고
 - case failure rate와 제외 사유
 
+### 공식 평가와 CMMT switch 평가의 분리
+
+- **DAVIS 2017:** 공개 validation GT에서 공식 semi-supervised `J`, `F`, `J&F`를 보고한다.
+- **MOSEv2:** 공식 README는 train의 dense annotation과 validation의 first-frame-only annotation을 구분하고, validation/test 제출은 공식 Evaluation Server 경로로 안내한다. 따라서 로컬 MOSEv2 validation의 switch 이후 값은 official J&F라고 부르지 않으며, `first-frame prompt continuation diagnostic`으로만 기록한다. dense train의 switch J&F는 model selection·debug용이다.
+- **LVOS v2:** 공식 `lvos-evaluation` toolkit의 `semi-supervised` validation score를 dataset-level 결과로 사용한다. CMMT의 `switch +1/+5/+20`, recovery length, visible/absent slice는 같은 prediction을 추가로 분석하는 자체 지표이며 LVOS 공식 score를 대체하지 않는다. test는 공식 CodaLab server 외의 local score로 주장하지 않는다.
+
+출처는 MOSEv2 공식 [README](https://github.com/henghuiding/MOSE-api)와 LVOS 공식 [evaluation toolkit](https://github.com/LingyiHongfd/lvos-evaluation)이다.
+
 ### 시스템 비용
 
 - handoff wall-clock latency와 continuation latency
@@ -141,10 +160,10 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - [x] 데이터셋 세 종류와 연구 역할을 고정했다.
 - [x] 주 비교군·제외 비교군·진단군과 각 입력 데이터를 고정했다.
 - [x] difficulty taxonomy, metric, clustered 통계 단위를 고정했다.
-- [ ] 각 dataset 배포본의 실제 이용조건과 download snapshot/checksum을 기록한다. (DAVIS와 MOSEv2 validation 기록 완료; LVOS v2 Eval archive와 SHA-256 확인 완료, 이용조건 기록 보강 필요)
-- [ ] fit/development/evaluation video ID manifest와 checksum을 생성한다. (MOSEv2·LVOS v2 train manifest에서 seed 7, 80/20 video-level fit/development 후보를 생성했으며, DAVIS train과 최종 split freeze가 남아 있다.)
-- [ ] 객체별 prompt/correction 및 switch selection manifest schema를 실제 loader로 검증한다. (세 데이터셋의 train/validation manifest 생성 완료; 실제 prompt/correction replay loader 검증 필요)
-- [ ] MOSEv2/LVOS v2 공식 metric 구현·명칭과 자체 switch metric의 구분을 검증한다.
+- [x] 각 dataset 배포본의 실제 이용조건과 download snapshot/checksum을 기록한다. (원본 archive가 없는 DAVIS는 추출 inventory와 manifest hash를 snapshot으로 사용한다.)
+- [x] fit/development/evaluation video ID manifest와 checksum을 생성한다. (seed 7, hash 기반 80/20 video-level split; case가 없는 제외 영상은 split에서 제외하고 manifest `excluded`에 유지한다.)
+- [x] 객체별 prompt/correction 및 switch selection manifest schema를 실제 loader로 검증한다. (DAVIS·MOSEv2·LVOS v2 train/validation 전수 검증 `failure_count=0`; correction은 별도 interaction manifest만 허용한다.)
+- [x] MOSEv2/LVOS v2 공식 metric 구현·명칭과 자체 switch metric의 구분을 검증한다. (MOSEv2 validation은 first-frame annotation·official server 경로로, LVOS v2 validation은 공식 `lvos-evaluation` semi-supervised toolkit으로 분리한다.)
 
-위 미완료 항목 전에는 Task 03을 `Done`으로 바꾸지 않는다. 결과를 본 뒤 taxonomy, k 값,
+위 항목은 2026-09-23 모두 충족했다. 이후 결과를 본 뒤 taxonomy, k 값,
 metric 또는 split을 유리하게 바꾸려면 날짜·이유·영향받는 run을 decision log에 남긴다.
