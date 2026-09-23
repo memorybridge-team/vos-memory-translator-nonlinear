@@ -56,18 +56,20 @@ def evaluate_state(
         "object_pointer": tensor_metrics(
             prediction.object_pointer, target.object_pointer, validity
         ),
-        "presence_logits": tensor_metrics(
-            prediction.presence_logits, target.presence_logits, validity
-        ),
     }
     aggregate_mse = sum(value["mse"] for value in components.values()) / len(
         components
     )
     return {
         "components": components,
+        "diagnostics": {
+            "presence_logits": tensor_metrics(
+                prediction.presence_logits, target.presence_logits, validity
+            )
+        },
         "aggregate_mse": aggregate_mse,
         "valid_records": int(validity.sum().item()),
-        "translated_bytes": prediction.continuous_bytes(),
+        "translated_bytes": prediction.handoff_bytes(),
     }
 
 

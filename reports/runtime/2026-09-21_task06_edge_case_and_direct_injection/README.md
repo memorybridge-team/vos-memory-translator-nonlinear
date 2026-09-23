@@ -25,6 +25,20 @@ frame을 재처리하지 않았다. 그러나 Target-native state 대비 spatial
 동일 shape라는 이유만으로 Small state를 Base+에 직접 복사할 수 없으며 learned 또는
 calibrated translation을 비교해야 한다는 강한 구현·방법론 근거다.
 
+## 최소 handoff 계약 변경의 영향
+
+이 pilot의 실제 Target history는 이미 `maskmem_features`, `obj_ptr`, Target-generated
+`maskmem_pos_enc`만 사용했다. 따라서 영상 길이·해상도와 prompt/tracking dictionary를
+CanonicalState에서 제거해도 위 후속-mask 결과의 해석은 바뀌지 않는다. 다만 당시 JSON의
+`translated_bytes=5,778,476`은 예전 `continuous_bytes` 정의로 Source presence 44 bytes를
+포함하고 discrete assembly metadata를 제외한 값이다. 현재 계약으로 같은 단일 객체·11
+record payload를 계산하면 `5,778,641 bytes`이며, 이후 표와 실험은 새 `handoff_bytes()`만
+사용한다. 기존 JSON은 실행 당시 원본 증거이므로 덮어쓰지 않는다.
+
+계약 refactor 뒤 CPU unit test를 먼저 통과시키고, Task 06 완료 전 실제 checkpoint로
+same-checkpoint smoke를 한 번 재실행한다. 이는 기존 과학적 pilot을 다시 하는 것이 아니라
+제외한 metadata가 continuation에 관여하지 않음을 확인하는 회귀 검사다.
+
 ## 남은 Task 06 gate
 
 - switch 이후 현재 frame prompt correction을 Target-native 방식으로 처리하는 경로
@@ -37,4 +51,3 @@ calibrated translation을 비교해야 한다는 강한 구현·방법론 근거
 - [`multiobject_late_prompt.json`](multiobject_late_prompt.json)
 - [`reappearance.json`](reappearance.json)
 - [`small_to_base_direct.json`](small_to_base_direct.json)
-

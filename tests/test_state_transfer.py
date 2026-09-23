@@ -136,6 +136,14 @@ def test_sam2_multi_object_canonicalization_and_materialization() -> None:
                     "obj_ptr",
                 }
     assert len(state.metadata["preserved_pred_masks"]) == 4
+    assert not {
+        "num_frames",
+        "video_height",
+        "video_width",
+        "object_indices",
+        "frames_tracked_per_obj",
+        "preserved_inputs",
+    } & state.metadata.keys()
 
 
 def test_sam2_canonicalization_synchronizes_cuda_cpu_offload(monkeypatch) -> None:
@@ -171,6 +179,37 @@ def test_sam2_canonicalization_synchronizes_cuda_cpu_offload(monkeypatch) -> Non
     canonicalize_sam2_inference_state(inference_state, switch_frame=0)
 
     assert synchronized == [torch.device("cuda:0")]
+
+
+def test_sam2_reexport_allows_missing_diagnostic_presence_logits() -> None:
+    injected_record = {
+        "maskmem_features": torch.ones((1, 3, 2, 2)),
+        "maskmem_pos_enc": [torch.zeros((1, 3, 2, 2))],
+        "obj_ptr": torch.ones((1, 4)),
+    }
+    native_record = {
+        **injected_record,
+        "object_score_logits": torch.tensor([[2.0]]),
+    }
+    inference_state = {
+        "obj_idx_to_id": {0: 1},
+        "obj_ids": [1],
+        "output_dict_per_obj": {
+            0: {
+                "cond_frame_outputs": {0: injected_record},
+                "non_cond_frame_outputs": {1: native_record},
+            }
+        },
+        "device": "cpu",
+        "storage_device": "cpu",
+    }
+
+    state = canonicalize_sam2_inference_state(inference_state, switch_frame=1)
+
+    assert state.valid_record_count() == 2
+    assert state.presence_logits[0, 0, 0, 0].item() == 0.0
+    assert state.presence_logits[0, 0, 1, 0].item() == 2.0
+    assert state.metadata["missing_presence_records"] == ["object=0/record=0"]
 
 
 def test_sam2_injection_restores_registry_history_and_target_position() -> None:
@@ -234,7 +273,9 @@ def test_sam2_injection_restores_registry_history_and_target_position() -> None:
     )
     assert summary == {"objects": 1, "records": 2, "switch_frame": 1}
     assert target["obj_id_to_idx"] == {7: 0}
-    assert target["mask_inputs_per_obj"][0][0].device.type == "cpu"
+    assert target["point_inputs_per_obj"][0] == {}
+    assert target["mask_inputs_per_obj"][0] == {}
+    assert target["frames_tracked_per_obj"][0] == {}
     restored = target["output_dict_per_obj"][0]
     assert torch.all(restored["cond_frame_outputs"][0]["maskmem_pos_enc"][0] == 9)
     assert not torch.any(restored["cond_frame_outputs"][0]["maskmem_pos_enc"][0] == -1)
@@ -243,6 +284,40 @@ def test_sam2_injection_restores_registry_history_and_target_position() -> None:
             assert "pred_masks" not in translated_record
             assert "object_score_logits" not in translated_record
     assert len(canonical.metadata["preserved_pred_masks"]) == 2
+
+
+def test_handoff_bytes_counts_only_injected_payload() -> None:
+    state = _state(
+        torch.zeros(1, 1, 2, 3, 2, 2),
+        torch.zeros(1, 1, 2, 4),
+        torch.zeros(1, 1, 2, 1),
+    )
+    state.metadata.update(
+        {
+            "num_frames": 999,
+            "video_height": 4096,
+            "video_width": 4096,
+            "video_fingerprint": "not-transferred",
+        }
+    )
+    expected_tensor_bytes = sum(
+        tensor.numel() * tensor.element_size()
+        for tensor in (
+            state.spatial_memory,
+            state.object_pointer,
+            state.frame_indices,
+            state.slot_order,
+            state.is_conditioning,
+            state.validity,
+        )
+    )
+    # object_ids=(0,) serializes as "[0]" and switch_frame is int64.
+    assert state.handoff_bytes() == expected_tensor_bytes + 3 + 8
+    assert state.continuous_bytes() > (
+        state.spatial_memory.numel() * state.spatial_memory.element_size()
+        + state.object_pointer.numel() * state.object_pointer.element_size()
+    )
+    assert evaluate_state(state, state)["translated_bytes"] == state.handoff_bytes()
 
 
 def test_direct_adapts_shape_and_preserves_discrete_state() -> None:
@@ -402,9 +477,9 @@ def test_learned_component_policy_uses_direct_for_unselected_components() -> Non
     assert torch.allclose(translated.presence_logits, source.presence_logits)
     assert translated.metadata["translation"]["component_policy"] == {
         "object_pointer": "learned",
-        "presence_logits": "direct",
         "spatial_memory": "learned",
     }
+    assert translated.metadata["translation"]["presence_logits"] == "diagnostic_only"
 
 
 def test_paired_experiment_serializes_residual_mlp_contract(tmp_path: Path) -> None:
@@ -436,7 +511,7 @@ def test_paired_experiment_serializes_residual_mlp_contract(tmp_path: Path) -> N
         tmp_path / "paired_translators.pt", map_location="cpu", weights_only=True
     )
     payload = saved["residual_mlp"]
-    assert payload["schema_version"] == "cmmt.residual_mlp_translator.v1"
+    assert payload["schema_version"] == "cmmt.residual_mlp_translator.v2"
     assert payload["hidden_dim"] == 6
     assert payload["source_spec"] == source.spec.to_dict()
     assert payload["target_spec"] == target.spec.to_dict()

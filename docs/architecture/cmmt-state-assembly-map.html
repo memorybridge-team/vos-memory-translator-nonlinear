@@ -54,7 +54,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
 <body>
 <div id="cmmt-state-map">
   <h2>CMMT CanonicalState → Target SAM 2 조립 지도</h2>
-  <p class="text-muted">현재 <code>cmmt.canonical_state.v1</code> export를 소비하는 <strong>v1.1 Target 조립 계약</strong>과 고정 SAM 2.1 predictor 기준입니다. 핵심 translator와 correction 발생 시의 replay fallback을 분리해 표시합니다. 로컬 injector는 과거 <code>pred_masks</code>/<code>object_score_logits</code>를 제외한 최소 read-state를 조립하며, 실제 checkpoint에서 단일 객체·다객체·late prompt·부재/재등장 continuation을 검증했습니다. Prompt correction runtime gate는 Task 06에 남아 있습니다.</p>
+  <p class="text-muted">현재 <code>cmmt.canonical_state.v1</code> export를 소비하는 <strong>v1.1 Target 조립 계약</strong>과 고정 SAM 2.1 predictor 기준입니다. 핵심 translator와 correction 발생 시의 replay fallback을 분리해 표시합니다. 로컬 injector는 과거 <code>pred_masks</code>/<code>object_score_logits</code>를 제외한 최소 read-state를 조립하며, 실제 checkpoint에서 단일 객체·다객체·late prompt·부재/재등장, 전환 전후 correction과 반복 handoff continuation을 검증했습니다. 진단용 score가 없는 injected history도 같은 최소 계약으로 다시 export할 수 있습니다.</p>
 
   <section class="handoff-paths" aria-labelledby="handoff-paths-title">
     <h3 id="handoff-paths-title">실행 모드</h3>
@@ -331,18 +331,14 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
       ['s-is-cond', 'is_conditioning', 'cond/non-cond 분기'],
       ['s-validity', 'validity', 'padding 제외']]],
     ['물체 등록 정보', [
-      ['s-object-ids', 'object_ids', '외부 object ID'],
-      ['s-object-indices', 'metadata.object_indices', 'Source 내부 index']]],
+      ['s-object-ids', 'object_ids', '외부 object ID']]],
     ['Handoff 시점', [
       ['s-switch-frame', 'switch_frame', 'Source 종료 시점 t']]],
     ['위치정보 정책', [
       ['s-pos-policy', 'positional_information.policy', 'Target 재생성 정책'],
       ['s-pos-records', 'positional_information.records', 'Source PE 관측본']]],
-    ['사용자 기록·표시 archive', [
+    ['비전송 진단 archive', [
       ['s-meta-source', 'metadata.source', '출처 기록'],
-      ['s-tracked', 'metadata.frames_tracked_per_obj', '추적 진행 기록'],
-      ['s-points', 'metadata.preserved_inputs.point_inputs_per_obj', 'point/box prompt'],
-      ['s-masks', 'metadata.preserved_inputs.mask_inputs_per_obj', 'mask prompt'],
       ['s-pred-masks', 'metadata.preserved_pred_masks', 'Source 화면 표시용'],
       ['s-presence', 'presence_logits', 'Source 진단 기록'],
       ['s-storage-device', 'metadata.storage_device', 'Source 저장 장치'],
@@ -364,8 +360,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
       ['a-archive', 'Source prediction archiver', 'UI 기록만 보존']]],
     ['Registry 조립', [
       ['a-id-copy', 'External object ID keeper', 'ID 값·순서 보존'],
-      ['a-registry', 'Object registry rebuild', 'Target index 새로 부여'],
-      ['a-object-align', 'Source→Target slot aligner', 'prompt·tracking 정렬']]],
+      ['a-registry', 'Object registry rebuild', 'Target index 새로 부여']]],
     ['Target 정책', [
       ['a-cutoff', 'Continuation boundary', '다음 시작점 t+1'],
       ['a-pe', 'Target positional factory', 'Target PE 생성']]],
@@ -397,9 +392,9 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
       ['t-obj-ids', 'obj_ids', '외부 ID 목록'],
       ['t-id-to-idx', 'obj_id_to_idx', '외부 ID → Target index'],
       ['t-idx-to-id', 'obj_idx_to_id', 'Target index → 외부 ID']]],
-    ['Prompt history', [
-      ['t-points', 'point_inputs_per_obj', 'point/box prompt'],
-      ['t-masks', 'mask_inputs_per_obj', 'mask prompt']]],
+    ['빈 interaction 장부', [
+      ['t-points', 'point_inputs_per_obj', 'Target에서 빈 dict로 초기화'],
+      ['t-masks', 'mask_inputs_per_obj', 'Target에서 빈 dict로 초기화']]],
     ['완료된 memory history', [
       ['t-output-root', 'output_dict_per_obj', '물체별 완료 기록'],
       ['t-object-slot', '└─ Target object index', '재구축된 내부 index'],
@@ -427,7 +422,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
       ['t-temp-cond', '├─ cond_frame_outputs', 'empty'],
       ['t-temp-noncond', '└─ non_cond_frame_outputs', 'empty']]],
     ['추적 진행과 continuation', [
-      ['t-tracked', 'frames_tracked_per_obj', '물체별 처리 기록'],
+      ['t-tracked', 'frames_tracked_per_obj', 'Target에서 빈 dict로 초기화'],
       ['t-next', '비필드: propagation starts at t+1', 'switch_frame로 결정']]]
   ];
 
@@ -491,11 +486,9 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   add('s-object-ids', 'a-id-copy', 'preserve');
   add('a-id-copy', 't-obj-ids', 'preserve');
   add('a-id-copy', 'a-registry', 'control');
-  add('s-object-indices', 'a-object-align', 'control');
   add('a-registry', 't-id-to-idx', 'control');
   add('a-registry', 't-idx-to-id', 'control');
   add('a-registry', 't-object-slot', 'control');
-  add('a-object-align', 'a-registry', 'control');
 
   add('s-switch-frame', 'a-cutoff', 'preserve');
   add('a-cutoff', 't-next', 'control');
@@ -514,12 +507,6 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   add('a-pe', 't-noncond-pos', 'regenerate');
   add('s-pos-records', 'a-diagnostics', 'none');
 
-  add('s-tracked', 'a-object-align', 'support');
-  add('a-object-align', 't-tracked', 'support');
-  add('s-points', 'a-object-align', 'support');
-  add('a-object-align', 't-points', 'support');
-  add('s-masks', 'a-object-align', 'support');
-  add('a-object-align', 't-masks', 'support');
   add('s-pred-masks', 'a-archive', 'support');
   add('a-archive', 't-source-pred-archive', 'support');
 
@@ -537,6 +524,9 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   add('a-temp', 't-temp-root', 'runtime');
   add('a-temp', 't-temp-cond', 'runtime');
   add('a-temp', 't-temp-noncond', 'runtime');
+  add('a-temp', 't-points', 'runtime');
+  add('a-temp', 't-masks', 'runtime');
+  add('a-temp', 't-tracked', 'runtime');
 
   const modeDetails = {
     adapter: {
@@ -587,18 +577,16 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     's-is-cond': '각 record가 사용자 prompt에 기반한 conditioning 기록인지 자동 추적에서 생긴 non-conditioning 기록인지 나타내는 Boolean입니다. 값은 그대로 보존되지만 Target에는 별도 Boolean 필드로 넣지 않고 두 output dictionary 중 하나를 선택하는 데 사용합니다.',
     's-validity': '고정 크기 batch를 만들기 위해 추가된 padding slot과 실제 record를 구분하는 Boolean mask입니다. False slot은 Target history에 넣지 않습니다.',
     's-object-ids': '사용자가 지정한 외부 객체 식별자입니다. 예: bike, person 또는 1, 2. 값과 순서는 보존하며 Target의 obj_ids를 만드는 기준으로 사용합니다.',
-    's-object-indices': 'Source predictor가 객체를 처리하기 위해 내부적으로 부여한 index입니다. 외부 object ID와 prompt·history를 연결하는 데만 사용하고, 새 Target runtime의 내부 index는 Target registry에서 다시 만듭니다.',
     's-switch-frame': 'Source가 마지막으로 처리한 frame t입니다. 값은 handoff metadata에 그대로 보존하며, Target continuation과 correction 분기의 기준으로 사용합니다.',
     'a-id-copy': '외부 object ID의 값과 순서를 바꾸지 않고 Target obj_ids로 전달합니다. 그 뒤 같은 목록을 사용해 Target 전용 양방향 index 표를 만듭니다.',
     'a-order': 'CanonicalState가 batching을 위해 평탄화한 record를 frame_indices와 slot_order에 따라 Target의 중첩 output dictionary로 다시 조립합니다.',
     'a-route': '보존된 is_conditioning 값을 읽어 record를 cond_frame_outputs 또는 non_cond_frame_outputs에 넣습니다. Boolean의 뜻은 바꾸지 않습니다.',
     'a-valid': 'validity가 False인 padding record를 제거합니다. 이는 값 변환이 아니라 실제 기록과 빈 공간을 구분하는 검사입니다.',
     'a-registry': '보존된 외부 object ID 목록을 기준으로 새 Target runtime의 obj_id_to_idx와 obj_idx_to_id를 생성합니다.',
-    'a-object-align': 'Source 내부 index에 연결돼 있던 prompt와 tracking 기록을 외부 object ID를 매개로 새 Target index에 다시 연결합니다.',
     't-images': '원본 비디오의 내용과 frame 순서는 유지하지만, 이 필드의 tensor는 Target runtime이 자신의 전처리 설정으로 준비합니다. 전환 이후 추론과 과거 correction replay가 같은 원본 RGB를 사용합니다.',
-    't-num-frames': 'Target이 연 비디오의 전체 frame 수입니다. Source metadata와 같아야 하며, Source 값으로 덮어쓰지 않고 일치 여부를 검사합니다.',
-    't-video-height': 'Target이 연 원본 비디오의 높이입니다. Source 계약값과 비교해 다른 영상에 state가 주입되는 것을 막습니다.',
-    't-video-width': 'Target이 연 원본 비디오의 너비입니다. Source 계약값과 비교해 다른 영상에 state가 주입되는 것을 막습니다.',
+    't-num-frames': 'Target이 연 비디오의 전체 frame 수입니다. Source state에서 전달하거나 덮어쓰지 않으며, 동일 영상 여부는 실험 manifest가 별도로 보장합니다.',
+    't-video-height': 'Target runtime이 원본 비디오에서 직접 산출합니다. Handoff payload와 전송 bytes에 포함하지 않습니다.',
+    't-video-width': 'Target runtime이 원본 비디오에서 직접 산출합니다. Handoff payload와 전송 bytes에 포함하지 않습니다.',
     't-offload-video': '전처리된 video frame tensor를 GPU에 계속 둘지 CPU로 옮겨 VRAM을 절약할지 정하는 Target Boolean 설정입니다.',
     't-offload-state': '완료된 mask와 memory state를 GPU에 계속 둘지 CPU로 옮길지 정하는 Target Boolean 설정입니다.',
     't-device': 'Target 모델이 image encoder, memory attention, mask decoder 연산을 실행하는 장치입니다. 예: cuda:0.',
@@ -623,7 +611,6 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     's-object-ids>a-id-copy': '사용자가 식별하는 외부 object ID의 값과 목록 순서를 바꾸지 않고 보존합니다.',
     'a-id-copy>t-obj-ids': '보존한 외부 ID 목록을 Target obj_ids로 그대로 설정합니다.',
     'a-id-copy>a-registry': '동일한 외부 ID 목록을 입력으로 사용하되 내부 index 표는 새 Target runtime용으로 다시 만듭니다.',
-    's-object-indices>a-object-align': 'Source 내부 index를 이용해 그 물체에 딸린 prompt와 tracking 기록을 정확한 Target slot에 연결합니다.',
     'a-registry>t-id-to-idx': '외부 object ID에서 Target 내부 index를 찾는 정방향 표를 새로 만듭니다.',
     'a-registry>t-idx-to-id': 'Target 내부 index에서 외부 object ID를 찾는 역방향 표를 새로 만듭니다.',
     's-switch-frame>a-cutoff': 'Source가 마지막으로 처리한 frame t 값을 변경하지 않고 그대로 전달합니다. Continuation boundary가 이 값을 읽어 과거 기록의 끝과 다음 시작점을 결정합니다.',

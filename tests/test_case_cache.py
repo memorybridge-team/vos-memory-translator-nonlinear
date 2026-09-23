@@ -11,6 +11,7 @@ from vos_memory_inspector.roundtrip import (
     _validate_prompt_events,
     binary_prompt_from_mask_logits,
     plan_cached_baseline,
+    plan_correction_route,
 )
 from vos_memory_inspector.state_schema import CanonicalState
 
@@ -61,6 +62,21 @@ def test_prompt_timeline_validation_orders_events_and_rejects_invalid_input(
             switch_frame=20,
             num_frames=30,
         )
+
+
+def test_correction_route_separates_target_current_frame_from_past_replay() -> None:
+    current = plan_correction_route(correction_frame=21, switch_frame=20)
+    past = plan_correction_route(correction_frame=10, switch_frame=20)
+    boundary = plan_correction_route(correction_frame=20, switch_frame=20)
+
+    assert current["mode"] == "target_current_frame"
+    assert not current["requires_history_replay"]
+    assert past["mode"] == "target_replay_from_prompt_anchor"
+    assert past["requires_history_replay"]
+    assert boundary["requires_history_replay"]
+
+    with pytest.raises(ValueError, match="non-negative"):
+        plan_correction_route(correction_frame=-1, switch_frame=20)
 
 
 def test_case_cache_roundtrip_and_checksum(tmp_path: Path) -> None:

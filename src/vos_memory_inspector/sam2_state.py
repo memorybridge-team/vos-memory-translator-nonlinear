@@ -88,8 +88,9 @@ def canonicalize_sam2_inference_state(
 
     The function does not assume specific model dimensions.  It discovers the first
     complete compact output and validates every later record against it.  Prompt
-    tensors, frame-tracking metadata and stored masks are retained as opaque
-    metadata; they are not translator inputs.
+    Source masks are retained as diagnostic archive metadata. Video dimensions,
+    prompt inputs and frame-tracking records are runtime/dataset-owned and are
+    not part of the minimal handoff payload.
     """
 
     # Pinned SAM 2 offloads ``maskmem_features`` and ``pred_masks`` to CPU with
@@ -108,23 +109,31 @@ def canonicalize_sam2_inference_state(
         torch.cuda.synchronize(compute_device)
 
     object_indices, records_by_object = _collect_records(inference_state, switch_frame)
-    complete = [
+    continuation_complete = [
         record
         for records in records_by_object.values()
         for record in records
         if isinstance(record.output.get("maskmem_features"), torch.Tensor)
         and isinstance(record.output.get("obj_ptr"), torch.Tensor)
-        and isinstance(record.output.get("object_score_logits"), torch.Tensor)
     ]
-    if not complete:
+    if not continuation_complete:
         raise ValueError(
-            "No complete SAM 2 compact output found. Run propagation preflight so "
-            "conditioning records receive mask-memory features."
+            "No continuation-complete SAM 2 output found. Run propagation preflight "
+            "so conditioning records receive mask-memory features and object pointers."
         )
-    exemplar = complete[0]
+    exemplar = continuation_complete[0]
     feature0 = exemplar.output["maskmem_features"]
     pointer0 = exemplar.output["obj_ptr"]
-    presence0 = exemplar.output["object_score_logits"]
+    presence_records = [
+        record.output["object_score_logits"]
+        for record in continuation_complete
+        if isinstance(record.output.get("object_score_logits"), torch.Tensor)
+    ]
+    presence0 = (
+        presence_records[0]
+        if presence_records
+        else torch.zeros((1, 1), dtype=torch.float32, device=pointer0.device)
+    )
     if feature0.ndim != 4 or feature0.shape[0] != 1:
         raise ValueError(f"maskmem_features must be [1,C,H,W], got {feature0.shape}")
     if pointer0.ndim != 2 or pointer0.shape[0] != 1:
@@ -147,35 +156,37 @@ def canonicalize_sam2_inference_state(
     validity = torch.zeros((1, objects, records), dtype=torch.bool)
     positional_records: dict[str, Any] = {}
     preserved_masks: dict[str, torch.Tensor] = {}
+    missing_presence_records: list[str] = []
 
     for object_slot, object_index in enumerate(object_indices):
         for record_slot, record in enumerate(records_by_object[object_index]):
             output = record.output
-            missing = [
+            missing_continuation = [
                 key
-                for key in ("maskmem_features", "obj_ptr", "object_score_logits")
+                for key in ("maskmem_features", "obj_ptr")
                 if not isinstance(output.get(key), torch.Tensor)
             ]
-            if missing:
+            if missing_continuation:
                 if strict:
                     raise ValueError(
                         f"incomplete SAM 2 output object={record.object_id} "
-                        f"frame={record.frame_index}: missing {missing}"
+                        f"frame={record.frame_index}: missing {missing_continuation}"
                     )
                 continue
             feature = output["maskmem_features"]
             obj_ptr = output["obj_ptr"]
-            score = output["object_score_logits"]
+            score = output.get("object_score_logits")
             expected = {
                 "maskmem_features": (1, channels, height, width),
                 "obj_ptr": (1, pointer_dim),
-                "object_score_logits": (1, 1),
             }
             actual = {
                 "maskmem_features": tuple(feature.shape),
                 "obj_ptr": tuple(obj_ptr.shape),
-                "object_score_logits": tuple(score.shape),
             }
+            if isinstance(score, torch.Tensor):
+                expected["object_score_logits"] = (1, 1)
+                actual["object_score_logits"] = tuple(score.shape)
             if actual != expected:
                 raise ValueError(
                     f"SAM 2 runtime shape changed within one state at object "
@@ -183,12 +194,17 @@ def canonicalize_sam2_inference_state(
                 )
             spatial[0, object_slot, record_slot].copy_(feature[0].to(spatial.device))
             pointer[0, object_slot, record_slot].copy_(obj_ptr[0].to(pointer.device))
-            presence[0, object_slot, record_slot].copy_(score[0].to(presence.device))
             frame_indices[0, object_slot, record_slot] = record.frame_index
             slot_order[0, object_slot, record_slot] = record_slot
             is_conditioning[0, object_slot, record_slot] = record.is_conditioning
             validity[0, object_slot, record_slot] = True
             record_key = f"object={object_slot}/record={record_slot}"
+            if isinstance(score, torch.Tensor):
+                presence[0, object_slot, record_slot].copy_(
+                    score[0].to(presence.device)
+                )
+            else:
+                missing_presence_records.append(record_key)
             if output.get("maskmem_pos_enc") is not None:
                 positional_records[record_key] = output["maskmem_pos_enc"]
             if isinstance(output.get("pred_masks"), torch.Tensor):
@@ -197,22 +213,10 @@ def canonicalize_sam2_inference_state(
     object_ids = tuple(_object_id(inference_state, index) for index in object_indices)
     metadata = {
         "source": "sam2_inference_state",
-        "object_indices": object_indices,
-        "frames_tracked_per_obj": deepcopy(
-            inference_state.get("frames_tracked_per_obj", {})
-        ),
-        "preserved_inputs": {
-            "point_inputs_per_obj": deepcopy(
-                inference_state.get("point_inputs_per_obj", {})
-            ),
-            "mask_inputs_per_obj": deepcopy(inference_state.get("mask_inputs_per_obj", {})),
-        },
         "preserved_pred_masks": preserved_masks,
         "storage_device": str(inference_state.get("storage_device", "unknown")),
         "compute_device": str(inference_state.get("device", "unknown")),
-        "num_frames": inference_state.get("num_frames"),
-        "video_height": inference_state.get("video_height"),
-        "video_width": inference_state.get("video_width"),
+        "missing_presence_records": missing_presence_records,
     }
     return CanonicalState(
         spatial_memory=spatial,
@@ -362,9 +366,11 @@ def inject_sam2_canonical_state(
     The fresh target state must contain video/runtime-owned fields but no
     registered objects or temporary interactions. Only the v1.1 read-state
     tensors are placed on the target's storage/compute devices, while record
-    identity and prompt/tracking metadata are copied exactly. Source masks and
-    scores remain in the external CanonicalState archive and are never inserted
-    into ``inference_state``.
+    identity metadata are copied exactly. Prompt/tracking dictionaries start
+    empty because they are not required for next-frame continuation. Source
+    masks and scores remain in the external CanonicalState archive and are never
+    inserted into ``inference_state``. Video length and size are owned by the
+    target runtime and are intentionally not compared with Source metadata here.
     """
 
     state.validate()
@@ -372,19 +378,6 @@ def inject_sam2_canonical_state(
         raise ValueError("target inference_state must be fresh before injection")
     if any(inference_state.get("temp_output_dict_per_obj", {}).values()):
         raise ValueError("target inference_state contains temporary outputs")
-    expected = {
-        "num_frames": state.metadata.get("num_frames"),
-        "video_height": state.metadata.get("video_height"),
-        "video_width": state.metadata.get("video_width"),
-    }
-    mismatches = {
-        key: (expected_value, inference_state.get(key))
-        for key, expected_value in expected.items()
-        if expected_value is not None and expected_value != inference_state.get(key)
-    }
-    if mismatches:
-        raise ValueError(f"target video contract differs from exported state: {mismatches}")
-
     positional_factory = make_target_sam2_positional_factory(
         predictor, inference_state
     )
@@ -394,12 +387,6 @@ def inject_sam2_canonical_state(
     )
     compute_device = torch.device(inference_state["device"])
     storage_device = torch.device(inference_state["storage_device"])
-    source_indices = state.metadata.get("object_indices", list(range(len(state.object_ids))))
-    preserved_inputs = state.metadata.get("preserved_inputs", {})
-    preserved_points = preserved_inputs.get("point_inputs_per_obj", {})
-    preserved_masks = preserved_inputs.get("mask_inputs_per_obj", {})
-    preserved_tracking = state.metadata.get("frames_tracked_per_obj", {})
-
     inference_state["obj_id_to_idx"] = OrderedDict(
         (object_id, object_slot)
         for object_slot, object_id in enumerate(state.object_ids)
@@ -415,7 +402,7 @@ def inject_sam2_canonical_state(
     inference_state["temp_output_dict_per_obj"] = {}
     inference_state["frames_tracked_per_obj"] = {}
 
-    for object_slot, source_index in enumerate(source_indices):
+    for object_slot, _object_id_value in enumerate(state.object_ids):
         history = histories[object_slot]
         for records in history.values():
             for output in records.values():
@@ -431,15 +418,9 @@ def inject_sam2_canonical_state(
             COND_KEY: {},
             NON_COND_KEY: {},
         }
-        inference_state["point_inputs_per_obj"][object_slot] = _move_nested_tensors(
-            preserved_points.get(source_index, {}), compute_device
-        )
-        inference_state["mask_inputs_per_obj"][object_slot] = _move_nested_tensors(
-            preserved_masks.get(source_index, {}), compute_device
-        )
-        inference_state["frames_tracked_per_obj"][object_slot] = deepcopy(
-            preserved_tracking.get(source_index, {})
-        )
+        inference_state["point_inputs_per_obj"][object_slot] = {}
+        inference_state["mask_inputs_per_obj"][object_slot] = {}
+        inference_state["frames_tracked_per_obj"][object_slot] = {}
 
     return {
         "objects": len(state.object_ids),
