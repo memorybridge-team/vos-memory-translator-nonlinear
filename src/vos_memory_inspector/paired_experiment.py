@@ -13,12 +13,12 @@ from torch.nn import functional as F
 from .case_cache import load_case_cache
 from .metrics import benchmark_translation, direct_improvement, evaluate_state
 from .state_schema import CanonicalState, StateSpec
+from .translator_training import fit_gradient_translator
 from .translators import (
     DirectCopyTranslator,
     LinearStateTranslator,
     ResidualMLPStateTranslator,
     RidgeStateTranslator,
-    fit_gradient_translator,
 )
 
 
