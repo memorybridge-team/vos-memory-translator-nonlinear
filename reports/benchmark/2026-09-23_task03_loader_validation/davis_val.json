@@ -1,7 +1,0 @@
-{
-  "dataset": "davis",
-  "manifest_cases": 249,
-  "unique_prompt_inputs": 61,
-  "failure_count": 0,
-  "failures": []
-}

@@ -1,7 +1,0 @@
-{
-  "dataset": "lvos",
-  "manifest_cases": 714,
-  "unique_prompt_inputs": 238,
-  "failure_count": 0,
-  "failures": []
-}
