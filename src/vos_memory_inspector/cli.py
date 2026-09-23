@@ -31,7 +31,9 @@ from .roundtrip import (
     run_cached_translator_handoff,
     run_cross_model_direct_handoff,
     run_cross_model_translator_handoff,
+    run_same_checkpoint_correction_roundtrip,
     run_same_checkpoint_prompt_timeline_roundtrip,
+    run_same_checkpoint_repeated_switch_roundtrip,
     run_same_checkpoint_roundtrip,
 )
 from .state_inspector import inspect_state, write_inspection_report
@@ -512,6 +514,119 @@ def prompt_timeline_roundtrip_main(argv: list[str] | None = None) -> None:
         video_dir=args.video_dir,
         prompt_events=events,
         switch_frame=args.switch_frame,
+        device=args.device,
+        offload_video_to_cpu=not args.keep_video_on_device,
+        offload_state_to_cpu=not args.keep_state_on_device,
+        seed=args.seed,
+    )
+    if args.json is not None:
+        args.json.parent.mkdir(parents=True, exist_ok=True)
+        args.json.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps(report, indent=2))
+
+
+def correction_roundtrip_main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Validate a same-checkpoint correction after handoff or the safe "
+            "Target replay fallback for a correction before handoff."
+        )
+    )
+    parser.add_argument("--sam2-repo", required=True, type=Path)
+    parser.add_argument("--config", required=True)
+    parser.add_argument("--checkpoint", required=True, type=Path)
+    parser.add_argument("--model-id", required=True)
+    parser.add_argument("--video-dir", required=True, type=Path)
+    parser.add_argument(
+        "--prompt-event",
+        action="append",
+        nargs=3,
+        metavar=("FRAME", "OBJECT_ID", "MASK_PATH"),
+        required=True,
+    )
+    parser.add_argument(
+        "--correction-event",
+        nargs=3,
+        metavar=("FRAME", "OBJECT_ID", "MASK_PATH"),
+        required=True,
+    )
+    parser.add_argument("--switch-frame", type=int, required=True)
+    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--keep-video-on-device", action="store_true")
+    parser.add_argument("--keep-state-on-device", action="store_true")
+    parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--json", type=Path)
+    args = parser.parse_args(argv)
+    events = [
+        MaskPromptEvent(int(frame), int(object_id), Path(mask_path))
+        for frame, object_id, mask_path in args.prompt_event
+    ]
+    correction = MaskPromptEvent(
+        int(args.correction_event[0]),
+        int(args.correction_event[1]),
+        Path(args.correction_event[2]),
+    )
+    report = run_same_checkpoint_correction_roundtrip(
+        sam2_repo=args.sam2_repo,
+        config_file=args.config,
+        checkpoint=args.checkpoint,
+        model_id=args.model_id,
+        video_dir=args.video_dir,
+        prompt_events=events,
+        correction_event=correction,
+        switch_frame=args.switch_frame,
+        device=args.device,
+        offload_video_to_cpu=not args.keep_video_on_device,
+        offload_state_to_cpu=not args.keep_state_on_device,
+        seed=args.seed,
+    )
+    if args.json is not None:
+        args.json.parent.mkdir(parents=True, exist_ok=True)
+        args.json.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps(report, indent=2))
+
+
+def repeated_switch_roundtrip_main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Validate two consecutive same-checkpoint SAM 2 handoffs."
+    )
+    parser.add_argument("--sam2-repo", required=True, type=Path)
+    parser.add_argument("--config", required=True)
+    parser.add_argument("--checkpoint", required=True, type=Path)
+    parser.add_argument("--model-id", required=True)
+    parser.add_argument("--video-dir", required=True, type=Path)
+    parser.add_argument(
+        "--prompt-event",
+        action="append",
+        nargs=3,
+        metavar=("FRAME", "OBJECT_ID", "MASK_PATH"),
+        required=True,
+    )
+    parser.add_argument(
+        "--switch-frames",
+        nargs=2,
+        type=int,
+        metavar=("FIRST", "SECOND"),
+        required=True,
+    )
+    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--keep-video-on-device", action="store_true")
+    parser.add_argument("--keep-state-on-device", action="store_true")
+    parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--json", type=Path)
+    args = parser.parse_args(argv)
+    events = [
+        MaskPromptEvent(int(frame), int(object_id), Path(mask_path))
+        for frame, object_id, mask_path in args.prompt_event
+    ]
+    report = run_same_checkpoint_repeated_switch_roundtrip(
+        sam2_repo=args.sam2_repo,
+        config_file=args.config,
+        checkpoint=args.checkpoint,
+        model_id=args.model_id,
+        video_dir=args.video_dir,
+        prompt_events=events,
+        switch_frames=(args.switch_frames[0], args.switch_frames[1]),
         device=args.device,
         offload_video_to_cpu=not args.keep_video_on_device,
         offload_state_to_cpu=not args.keep_state_on_device,

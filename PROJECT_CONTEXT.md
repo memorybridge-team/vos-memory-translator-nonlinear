@@ -154,7 +154,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[결정]** Task 03은 dataset/split 역할, `(dataset, release, split, video, object, switch)` manifest, difficulty taxonomy, baseline 입력, metric·통계·누수 규칙을 고정한다. Task 06은 export/inject 구현과 continuation closure만 담당하며 baseline evaluator 구현은 Task 08이 담당한다.
 - **[문서]** `docs/design/03_benchmark_protocol.md`에 DAVIS 2017·MOSEv2·LVOS v2, Source-only/Base+-native/Direct/Moment-Matched/anchor/Replay-4·8·16/Nonlinear 비교군, visible·absence·reappearance·prompt/object/visual taxonomy, video-clustered CI를 정리했다.
 - **[상태]** 데이터셋 이용조건/download snapshot, split manifest checksum, MOSEv2/LVOS loader·공식 metric 검증이 남아 Task 03은 `In Progress`다. Task 06은 prompt correction과 반복 switch 검증이 남아 `In Progress`다.
-- **[업데이트 2026-09-23]** Task 03의 dataset snapshot, video-level split, 실제 loader 전수 검증, metric 명칭 구분을 완료했다. LVOS sparse frame ID 오류를 수정한 최종 manifest에서 DAVIS·MOSEv2·LVOS v2 train/validation 모두 `failure_count=0`이며 Task 03은 `Done`이다. Task 06은 prompt correction과 반복 switch 검증이 남아 `In Progress`다.
+- **[업데이트 2026-09-23]** Task 03의 dataset snapshot, video-level split, 실제 loader 전수 검증, metric 명칭 구분을 완료했다. LVOS sparse frame ID 오류를 수정한 최종 manifest에서 DAVIS·MOSEv2·LVOS v2 train/validation 모두 `failure_count=0`이며 Task 03은 `Done`이다.
 - **[협업 규칙]** 코드·실험·문서 task는 Draft로 두지 않고 canonical repository Issue로 추적한다. 진행 중 Draft 누락을 발견하면 기존 결과를 버리지 않고 Issue로 전환해 commit·보고서를 소급 연결한 뒤 다음 작업부터 정상 흐름을 따른다.
 
 ## 21. 2026-09-21 — 최소 payload의 코드·지표 반영
@@ -189,6 +189,16 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[확인]** 최신 `task/02-06-minimal-handoff-contract` (`94a818b`)를 RunPod 별도 worktree에서 실행했다. DAVIS `walking`, object 1, switch 30과 DAVIS `india`, object 3, switch 35의 Base+ same-checkpoint round-trip을 각각 수행했다.
 - **[결과]** 두 실행 모두 injection 중 과거 backbone call `0`, mean MSE `0`, max error `0`, mean binary IoU `1.0`이었다. `walking`은 후속 frame 31–71, wall time `41.39 s`, peak CUDA memory 약 `0.97GB`; `india`는 후속 frame 36–80, wall time `44.73 s`, peak CUDA memory 약 `0.97GB`였다.
 - **[해석]** 최소 handoff state의 same-checkpoint continuation이 하나의 switch 위치에만 우연히 맞은 결과는 아니라는 증거가 추가됐다. 다만 cross-model Nonlinear Translator, 더 넓은 video/switch matrix, benchmark dataset manifest·official metric은 별도 gate로 남는다.
+
+## 27. 2026-09-23 — Task 06 correction·반복 handoff 마감
+
+- **[환경]** RunPod RTX A4000 16GB에서 공식 SAM 2.1 Base+ checkpoint(`a2345aede8715ab1d5d31b4a509fb160c5a4af1970f199d9054ccfb746c004c5`)와 upstream `2b90b9f5ceec907a1c18123530e92e794ad901a4`를 사용했다.
+- **[전환 후 correction]** DAVIS `walking`, switch 10, correction 20에서 replay 없이 correction을 Target이 처리했다. frame 20–71의 52개 결과가 native와 MSE `0`, max error `0`, binary IoU `1.0`이었고 injection backbone call은 `0`이었다.
+- **[전환 전 correction]** switch 20, correction 10은 prompt anchor 0부터 frame 20까지 21 frames를 Target으로 replay했다. frame 21–71의 51개 결과가 native와 exact였다.
+- **[반복 handoff]** switch 10→20의 두 injection 모두 backbone call `0`이었고, 첫 전환 뒤 61 frames와 두 번째 전환 뒤 51 frames가 모두 exact였다.
+- **[결함 발견·수정]** v1.1 injected history는 진단용 `object_score_logits`를 의도적으로 제외하지만 exporter가 재-export 때 이를 필수로 요구했다. continuation 필수 field를 `maskmem_features`·`obj_ptr`로 바로잡고, 누락 진단 record는 `missing_presence_records` metadata에 기록했다. score는 payload나 Target history에 다시 넣지 않았으므로 v1.1 계약은 바뀌지 않는다.
+- **[검증]** 수정 후 RunPod 전체 test `57 passed`. 원본은 `reports/runtime/2026-09-23_task06_correction_and_repeated_switch/`에 보존한다.
+- **[상태]** 단일/다객체·late prompt·부재/재등장, 전환 전후 correction, 반복 handoff, Small→Base+ target injection 실행까지 확보해 Task 06을 `Done`으로 판정한다. Direct Copy의 실패는 translator 성능 결론이 아니라 Task 08 baseline pilot 증거다. 다음 단계는 Task 07 paired-state 수집이다.
 
 ## 26. 2026-09-22 — Task 03 DAVIS validation manifest 고정
 

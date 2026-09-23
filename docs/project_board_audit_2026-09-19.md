@@ -51,5 +51,6 @@ Tasks 기본 보기는 제목 오름차순으로 저장했다. 따라서 보드�
 
 - 01은 baseline·공정성 규칙·성공·중단 기준을 `docs/design/01_scope_baselines_success_stop.md` v1.0으로 동결해 Done 기준을 충족했다.
 - 02는 정적 contract·validator·실제 Small/Base+ runtime inventory·paired dump·State Assembly Map을 v1.0으로 동결해 Done 기준을 충족했다.
-- 06은 Base+ same-checkpoint 단일 객체 self-injection gate를 통과했다. 다객체·late prompt·부재/재등장·prompt correction·복수 영상/switch와 Small→Base+ target injection이 남아 있다.
-- 02를 동결한 뒤 06의 edge-case validation → 07 paired-state 수집 → 08 evaluator/baseline → 09~11 nonlinear 학습으로 진행한다.
+- 03은 세 데이터셋의 train/validation manifest, video-level split, 실제 loader 전수 검증, metric 명칭과 누수 규칙을 동결해 Done 기준을 충족했다.
+- 06은 단일/다객체·late prompt·부재/재등장, 전환 전후 correction, 반복 handoff의 Base+ same-checkpoint gate와 Small→Base+ Direct Copy target injection을 검증해 Done 기준을 충족했다.
+- 다음 순서는 07 paired-state 수집 → 08 evaluator/baseline → 09~11 nonlinear 학습이다.

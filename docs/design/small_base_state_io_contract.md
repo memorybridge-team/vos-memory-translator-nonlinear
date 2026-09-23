@@ -84,13 +84,13 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 | Canonical export·history materialization | 구현됨 |
 | Target PE 재생성 | 구현됨 |
 | object registry 복원, prompt/tracking dictionary 초기화 | 구현됨 — `object_ids`로 registry를 만들고 interaction dictionary는 빈 값으로 시작 |
-| v1.1의 과거 mask/score 비주입 정책 | Base+ 단일 객체, 다객체·late prompt, 부재·재등장 strict round-trip 통과; correction은 task 06에 남음 |
+| v1.1의 과거 mask/score 비주입 정책 | Base+ 단일 객체, 다객체·late prompt, 부재·재등장, correction, 반복 handoff strict round-trip 통과 |
 | 비동기 GPU→CPU export 안정성 | export 경계 CUDA 동기화와 회귀 test, 주입 전 11-record exact parity로 확인 |
 | Pair discrete timeline validator | 구현·CPU unit test 추가 |
 | Base+ checkpoint same-model export→inject | DAVIS `walking`, object 1, switch 10 통과 |
 | Small/Base+ 실제 runtime shape inventory | 단일 paired case 확인 |
 | 다객체·late prompt·부재/재등장 continuation closure | task 06 실제 checkpoint strict round-trip 통과 |
-| prompt correction 뒤 continuation closure | task 06 미검증 gate |
+| prompt correction 뒤 continuation closure | 전환 후 correction은 no-replay, 전환 전 correction은 prompt anchor replay로 exact 통과 |
 | Small→Base+ paired-state 예시 dump | 생성·checksum 기록 완료 |
 
 ## 6. GPU 재개 시 첫 실행
@@ -109,7 +109,9 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 
 같은 날 Small→Base+ Direct Copy는 11개 history record를 replay 없이 정상 주입했지만, DAVIS `walking` switch 10 이후 61 frames에서 Base+-native 대비 mean binary IoU `0.0`이었다. spatial-memory cosine `0.0211`, object-pointer cosine `-0.0220`으로 표현 의미가 정렬되지 않았다. 이는 한 사례의 pilot이며 전체 성능 결론은 아니지만 cross-model injector의 기계적 동작과 learned/calibrated translation 필요성 검증을 분리해 보여 준다. 원본 증거는 [`reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/`](../../reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/)에 있다.
 
-Prompt correction과 여러 sequence/switch에서의 반복 검증은 이 계약을 소비하는 task 06의 남은 완료 조건이다. task 02는 실제 Small/Base+ inventory, paired dump, 필드 정책, fail-closed validator와 State Assembly Map을 기준으로 검토·동결한다.
+2026-09-23에는 전환 이후 correction, 전환 이전 correction replay, switch 10→20 반복 handoff를 추가 검증했다. 비교 구간의 모든 frame에서 MSE `0`, max error `0`, binary IoU `1.0`이었고 두 injection의 과거 backbone call은 모두 `0`이었다. 반복 handoff에서 injected record에 진단용 `object_score_logits`가 없으면 재-export가 실패하는 결함을 발견했다. exporter의 필수 continuation field를 `maskmem_features`와 `obj_ptr`로 바로잡고, 누락된 presence diagnostic은 `missing_presence_records` metadata에 기록하도록 수정했다. score를 handoff payload나 Target history에 다시 넣지는 않았으므로 v1.1 계약은 유지된다. 원본 증거는 [`reports/runtime/2026-09-23_task06_correction_and_repeated_switch/`](../../reports/runtime/2026-09-23_task06_correction_and_repeated_switch/)에 있다.
+
+task 02는 실제 Small/Base+ inventory, paired dump, 필드 정책, fail-closed validator와 State Assembly Map을 기준으로 동결됐으며, 이를 소비하는 task 06 runtime 구현도 위 검증으로 완료됐다.
 
 ### v1.1 구현 안전 조건
 
@@ -124,6 +126,7 @@ Prompt correction과 여러 sequence/switch에서의 반복 검증은 이 계약
 - runtime inventory: [`reports/runtime/2026-09-20_small_base_runtime_inventory/`](../../reports/runtime/2026-09-20_small_base_runtime_inventory/)
 - v1.1 minimal-history strict round-trip: [`reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/`](../../reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/)
 - task 06 edge cases and Direct Copy pilot: [`reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/`](../../reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/)
+- task 06 correction and repeated switch closure: [`reports/runtime/2026-09-23_task06_correction_and_repeated_switch/`](../../reports/runtime/2026-09-23_task06_correction_and_repeated_switch/)
 
 이 계약 이후 새 field, dtype, shape, copy/translate/regenerate 정책을 바꾸면 계약 버전을 올리고 다음을 함께 갱신한다: validator test, Map, example dump, checksum, 영향받는 paired-state shard 목록. Task 06의 edge-case 실패가 현재 계약의 누락을 드러낸 경우에도 조용히 덮어쓰지 않고 v1.1 이상의 변경 기록을 남긴다.
 
@@ -136,4 +139,4 @@ Prompt correction과 여러 sequence/switch에서의 반복 검증은 이 계약
 - [x] 실제 Small/Base+ inventory와 paired example/checksum 기록
 - [x] fail-closed validator와 State Assembly Map 일치 검토
 
-따라서 task 02의 계약 작업은 Done으로 판정한다. 다객체·late prompt·재등장·correction에서 실제 continuation이 맞는지는 task 06의 구현 검증으로 남긴다.
+따라서 task 02의 계약 작업은 Done으로 판정한다. 이 계약을 소비하는 다객체·late prompt·재등장·correction·반복 handoff continuation은 task 06에서 실제 checkpoint로 검증을 마쳤다.

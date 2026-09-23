@@ -65,6 +65,117 @@ def _validate_prompt_events(
     return ordered
 
 
+def plan_correction_route(*, correction_frame: int, switch_frame: int) -> dict[str, Any]:
+    """Choose the supported correction path for the minimal handoff contract.
+
+    A correction after the switch belongs to the Target runtime and can be applied
+    directly.  A correction at or before the switch cannot refine the injected
+    history because that history intentionally excludes past ``pred_masks``; it
+    must rebuild Target-native history from the recorded interaction timeline.
+    """
+
+    if switch_frame < 0:
+        raise ValueError("switch_frame must be non-negative")
+    if correction_frame < 0:
+        raise ValueError("correction_frame must be non-negative")
+    if correction_frame > switch_frame:
+        return {
+            "mode": "target_current_frame",
+            "requires_history_replay": False,
+            "correction_frame": correction_frame,
+            "switch_frame": switch_frame,
+        }
+    return {
+        "mode": "target_replay_from_prompt_anchor",
+        "requires_history_replay": True,
+        "correction_frame": correction_frame,
+        "switch_frame": switch_frame,
+    }
+
+
+def _validate_timeline_events(
+    prompt_events: list[MaskPromptEvent], *, max_frame: int, num_frames: int
+) -> list[MaskPromptEvent]:
+    """Validate a complete Target interaction timeline through ``max_frame``."""
+
+    if not prompt_events:
+        raise ValueError("at least one mask prompt event is required")
+    ordered = sorted(prompt_events, key=lambda event: (event.frame_index, event.object_id))
+    seen: set[tuple[int, int]] = set()
+    for event in ordered:
+        identity = (event.frame_index, event.object_id)
+        if identity in seen:
+            raise ValueError(f"duplicate prompt event frame/object: {identity}")
+        seen.add(identity)
+        if not 0 <= event.frame_index <= max_frame:
+            raise ValueError(
+                f"prompt frame {event.frame_index} must be between 0 and "
+                f"frame {max_frame}"
+            )
+        if event.frame_index >= num_frames:
+            raise ValueError(
+                f"prompt frame {event.frame_index} exceeds video length {num_frames}"
+            )
+        if not event.mask_path.is_file():
+            raise FileNotFoundError(f"prompt mask not found: {event.mask_path}")
+    return ordered
+
+
+def _run_mask_prompt_timeline(
+    predictor: Any,
+    inference_state: dict[str, Any],
+    *,
+    prompt_events: list[MaskPromptEvent],
+    final_frame: int,
+) -> dict[int, torch.Tensor]:
+    """Run an explicit mask-prompt timeline and return logits through a frame."""
+
+    events = _validate_timeline_events(
+        prompt_events,
+        max_frame=final_frame,
+        num_frames=int(inference_state["num_frames"]),
+    )
+    events_by_frame: dict[int, list[MaskPromptEvent]] = {}
+    for event in events:
+        events_by_frame.setdefault(event.frame_index, []).append(event)
+
+    outputs: dict[int, torch.Tensor] = {}
+    cursor = min(events_by_frame)
+    for prompt_frame in sorted(events_by_frame):
+        if cursor < prompt_frame:
+            for frame_idx, _object_ids, masks in predictor.propagate_in_video(
+                inference_state,
+                start_frame_idx=cursor,
+                max_frame_num_to_track=prompt_frame - cursor,
+                reverse=False,
+            ):
+                frame = int(frame_idx)
+                if frame < prompt_frame:
+                    outputs[frame] = masks.detach().cpu().float()
+        latest_masks = None
+        for event in events_by_frame[prompt_frame]:
+            _frame_idx, _object_ids, latest_masks = predictor.add_new_mask(
+                inference_state,
+                frame_idx=event.frame_index,
+                obj_id=event.object_id,
+                mask=load_binary_prompt(event.mask_path, event.object_id),
+            )
+        if latest_masks is not None:
+            outputs[prompt_frame] = latest_masks.detach().cpu().float()
+        cursor = prompt_frame
+
+    for frame_idx, _object_ids, masks in predictor.propagate_in_video(
+        inference_state,
+        start_frame_idx=cursor,
+        max_frame_num_to_track=final_frame - cursor + 1,
+        reverse=False,
+    ):
+        frame = int(frame_idx)
+        if frame <= final_frame:
+            outputs[frame] = masks.detach().cpu().float()
+    return outputs
+
+
 def _collect_native_prompt_timeline(
     predictor: Any,
     inference_state: dict[str, Any],
@@ -1058,6 +1169,434 @@ def run_same_checkpoint_prompt_timeline_roundtrip(
         "resources": _resource_measurement(started_at, device),
     }
     del injected_state, injected_predictor
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    return report
+
+
+def run_same_checkpoint_correction_roundtrip(
+    *,
+    sam2_repo: str | Path,
+    config_file: str,
+    checkpoint: str | Path,
+    model_id: str,
+    video_dir: str | Path,
+    prompt_events: list[MaskPromptEvent],
+    correction_event: MaskPromptEvent,
+    switch_frame: int,
+    device: str = "cuda",
+    offload_video_to_cpu: bool = True,
+    offload_state_to_cpu: bool = True,
+    seed: int = 7,
+) -> dict[str, Any]:
+    """Validate post-switch correction or the pre-switch replay fallback."""
+
+    sam2_repo = Path(sam2_repo).resolve()
+    checkpoint = Path(checkpoint).resolve()
+    video_dir = Path(video_dir).resolve()
+    initial_events = [
+        MaskPromptEvent(int(event.frame_index), int(event.object_id), Path(event.mask_path).resolve())
+        for event in prompt_events
+    ]
+    correction = MaskPromptEvent(
+        int(correction_event.frame_index),
+        int(correction_event.object_id),
+        Path(correction_event.mask_path).resolve(),
+    )
+    commit = verify_sam2_checkout(sam2_repo)
+    if not checkpoint.is_file():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint}")
+    if str(sam2_repo) not in sys.path:
+        sys.path.insert(0, str(sam2_repo))
+    from sam2.build_sam import build_sam2_video_predictor
+
+    started_at = _start_resource_measurement(device)
+    _seed_everything(seed)
+    reference_predictor = build_sam2_video_predictor(
+        config_file=config_file,
+        ckpt_path=str(checkpoint),
+        device=device,
+    )
+    reference_state = reference_predictor.init_state(
+        video_path=str(video_dir),
+        offload_video_to_cpu=offload_video_to_cpu,
+        offload_state_to_cpu=offload_state_to_cpu,
+    )
+    num_frames = int(reference_state["num_frames"])
+    if not 0 <= switch_frame < num_frames - 1:
+        raise ValueError("switch_frame must leave at least one continuation frame")
+    _validate_prompt_events(
+        initial_events, switch_frame=switch_frame, num_frames=num_frames
+    )
+    if correction.frame_index >= num_frames:
+        raise ValueError("correction frame exceeds video length")
+    route = plan_correction_route(
+        correction_frame=correction.frame_index,
+        switch_frame=switch_frame,
+    )
+    all_events = initial_events + [correction]
+    reference_masks = _run_mask_prompt_timeline(
+        reference_predictor,
+        reference_state,
+        prompt_events=all_events,
+        final_frame=num_frames - 1,
+    )
+    del reference_state, reference_predictor
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    candidate_masks: dict[int, torch.Tensor] = {}
+    injection: dict[str, Any] | None = None
+    calls_before_injection = 0
+    calls_during_injection = 0
+    replay_start_frame: int | None = None
+    history_frames_reprocessed = 0
+
+    if route["requires_history_replay"]:
+        replay_start_frame = min(event.frame_index for event in all_events)
+        history_frames_reprocessed = switch_frame - replay_start_frame + 1
+        _seed_everything(seed)
+        candidate_predictor = build_sam2_video_predictor(
+            config_file=config_file,
+            ckpt_path=str(checkpoint),
+            device=device,
+        )
+        candidate_state = candidate_predictor.init_state(
+            video_path=str(video_dir),
+            offload_video_to_cpu=offload_video_to_cpu,
+            offload_state_to_cpu=offload_state_to_cpu,
+        )
+        candidate_masks = _run_mask_prompt_timeline(
+            candidate_predictor,
+            candidate_state,
+            prompt_events=all_events,
+            final_frame=num_frames - 1,
+        )
+    else:
+        _seed_everything(seed)
+        prefix_predictor = build_sam2_video_predictor(
+            config_file=config_file,
+            ckpt_path=str(checkpoint),
+            device=device,
+        )
+        prefix_state = prefix_predictor.init_state(
+            video_path=str(video_dir),
+            offload_video_to_cpu=offload_video_to_cpu,
+            offload_state_to_cpu=offload_state_to_cpu,
+        )
+        _run_mask_prompt_timeline(
+            prefix_predictor,
+            prefix_state,
+            prompt_events=initial_events,
+            final_frame=switch_frame,
+        )
+        canonical = canonicalize_sam2_inference_state(
+            prefix_state,
+            switch_frame=switch_frame,
+            strict=True,
+        )
+        del prefix_state, prefix_predictor
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        _seed_everything(seed)
+        candidate_predictor = build_sam2_video_predictor(
+            config_file=config_file,
+            ckpt_path=str(checkpoint),
+            device=device,
+        )
+        backbone_calls: list[tuple[int, ...]] = []
+        original_forward_image = candidate_predictor.forward_image
+
+        def counted_forward_image(image: torch.Tensor):
+            backbone_calls.append(tuple(image.shape))
+            return original_forward_image(image)
+
+        candidate_predictor.forward_image = counted_forward_image
+        candidate_state = init_sam2_inference_state_without_warmup(
+            candidate_predictor,
+            video_path=str(video_dir),
+            offload_video_to_cpu=offload_video_to_cpu,
+            offload_state_to_cpu=offload_state_to_cpu,
+        )
+        calls_before_injection = len(backbone_calls)
+        injection = inject_sam2_canonical_state(
+            canonical,
+            predictor=candidate_predictor,
+            inference_state=candidate_state,
+        )
+        calls_during_injection = len(backbone_calls) - calls_before_injection
+        if switch_frame + 1 < correction.frame_index:
+            for frame_idx, _object_ids, masks in candidate_predictor.propagate_in_video(
+                candidate_state,
+                start_frame_idx=switch_frame + 1,
+                max_frame_num_to_track=correction.frame_index - switch_frame - 1,
+                reverse=False,
+            ):
+                candidate_masks[int(frame_idx)] = masks.detach().cpu().float()
+        _frame_idx, _object_ids, corrected_masks = candidate_predictor.add_new_mask(
+            candidate_state,
+            frame_idx=correction.frame_index,
+            obj_id=correction.object_id,
+            mask=load_binary_prompt(correction.mask_path, correction.object_id),
+        )
+        candidate_masks[correction.frame_index] = corrected_masks.detach().cpu().float()
+        for frame_idx, _object_ids, masks in candidate_predictor.propagate_in_video(
+            candidate_state,
+            start_frame_idx=correction.frame_index,
+            max_frame_num_to_track=num_frames - correction.frame_index,
+            reverse=False,
+        ):
+            candidate_masks[int(frame_idx)] = masks.detach().cpu().float()
+
+    comparison_start = (
+        switch_frame + 1 if route["requires_history_replay"] else correction.frame_index
+    )
+    reference_comparison = {
+        frame: mask for frame, mask in reference_masks.items() if frame >= comparison_start
+    }
+    candidate_comparison = {
+        frame: mask for frame, mask in candidate_masks.items() if frame >= comparison_start
+    }
+    comparison = _compare_future_masks(reference_comparison, candidate_comparison)
+    report = {
+        "schema_version": "cmmt.sam2_correction_roundtrip.v1",
+        "model_id": model_id,
+        "upstream_commit": commit,
+        "video_id": video_dir.name,
+        "switch_frame": switch_frame,
+        "initial_prompt_events": [
+            {
+                "frame_index": event.frame_index,
+                "object_id": event.object_id,
+                "mask_file": event.mask_path.name,
+            }
+            for event in initial_events
+        ],
+        "correction_event": {
+            "frame_index": correction.frame_index,
+            "object_id": correction.object_id,
+            "mask_file": correction.mask_path.name,
+        },
+        "route": route,
+        "replay_start_frame": replay_start_frame,
+        "history_frames_reprocessed": history_frames_reprocessed,
+        "injection": injection,
+        "backbone_calls_before_injection": calls_before_injection,
+        "backbone_calls_during_injection": calls_during_injection,
+        "comparison_start_frame": comparison_start,
+        "comparison": comparison,
+        "seed": seed,
+        "device": device,
+        "resources": _resource_measurement(started_at, device),
+    }
+    del candidate_state, candidate_predictor
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    return report
+
+
+def run_same_checkpoint_repeated_switch_roundtrip(
+    *,
+    sam2_repo: str | Path,
+    config_file: str,
+    checkpoint: str | Path,
+    model_id: str,
+    video_dir: str | Path,
+    prompt_events: list[MaskPromptEvent],
+    switch_frames: tuple[int, int],
+    device: str = "cuda",
+    offload_video_to_cpu: bool = True,
+    offload_state_to_cpu: bool = True,
+    seed: int = 7,
+) -> dict[str, Any]:
+    """Validate two consecutive export→inject handoffs against a native run."""
+
+    first_switch, second_switch = (int(value) for value in switch_frames)
+    if not 0 <= first_switch < second_switch:
+        raise ValueError("switch_frames must be strictly increasing and non-negative")
+    sam2_repo = Path(sam2_repo).resolve()
+    checkpoint = Path(checkpoint).resolve()
+    video_dir = Path(video_dir).resolve()
+    events = [
+        MaskPromptEvent(int(event.frame_index), int(event.object_id), Path(event.mask_path).resolve())
+        for event in prompt_events
+    ]
+    commit = verify_sam2_checkout(sam2_repo)
+    if not checkpoint.is_file():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint}")
+    if str(sam2_repo) not in sys.path:
+        sys.path.insert(0, str(sam2_repo))
+    from sam2.build_sam import build_sam2_video_predictor
+
+    started_at = _start_resource_measurement(device)
+    _seed_everything(seed)
+    native_predictor = build_sam2_video_predictor(
+        config_file=config_file, ckpt_path=str(checkpoint), device=device
+    )
+    native_state = native_predictor.init_state(
+        video_path=str(video_dir),
+        offload_video_to_cpu=offload_video_to_cpu,
+        offload_state_to_cpu=offload_state_to_cpu,
+    )
+    num_frames = int(native_state["num_frames"])
+    if second_switch >= num_frames - 1:
+        raise ValueError("second switch must leave at least one continuation frame")
+    _validate_prompt_events(events, switch_frame=first_switch, num_frames=num_frames)
+    native_masks = _run_mask_prompt_timeline(
+        native_predictor,
+        native_state,
+        prompt_events=events,
+        final_frame=num_frames - 1,
+    )
+    del native_state, native_predictor
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    _seed_everything(seed)
+    prefix_predictor = build_sam2_video_predictor(
+        config_file=config_file, ckpt_path=str(checkpoint), device=device
+    )
+    prefix_state = prefix_predictor.init_state(
+        video_path=str(video_dir),
+        offload_video_to_cpu=offload_video_to_cpu,
+        offload_state_to_cpu=offload_state_to_cpu,
+    )
+    _run_mask_prompt_timeline(
+        prefix_predictor,
+        prefix_state,
+        prompt_events=events,
+        final_frame=first_switch,
+    )
+    first_canonical = canonicalize_sam2_inference_state(
+        prefix_state, switch_frame=first_switch, strict=True
+    )
+    del prefix_state, prefix_predictor
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    candidate_masks: dict[int, torch.Tensor] = {}
+    injection_reports: list[dict[str, Any]] = []
+    injection_backbone_calls: list[int] = []
+
+    _seed_everything(seed)
+    middle_predictor = build_sam2_video_predictor(
+        config_file=config_file, ckpt_path=str(checkpoint), device=device
+    )
+    middle_calls: list[tuple[int, ...]] = []
+    middle_forward_image = middle_predictor.forward_image
+
+    def counted_middle_forward_image(image: torch.Tensor):
+        middle_calls.append(tuple(image.shape))
+        return middle_forward_image(image)
+
+    middle_predictor.forward_image = counted_middle_forward_image
+    middle_state = init_sam2_inference_state_without_warmup(
+        middle_predictor,
+        video_path=str(video_dir),
+        offload_video_to_cpu=offload_video_to_cpu,
+        offload_state_to_cpu=offload_state_to_cpu,
+    )
+    before = len(middle_calls)
+    injection_reports.append(
+        inject_sam2_canonical_state(
+            first_canonical, predictor=middle_predictor, inference_state=middle_state
+        )
+    )
+    injection_backbone_calls.append(len(middle_calls) - before)
+    for frame_idx, _object_ids, masks in middle_predictor.propagate_in_video(
+        middle_state,
+        start_frame_idx=first_switch + 1,
+        max_frame_num_to_track=second_switch - first_switch,
+        reverse=False,
+    ):
+        candidate_masks[int(frame_idx)] = masks.detach().cpu().float()
+    second_canonical = canonicalize_sam2_inference_state(
+        middle_state, switch_frame=second_switch, strict=True
+    )
+    del middle_state, middle_predictor
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    _seed_everything(seed)
+    final_predictor = build_sam2_video_predictor(
+        config_file=config_file, ckpt_path=str(checkpoint), device=device
+    )
+    final_calls: list[tuple[int, ...]] = []
+    final_forward_image = final_predictor.forward_image
+
+    def counted_final_forward_image(image: torch.Tensor):
+        final_calls.append(tuple(image.shape))
+        return final_forward_image(image)
+
+    final_predictor.forward_image = counted_final_forward_image
+    final_state = init_sam2_inference_state_without_warmup(
+        final_predictor,
+        video_path=str(video_dir),
+        offload_video_to_cpu=offload_video_to_cpu,
+        offload_state_to_cpu=offload_state_to_cpu,
+    )
+    before = len(final_calls)
+    injection_reports.append(
+        inject_sam2_canonical_state(
+            second_canonical, predictor=final_predictor, inference_state=final_state
+        )
+    )
+    injection_backbone_calls.append(len(final_calls) - before)
+    for frame_idx, _object_ids, masks in final_predictor.propagate_in_video(
+        final_state,
+        start_frame_idx=second_switch + 1,
+        max_frame_num_to_track=num_frames - second_switch - 1,
+        reverse=False,
+    ):
+        candidate_masks[int(frame_idx)] = masks.detach().cpu().float()
+
+    reference_after_first = {
+        frame: mask for frame, mask in native_masks.items() if frame > first_switch
+    }
+    candidate_after_first = {
+        frame: mask for frame, mask in candidate_masks.items() if frame > first_switch
+    }
+    reference_after_second = {
+        frame: mask for frame, mask in native_masks.items() if frame > second_switch
+    }
+    candidate_after_second = {
+        frame: mask for frame, mask in candidate_masks.items() if frame > second_switch
+    }
+    report = {
+        "schema_version": "cmmt.sam2_repeated_switch_roundtrip.v1",
+        "model_id": model_id,
+        "upstream_commit": commit,
+        "video_id": video_dir.name,
+        "switch_frames": [first_switch, second_switch],
+        "prompt_events": [
+            {
+                "frame_index": event.frame_index,
+                "object_id": event.object_id,
+                "mask_file": event.mask_path.name,
+            }
+            for event in events
+        ],
+        "injections": injection_reports,
+        "backbone_calls_during_injections": injection_backbone_calls,
+        "comparison_after_first_switch": _compare_future_masks(
+            reference_after_first, candidate_after_first
+        ),
+        "comparison_after_second_switch": _compare_future_masks(
+            reference_after_second, candidate_after_second
+        ),
+        "seed": seed,
+        "device": device,
+        "resources": _resource_measurement(started_at, device),
+    }
+    del final_state, final_predictor
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()

@@ -8,6 +8,10 @@ from vos_memory_inspector.lvos import build_lvosv2_evaluation_manifest
 def test_lvos_manifest_uses_object_frame_range_and_attributes(tmp_path):
     split = tmp_path / "val"
     split.mkdir()
+    frames = split / "JPEGImages" / "demo"
+    frames.mkdir(parents=True)
+    for frame_id in range(10, 41):
+        (frames / f"{frame_id:08d}.jpg").touch()
     (split / "val_meta.json").write_text(
         json.dumps(
             {
@@ -36,4 +40,3 @@ def test_lvos_manifest_uses_object_frame_range_and_attributes(tmp_path):
     assert all(case["object_id"] == "3" for case in manifest["cases"])
     assert all(case["tags"] == ["long-term", "occlusion"] for case in manifest["cases"])
     assert all(case["future_gt_available"] is True for case in manifest["cases"])
-

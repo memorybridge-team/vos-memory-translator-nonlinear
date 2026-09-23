@@ -181,6 +181,37 @@ def test_sam2_canonicalization_synchronizes_cuda_cpu_offload(monkeypatch) -> Non
     assert synchronized == [torch.device("cuda:0")]
 
 
+def test_sam2_reexport_allows_missing_diagnostic_presence_logits() -> None:
+    injected_record = {
+        "maskmem_features": torch.ones((1, 3, 2, 2)),
+        "maskmem_pos_enc": [torch.zeros((1, 3, 2, 2))],
+        "obj_ptr": torch.ones((1, 4)),
+    }
+    native_record = {
+        **injected_record,
+        "object_score_logits": torch.tensor([[2.0]]),
+    }
+    inference_state = {
+        "obj_idx_to_id": {0: 1},
+        "obj_ids": [1],
+        "output_dict_per_obj": {
+            0: {
+                "cond_frame_outputs": {0: injected_record},
+                "non_cond_frame_outputs": {1: native_record},
+            }
+        },
+        "device": "cpu",
+        "storage_device": "cpu",
+    }
+
+    state = canonicalize_sam2_inference_state(inference_state, switch_frame=1)
+
+    assert state.valid_record_count() == 2
+    assert state.presence_logits[0, 0, 0, 0].item() == 0.0
+    assert state.presence_logits[0, 0, 1, 0].item() == 2.0
+    assert state.metadata["missing_presence_records"] == ["object=0/record=0"]
+
+
 def test_sam2_injection_restores_registry_history_and_target_position() -> None:
     class Position(torch.nn.Module):
         def forward(self, x: torch.Tensor) -> torch.Tensor:

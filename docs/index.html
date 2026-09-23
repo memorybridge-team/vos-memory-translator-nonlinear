@@ -71,9 +71,9 @@
     <article class="task" id="task-03">
       <div class="task-head">
         <div><div class="task-number">TASK 03</div><h2>Dataset·난이도·Baseline·Metric 동결</h2></div>
-        <span class="status progress">In Progress</span>
+        <span class="status done">Done</span>
       </div>
-      <p>DAVIS 2017·MOSEv2·LVOS v2의 역할, 공통 case manifest, 객체·사건별 난이도 분류, 주 비교군의 입력 데이터와 J&F·재등장·부재 오류·비용 지표를 하나의 protocol로 고정했습니다. 실제 배포 이용조건·split manifest checksum·MOSEv2/LVOS loader 검증이 남았습니다.</p>
+      <p>DAVIS 2017·MOSEv2·LVOS v2의 train/validation manifest와 video-level split을 만들고, 실제 RGB·prompt mask·object·switch를 전수 검증했습니다. 객체·사건별 난이도, 비교군 입력, J&amp;F·재등장·부재 오류·비용 지표와 공식 metric 명칭·누수 방지 규칙도 하나의 protocol로 동결했습니다.</p>
       <div class="links">
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/design/03_benchmark_protocol.md"><strong>Benchmark protocol v1.0</strong><br><span class="muted">dataset · taxonomy · baseline · metric · leakage 규칙</span></a>
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/design/01_scope_baselines_success_stop.md"><strong>Task 01 판정 기준</strong><br><span class="muted">성공·중단 기준과 비교군 입력 원칙</span></a>
@@ -84,16 +84,17 @@
     <article class="task" id="task-06">
       <div class="task-head">
         <div><div class="task-number">TASK 06</div><h2>State 추출·Self-injection·Target injection</h2></div>
-        <span class="status progress">In Progress</span>
+        <span class="status done">Done</span>
       </div>
-      <p>Base+ state를 새 Base+ predictor에 replay 없이 주입하는 단일 객체·다객체·late prompt·부재/재등장 gate를 통과했습니다. Small→Base+ Direct Copy도 기계적으로 주입됐지만 Target-native mask와 전 프레임 IoU 0으로 실패해 번역 필요성을 확인했습니다. 남은 핵심 gate는 prompt correction입니다.</p>
+      <p>Base+ state를 새 Base+ predictor에 replay 없이 주입하는 단일 객체·다객체·late prompt·부재/재등장 gate와 전환 전후 correction·반복 handoff gate를 모두 통과했습니다. Small→Base+ Direct Copy도 기계적으로 주입됐지만 Target-native mask와 전 프레임 IoU 0으로 실패해 번역 필요성을 확인했습니다.</p>
       <div class="links">
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-20_base_plus_self_injection"><strong>Base+ self-injection 보고서</strong><br><span class="muted">61 frames · IoU 1.0 · replay 0</span></a>
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-21_task06_edge_case_and_direct_injection"><strong>Task 06 edge-case 보고서</strong><br><span class="muted">다객체·재등장 exact · Direct Copy IoU 0</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-23_task06_correction_and_repeated_switch"><strong>Task 06 runtime 마감 보고서</strong><br><span class="muted">전환 전후 correction · 반복 handoff exact</span></a>
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/runpod_l4_operations.md"><strong>RunPod 재현 방법</strong><br><span class="muted">환경·checkpoint·실행 절차</span></a>
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/pull/3"><strong>현재 구현 PR #3</strong><br><span class="muted">코드·검증 기록·diff</span></a>
       </div>
-      <p class="evidence">현재 gate: same-checkpoint 단일 객체 61 frames, 다객체·late prompt 48 frames, 부재·재등장 45 frames가 모두 exact이며 replay 0. Cross-model Direct Copy는 실행됐지만 후속 61 frames IoU 0.0. Task 06은 correction 검증 전까지 In Progress입니다.</p>
+      <p class="evidence">완료 증거: same-checkpoint 단일 객체 61 frames, 다객체·late prompt 48 frames, 부재·재등장 45 frames, 전환 후 correction 52 frames, 전환 전 correction replay 뒤 51 frames, 두 번째 handoff 뒤 51 frames가 모두 exact입니다. Cross-model Direct Copy는 실행됐지만 후속 61 frames IoU 0.0이었습니다.</p>
     </article>
   </section>
 

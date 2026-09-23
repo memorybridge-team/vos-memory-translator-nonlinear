@@ -109,23 +109,31 @@ def canonicalize_sam2_inference_state(
         torch.cuda.synchronize(compute_device)
 
     object_indices, records_by_object = _collect_records(inference_state, switch_frame)
-    complete = [
+    continuation_complete = [
         record
         for records in records_by_object.values()
         for record in records
         if isinstance(record.output.get("maskmem_features"), torch.Tensor)
         and isinstance(record.output.get("obj_ptr"), torch.Tensor)
-        and isinstance(record.output.get("object_score_logits"), torch.Tensor)
     ]
-    if not complete:
+    if not continuation_complete:
         raise ValueError(
-            "No complete SAM 2 compact output found. Run propagation preflight so "
-            "conditioning records receive mask-memory features."
+            "No continuation-complete SAM 2 output found. Run propagation preflight "
+            "so conditioning records receive mask-memory features and object pointers."
         )
-    exemplar = complete[0]
+    exemplar = continuation_complete[0]
     feature0 = exemplar.output["maskmem_features"]
     pointer0 = exemplar.output["obj_ptr"]
-    presence0 = exemplar.output["object_score_logits"]
+    presence_records = [
+        record.output["object_score_logits"]
+        for record in continuation_complete
+        if isinstance(record.output.get("object_score_logits"), torch.Tensor)
+    ]
+    presence0 = (
+        presence_records[0]
+        if presence_records
+        else torch.zeros((1, 1), dtype=torch.float32, device=pointer0.device)
+    )
     if feature0.ndim != 4 or feature0.shape[0] != 1:
         raise ValueError(f"maskmem_features must be [1,C,H,W], got {feature0.shape}")
     if pointer0.ndim != 2 or pointer0.shape[0] != 1:
@@ -148,35 +156,37 @@ def canonicalize_sam2_inference_state(
     validity = torch.zeros((1, objects, records), dtype=torch.bool)
     positional_records: dict[str, Any] = {}
     preserved_masks: dict[str, torch.Tensor] = {}
+    missing_presence_records: list[str] = []
 
     for object_slot, object_index in enumerate(object_indices):
         for record_slot, record in enumerate(records_by_object[object_index]):
             output = record.output
-            missing = [
+            missing_continuation = [
                 key
-                for key in ("maskmem_features", "obj_ptr", "object_score_logits")
+                for key in ("maskmem_features", "obj_ptr")
                 if not isinstance(output.get(key), torch.Tensor)
             ]
-            if missing:
+            if missing_continuation:
                 if strict:
                     raise ValueError(
                         f"incomplete SAM 2 output object={record.object_id} "
-                        f"frame={record.frame_index}: missing {missing}"
+                        f"frame={record.frame_index}: missing {missing_continuation}"
                     )
                 continue
             feature = output["maskmem_features"]
             obj_ptr = output["obj_ptr"]
-            score = output["object_score_logits"]
+            score = output.get("object_score_logits")
             expected = {
                 "maskmem_features": (1, channels, height, width),
                 "obj_ptr": (1, pointer_dim),
-                "object_score_logits": (1, 1),
             }
             actual = {
                 "maskmem_features": tuple(feature.shape),
                 "obj_ptr": tuple(obj_ptr.shape),
-                "object_score_logits": tuple(score.shape),
             }
+            if isinstance(score, torch.Tensor):
+                expected["object_score_logits"] = (1, 1)
+                actual["object_score_logits"] = tuple(score.shape)
             if actual != expected:
                 raise ValueError(
                     f"SAM 2 runtime shape changed within one state at object "
@@ -184,12 +194,17 @@ def canonicalize_sam2_inference_state(
                 )
             spatial[0, object_slot, record_slot].copy_(feature[0].to(spatial.device))
             pointer[0, object_slot, record_slot].copy_(obj_ptr[0].to(pointer.device))
-            presence[0, object_slot, record_slot].copy_(score[0].to(presence.device))
             frame_indices[0, object_slot, record_slot] = record.frame_index
             slot_order[0, object_slot, record_slot] = record_slot
             is_conditioning[0, object_slot, record_slot] = record.is_conditioning
             validity[0, object_slot, record_slot] = True
             record_key = f"object={object_slot}/record={record_slot}"
+            if isinstance(score, torch.Tensor):
+                presence[0, object_slot, record_slot].copy_(
+                    score[0].to(presence.device)
+                )
+            else:
+                missing_presence_records.append(record_key)
             if output.get("maskmem_pos_enc") is not None:
                 positional_records[record_key] = output["maskmem_pos_enc"]
             if isinstance(output.get("pred_masks"), torch.Tensor):
@@ -201,6 +216,7 @@ def canonicalize_sam2_inference_state(
         "preserved_pred_masks": preserved_masks,
         "storage_device": str(inference_state.get("storage_device", "unknown")),
         "compute_device": str(inference_state.get("device", "unknown")),
+        "missing_presence_records": missing_presence_records,
     }
     return CanonicalState(
         spatial_memory=spatial,
