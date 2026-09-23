@@ -37,7 +37,7 @@
 
   <section class="scope" aria-label="연구 범위">
     <span><strong>Model</strong><br>Small → Base+</span>
-    <span><strong>Dataset</strong><br>DAVIS 2017 · MOSEv2 · LVOS v2</span>
+    <span><strong>Data roles</strong><br>MOSE/LVOS in-domain · VOST/DAVIS external</span>
     <span><strong>Method</strong><br>Nonlinear memory translator</span>
   </section>
 
@@ -71,11 +71,12 @@
     <article class="task" id="task-03">
       <div class="task-head">
         <div><div class="task-number">TASK 03</div><h2>Dataset·난이도·Baseline·Metric 동결</h2></div>
-        <span class="status done">Done</span>
+        <span class="status progress">In Progress</span>
       </div>
-      <p>DAVIS 2017·MOSEv2·LVOS v2의 train/validation manifest와 video-level split을 만들고, 실제 RGB·prompt mask·object·switch를 전수 검증했습니다. 객체·사건별 난이도, 비교군 입력, J&amp;F·재등장·부재 오류·비용 지표와 공식 metric 명칭·누수 방지 규칙도 하나의 protocol로 동결했습니다.</p>
+      <p>v1.0에서 DAVIS 2017·MOSEv2·LVOS v2 manifest와 loader를 검증했습니다. v1.1은 MOSE/LVOS fit·dev와 sealed in-domain final, VOST primary external zero-shot, DAVIS engineering-seen external을 분리했습니다. VOST manifest·loader·공식 J/J<sub>tr</sub> 검증이 남아 있습니다.</p>
       <div class="links">
-        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/design/03_benchmark_protocol.md"><strong>Benchmark protocol v1.0</strong><br><span class="muted">dataset · taxonomy · baseline · metric · leakage 규칙</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/design/03_benchmark_protocol.md"><strong>Benchmark protocol v1.1</strong><br><span class="muted">fit · dev · sealed final · external zero-shot</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/reports/benchmark/2026-09-24_task03_v1_1_addendum.md"><strong>v1.1 decision addendum</strong><br><span class="muted">데이터 노출·결과 matrix·남은 gate</span></a>
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/design/01_scope_baselines_success_stop.md"><strong>Task 01 판정 기준</strong><br><span class="muted">성공·중단 기준과 비교군 입력 원칙</span></a>
       </div>
       <p class="evidence">주 비교군: Source-only · Base+-native/Full Replay · Direct · Moment-Matched · Original · Last-Visible · Original+Last-Visible · Original+Replay-4/8/16 · Nonlinear.</p>

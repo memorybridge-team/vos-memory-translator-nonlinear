@@ -1,6 +1,6 @@
 # 프로젝트 문맥: SAM 2.1 Small → Base+ nonlinear state handoff
 
-> 확인된 코드·기존 실험과 현재 계획을 구분한 시작 문서. 기준일: 2026-09-21 KST.
+> 확인된 코드·기존 실험과 현재 계획을 구분한 시작 문서. 기준일: 2026-09-24 KST.
 
 ## 1. 연구 질문
 
@@ -11,7 +11,7 @@
 ## 2. 확정 범위
 
 - Model: 공식 SAM 2.1 Small → Base+ 한 방향. 같은 revision의 코드와 각각의 checkpoint를 사용한다.
-- Dataset: DAVIS 2017로 구현과 초기 검증, MOSEv2로 복잡한 장면·재등장, LVOS v2로 장기 추적을 평가한다. 세 데이터셋은 논문 범위에 포함된다.
+- Dataset role: MOSEv2/LVOS v2 train-fit·dev로 translator를 학습·선택하고 official validation을 sealed in-domain final로 사용한다. VOST val/test는 primary external zero-shot, DAVIS 2017 val은 Task 06 노출을 밝힌 `engineering-seen external`로 사용한다.
 - Method: nonlinear. 첫 모델은 component-wise residual MLP. 필요성을 검증하며 gated MLP와 slot/context attention을 비교한다. 새로운 Linear/Ridge 학습은 범위가 아니다.
 - Baseline: Source-only, Base+-native/Full Replay, Direct Copy, Moment-Matched Copy, 객체별 Original-Prompt, Last-Visible Source Mask, Original+Last-Visible, Original-Prompt(s)+Replay-4/8/16, Nonlinear Translator. Last-Mask와 original anchor 없는 Recent-Window Replay-k는 최종 비교군에서 제외한다. Empty-reset proxy는 구현 진단군으로만 유지한다.
 - 기간: [대한전자공학회 2026 추계학술대회](https://conf.theieie.org/2026f/pages/outlines.vm)의 논문 제출일은 2026-10-19로 확인했다. 정확한 마감 시각·시간대와 업로드 형식은 제출 화면에서 재확인한다. 일정은 필요한 데이터셋·사례·반복 횟수를 줄이는 상한이 아니다. 추가 GPU·작업 자원과 재개 가능한 실행으로 규모를 유지한다.
@@ -31,7 +31,7 @@
 
 ## 5. 실험 규칙
 
-- 영상 단위로 train/validation/test를 분리한다. 모델 선택에 test 결과를 쓰지 않는다.
+- MOSEv2/LVOS v2 train을 영상 단위 fit/dev로 분리하고 official validation은 config freeze 전까지 열지 않는다. DAVIS/VOST 결과를 모델 선택에 쓰지 않는다.
 - 모든 비교군은 switch 이전에 등록된 동일 객체 집합과 실제 prompt timeline을 쓴다. 미래 GT로 handoff 입력을 고르지 않는다.
 - Original-Prompt는 객체별 최초 지정 frame을 뜻한다. Last-Visible은 source 예측에서 객체별 마지막 비어 있지 않은 mask와 해당 RGB를 쓴다.
 - Source-only는 수학적 하한, Base+-native는 수학적 상한이 아니다.
@@ -41,7 +41,7 @@
 
 ## 6. 현재 위치와 다음 단계
 
-새 저장소 구성 및 범위 고정 → Base+ checkpoint와 same-checkpoint export→inject 검증 → 고정 baseline → nonlinear 모델 비교 → DAVIS/MOSEv2/LVOS v2 평가 → 4주 논문 작성. 자세한 일정과 성공 판정은 [실험 계획](docs/experimental_plan.md)을 따른다.
+새 저장소 구성 및 범위 고정 → Base+ checkpoint와 same-checkpoint export→inject 검증 → Task 03 v1.1/VOST onboarding → MOSE/LVOS paired-state·baseline·nonlinear 학습 → sealed in-domain 평가 → VOST/DAVIS external 평가 → 논문 작성. 자세한 일정과 성공 판정은 [실험 계획](docs/experimental_plan.md)을 따른다.
 
 GitHub repository를 새로 만들었다는 사실만으로 실험이 이전됐다는 뜻은 아니다. 기존 GPU cache는 pair와 checkpoint가 일치하는지 확인한 뒤 사용하고 Base+-native state는 새로 생성한다.
 
@@ -205,3 +205,23 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[확인]** DAVIS 2017 trainval 480p validation split에서 seed 7, regular quantile switch와 GT 기반 diagnostic event tag 정책으로 deterministic evaluation manifest를 생성했다.
 - **[결과]** `manifests/davis2017_val_v1.json`은 30 sequences, 249 video/object/switch cases이며 file SHA-256은 `5b036f173d74e6939c3096fa03e0af64f3dfba8bdaff21a43e1db8f5c1ada2f5`다. JSON에는 원본 pixel이나 dataset root가 포함되지 않는다.
 - **[해석]** GT는 case selection·difficulty tagging에만 쓰며 model input, handoff payload, translator 학습은 보지 않는다. MOSEv2/LVOS v2의 official split·loader·metric 검증은 Task 03에 남아 있다.
+
+## 28. 2026-09-24 — Benchmark protocol v1.1 확정
+
+- **[결정]** 데이터 운영을 translator fit, in-domain development, sealed in-domain final,
+  external frozen benchmark의 네 역할로 분리한다.
+- **[결정]** 주 translator는 MOSEv2/LVOS v2 train-fit으로 학습하고 각 train의
+  video-disjoint dev에서만 구조·loss·epoch·threshold·replay-k·checkpoint를 선택한다.
+- **[결정]** MOSEv2 official valid와 LVOS v2 official val은 config freeze 뒤 여는
+  sealed in-domain final이다.
+- **[결정]** VOST val/test는 primary translator-level cross-dataset zero-shot benchmark다.
+  DAVIS val은 `walking`, `bike-packing`, `india`의 Task 06 개발 노출 때문에
+  `engineering-seen external`로 표시한다.
+- **[금지]** DAVIS/VOST는 gradient, train statistics, Moment-Matched target moments,
+  early stopping, threshold 또는 후보 선택에 사용하지 않는다. 첫-frame GT prompt와
+  metric용 GT만 표준 VOS 평가로 허용한다.
+- **[결과 구조]** `MOSE-only`, `LVOS-only`, `MOSE+LVOS` 학습 행과 MOSE/LVOS/DAVIS/VOST
+  평가 열을 보고한다. VOST-train fine-tuning은 별도 adaptation upper-bound ablation이다.
+- **[상태]** Task 03 v1.0 완료 증거는 보존한다. VOST license/download/checksum,
+  25/50/75% switch manifest, loader와 공식 `J/J_tr`, external access ledger가 남아 있어
+  protocol v1.1의 Project 상태는 다시 `In Progress`다.

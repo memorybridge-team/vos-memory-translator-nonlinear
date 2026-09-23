@@ -5,7 +5,9 @@
 ## 1. 연구의 현재 방향
 
 - 주 연구 쌍은 SAM 2.1 **Small → Base+**다. `Base+`는 공식 모델명이다.
-- 데이터셋은 DAVIS 2017, MOSEv2, LVOS v2를 모두 사용한다.
+- MOSEv2/LVOS v2 train-fit·dev로 translator를 학습·선택하고 official validation은 sealed
+  in-domain final로 사용한다. VOST는 primary external zero-shot, DAVIS 2017 val은
+  `engineering-seen external`로 사용한다. 외부 benchmark는 학습·통계·선택에 사용하지 않는다.
 - 제안 방식은 nonlinear state/memory translator다. Linear/Ridge는 새 제안 방식이 아니라 과거의 단순 비교 관찰로만 남긴다.
 - 목표는 state tensor가 닮아 보이는지가 아니라, 전환 뒤 Base+가 객체를 정확하고 안정적으로 이어 추적하면서 full replay 비용을 줄이는지 확인하는 것이다.
 - 1개월은 제출 일정이며, 필요한 데이터·반복·비교군을 임의로 축소하는 근거가 아니다.

@@ -1,7 +1,8 @@
 # 01 연구 범위 동결: Baseline·성공 기준·중단 기준
 
-> 상태: **FROZEN v1.1 — 2026-09-21**
-> 적용 범위: SAM 2.1 Small → Base+, DAVIS 2017·MOSEv2·LVOS v2, nonlinear state translator  
+> 상태: **FROZEN v1.2 — 2026-09-24**
+> 적용 범위: SAM 2.1 Small → Base+, MOSEv2·LVOS v2 fit/in-domain evaluation,
+> DAVIS 2017·VOST external evaluation, nonlinear state translator
 > 목적: Project task 01의 연구 질문과 판정 규칙을 실험 결과를 보기 전에 고정한다.
 
 ## 1. 연구 질문과 범위
@@ -28,6 +29,11 @@ Small이 frame `t`까지 축적한 객체별 memory/state를 nonlinear translato
 - 같은 영상의 여러 switch를 독립 영상처럼 세지 않고 video-clustered confidence interval을 사용한다.
 - 각 방법의 전달 bytes, 재처리 frame 수, wall time, peak VRAM을 정확도와 함께 기록한다.
 - 입력 정보가 서로 다른 방법을 같은 이름으로 부르지 않는다. 특히 `Last-Visible`과 `Original-Prompt(s)+Replay-k`를 구분한다.
+- 학습·선택은 MOSEv2/LVOS v2 train의 video-disjoint fit/dev에서만 수행한다.
+- MOSEv2/LVOS v2 official validation은 final configuration을 동결하기 전까지 열지 않는다.
+- DAVIS/VOST는 gradient, 통계 추정, architecture/loss/checkpoint/threshold/replay-k 선택에
+  쓰지 않는다. DAVIS val은 Task 06에서 일부 영상을 사용했으므로 `engineering-seen external`,
+  VOST val/test는 primary external zero-shot으로 표시한다.
 
 ## 3. 최종 Baseline
 
@@ -136,7 +142,9 @@ held-out video에서 다음을 모두 확인한다.
 2. tensor loss 개선만이 아니라 switch 후 1/5/20 frame, 재등장 recovery, GT-absent false positive 중 관련 지표가 함께 개선된다.
 3. 가장 강한 non-full-replay 대안과 accuracy–cost Pareto 비교에서 지배되지 않는다.
 4. Full Replay보다 과거 재처리 frame 수가 적고, prefix 길이에 따른 handoff latency crossover를 보고한다.
-5. DAVIS만의 단일 성공으로 일반화를 주장하지 않는다. MOSEv2 또는 LVOS v2의 long-term/hard condition에서 방향이 재현되어야 주 방법의 일반화 근거로 사용한다.
+5. MOSEv2와 LVOS v2의 sealed in-domain evaluation에서 방향이 재현되어야 한다.
+6. VOST의 primary external benchmark에서 translator-level cross-dataset zero-shot 성능을
+   별도 보고한다. DAVIS 결과는 보조 external evidence이며 untouched라고 주장하지 않는다.
 
 주요 차이는 video-clustered 95% CI와 함께 보고한다. 동률 주장은 사전에 정한 `1.0 J&F point` 비열등 margin 안에서만 사용하고, 그 경우 비용 이득을 반드시 함께 제시한다.
 
@@ -178,5 +186,7 @@ held-out video에서 다음을 모두 확인한다.
 - [x] 미래 GT 금지와 동일 manifest 원칙
 - [x] downstream·continuity·cost 기반 성공 기준
 - [x] 구현 중단, 모델 전환 no-go, learned translator no-go 기준
+- [x] fit/dev, sealed in-domain final, external zero-shot의 역할 분리
+- [x] DAVIS engineering-seen과 VOST primary external의 노출 표기
 
 실험 결과에 따라 결론은 바뀔 수 있지만, 결과를 본 뒤 유리하게 판정 규칙을 바꾸지는 않는다. 변경이 필요하면 날짜·이유·영향받는 run을 decision log에 남긴다.
