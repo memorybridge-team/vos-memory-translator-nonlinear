@@ -14,6 +14,7 @@ import numpy as np
 import torch
 from PIL import Image
 
+from .device import resolve_device
 from .runner import load_binary_prompt
 from .artifacts import write_handoff_artifacts
 from .case_cache import load_case_cache, write_case_cache
@@ -442,13 +443,14 @@ def prepare_cross_model_case_reference(
     object_id: int,
     switch_frame: int,
     output: str | Path,
-    device: str = "cuda",
+    device: str | None = None,
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
 ) -> dict[str, Any]:
     """Compute source prefix and target oracle once for reuse by all baselines."""
 
+    device = resolve_device(device, allow_mps=False)
     sam2_repo = Path(sam2_repo).resolve()
     source_checkpoint = Path(source_checkpoint).resolve()
     target_checkpoint = Path(target_checkpoint).resolve()
@@ -552,7 +554,7 @@ def run_cached_translator_handoff(
     target_model_id: str,
     video_dir: str | Path,
     annotation_dir: str | Path | None = None,
-    device: str = "cuda",
+    device: str | None = None,
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
@@ -563,6 +565,7 @@ def run_cached_translator_handoff(
 ) -> dict[str, Any]:
     """Run only target continuation from a checksummed prepared case cache."""
 
+    device = resolve_device(device, allow_mps=False)
     payload = load_case_cache(case_cache)
     metadata = payload["metadata"]
     if metadata.get("target_model_id") != target_model_id:
@@ -701,7 +704,7 @@ def run_cached_baseline(
     prompt_mask: str | Path | None = None,
     annotation_dir: str | Path | None = None,
     replay_frames: int | None = None,
-    device: str = "cuda",
+    device: str | None = None,
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
@@ -714,6 +717,7 @@ def run_cached_baseline(
     so latency and backbone-call counts remain method-specific.
     """
 
+    device = resolve_device(device, allow_mps=False)
     cache_path = Path(case_cache).resolve()
     payload = load_case_cache(cache_path)
     metadata = payload["metadata"]
@@ -939,13 +943,14 @@ def run_same_checkpoint_roundtrip(
     prompt_mask: str | Path,
     object_id: int,
     switch_frame: int,
-    device: str = "cuda",
+    device: str | None = None,
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
 ) -> dict[str, Any]:
     """Compare native continuation with export→inject continuation."""
 
+    device = resolve_device(device, allow_mps=False)
     sam2_repo = Path(sam2_repo).resolve()
     checkpoint = Path(checkpoint).resolve()
     video_dir = Path(video_dir).resolve()
@@ -1054,13 +1059,14 @@ def run_same_checkpoint_prompt_timeline_roundtrip(
     video_dir: str | Path,
     prompt_events: list[MaskPromptEvent],
     switch_frame: int,
-    device: str = "cuda",
+    device: str | None = None,
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
 ) -> dict[str, Any]:
     """Validate export→inject continuation for multi-object prompt timelines."""
 
+    device = resolve_device(device, allow_mps=False)
     sam2_repo = Path(sam2_repo).resolve()
     checkpoint = Path(checkpoint).resolve()
     video_dir = Path(video_dir).resolve()
@@ -1185,13 +1191,14 @@ def run_same_checkpoint_correction_roundtrip(
     prompt_events: list[MaskPromptEvent],
     correction_event: MaskPromptEvent,
     switch_frame: int,
-    device: str = "cuda",
+    device: str | None = None,
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
 ) -> dict[str, Any]:
     """Validate post-switch correction or the pre-switch replay fallback."""
 
+    device = resolve_device(device, allow_mps=False)
     sam2_repo = Path(sam2_repo).resolve()
     checkpoint = Path(checkpoint).resolve()
     video_dir = Path(video_dir).resolve()
@@ -1409,13 +1416,14 @@ def run_same_checkpoint_repeated_switch_roundtrip(
     video_dir: str | Path,
     prompt_events: list[MaskPromptEvent],
     switch_frames: tuple[int, int],
-    device: str = "cuda",
+    device: str | None = None,
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
 ) -> dict[str, Any]:
     """Validate two consecutive export→inject handoffs against a native run."""
 
+    device = resolve_device(device, allow_mps=False)
     first_switch, second_switch = (int(value) for value in switch_frames)
     if not 0 <= first_switch < second_switch:
         raise ValueError("switch_frames must be strictly increasing and non-negative")
@@ -1616,7 +1624,7 @@ def run_cross_model_translator_handoff(
     prompt_mask: str | Path,
     object_id: int,
     switch_frame: int,
-    device: str = "cuda",
+    device: str | None = None,
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
@@ -1627,6 +1635,7 @@ def run_cross_model_translator_handoff(
 ) -> dict[str, Any]:
     """Run an end-to-end cross-model handoff with a supplied translator."""
 
+    device = resolve_device(device, allow_mps=False)
     sam2_repo = Path(sam2_repo).resolve()
     source_checkpoint = Path(source_checkpoint).resolve()
     target_checkpoint = Path(target_checkpoint).resolve()

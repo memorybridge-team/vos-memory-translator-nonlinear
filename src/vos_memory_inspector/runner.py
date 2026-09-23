@@ -11,6 +11,7 @@ import torch
 from PIL import Image
 
 from .attention_hook import MemoryAttentionProbe
+from .device import resolve_device
 from .manifest import DumpPolicy, ManifestWriter
 from .probe import ProbeConfig, StateProbe
 from .sam2_state import canonicalize_sam2_inference_state
@@ -45,7 +46,7 @@ def run_video_probe(
     csv_path: str | Path | None = None,
     dump_dir: str | Path | None = None,
     dump_tensors: tuple[str, ...] = (),
-    device: str = "cuda",
+    device: str | None = None,
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     allow_upstream_mismatch: bool = False,
@@ -61,6 +62,7 @@ def run_video_probe(
         raise FileNotFoundError(f"Video frame directory not found: {video_dir}")
     if not checkpoint.is_file():
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint}")
+    device = resolve_device(device, allow_mps=False)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)

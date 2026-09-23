@@ -37,7 +37,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--annotation-dir", required=True, type=Path)
     parser.add_argument("--evaluation-repo", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--device", default="auto")
     parser.add_argument("--keep-video-on-device", action="store_true")
     parser.add_argument("--keep-state-on-device", action="store_true")
     parser.add_argument("--seed", type=int, default=7)

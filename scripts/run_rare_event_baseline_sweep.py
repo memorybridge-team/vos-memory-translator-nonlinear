@@ -45,7 +45,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--suite-root", required=True, type=Path)
     parser.add_argument("--run-directory", required=True, type=Path)
     parser.add_argument("--hot-cache-root", type=Path)
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--device", default="auto")
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--case-id", action="append")
     parser.add_argument("--dry-run", action="store_true")

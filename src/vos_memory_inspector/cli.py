@@ -68,7 +68,11 @@ def _probe_parser() -> argparse.ArgumentParser:
             "Without this option only statistics are written."
         ),
     )
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help="auto uses CUDA, then Apple MPS when allowed, otherwise CPU.",
+    )
     parser.add_argument("--keep-video-on-device", action="store_true")
     parser.add_argument("--keep-state-on-device", action="store_true")
     parser.add_argument("--allow-upstream-mismatch", action="store_true")
@@ -387,7 +391,11 @@ def paired_experiment_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--learning-rate", type=float, default=2e-2)
     parser.add_argument("--ridge-lambda", type=float, default=0.01)
     parser.add_argument("--hidden-dim", type=int, default=128)
-    parser.add_argument("--device", default="cpu")
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help="auto uses CUDA, then Apple MPS when allowed, otherwise CPU.",
+    )
     parser.add_argument(
         "--spatial-samples-per-pair",
         type=int,
@@ -445,7 +453,11 @@ def roundtrip_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--prompt-mask", required=True, type=Path)
     parser.add_argument("--object-id", type=int, default=1)
     parser.add_argument("--switch-frame", type=int, required=True)
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help="auto uses CUDA, then Apple MPS when allowed, otherwise CPU.",
+    )
     parser.add_argument("--keep-video-on-device", action="store_true")
     parser.add_argument("--keep-state-on-device", action="store_true")
     parser.add_argument("--seed", type=int, default=7)
@@ -492,7 +504,11 @@ def prompt_timeline_roundtrip_main(argv: list[str] | None = None) -> None:
         help="Repeat for each user mask prompt in the timeline.",
     )
     parser.add_argument("--switch-frame", type=int, required=True)
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help="auto uses CUDA, then Apple MPS when allowed, otherwise CPU.",
+    )
     parser.add_argument("--keep-video-on-device", action="store_true")
     parser.add_argument("--keep-state-on-device", action="store_true")
     parser.add_argument("--seed", type=int, default=7)
@@ -551,7 +567,11 @@ def correction_roundtrip_main(argv: list[str] | None = None) -> None:
         required=True,
     )
     parser.add_argument("--switch-frame", type=int, required=True)
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help="auto uses CUDA, then Apple MPS when allowed, otherwise CPU.",
+    )
     parser.add_argument("--keep-video-on-device", action="store_true")
     parser.add_argument("--keep-state-on-device", action="store_true")
     parser.add_argument("--seed", type=int, default=7)
@@ -609,7 +629,11 @@ def repeated_switch_roundtrip_main(argv: list[str] | None = None) -> None:
         metavar=("FIRST", "SECOND"),
         required=True,
     )
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help="auto uses CUDA, then Apple MPS when allowed, otherwise CPU.",
+    )
     parser.add_argument("--keep-video-on-device", action="store_true")
     parser.add_argument("--keep-state-on-device", action="store_true")
     parser.add_argument("--seed", type=int, default=7)
@@ -658,7 +682,11 @@ def prepare_handoff_case_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--switch-frame", required=True, type=int)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--report-json", type=Path)
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help="auto uses CUDA, then Apple MPS when allowed, otherwise CPU.",
+    )
     parser.add_argument("--keep-video-on-device", action="store_true")
     parser.add_argument("--keep-state-on-device", action="store_true")
     parser.add_argument("--seed", type=int, default=7)
@@ -710,7 +738,11 @@ def cached_handoff_main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--presence-policy", choices=("direct", "ridge"), default="direct"
     )
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help="auto uses CUDA, then Apple MPS when allowed, otherwise CPU.",
+    )
     parser.add_argument("--keep-video-on-device", action="store_true")
     parser.add_argument("--keep-state-on-device", action="store_true")
     parser.add_argument("--seed", type=int, default=7)
@@ -805,7 +837,11 @@ def cached_baseline_main(argv: list[str] | None = None) -> None:
             "Required for replay_k; replay-1 intentionally equals Last-Mask."
         ),
     )
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help="auto uses CUDA, then Apple MPS when allowed, otherwise CPU.",
+    )
     parser.add_argument("--keep-video-on-device", action="store_true")
     parser.add_argument("--keep-state-on-device", action="store_true")
     parser.add_argument("--seed", type=int, default=7)
@@ -854,7 +890,11 @@ def direct_handoff_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--prompt-mask", required=True, type=Path)
     parser.add_argument("--object-id", type=int, default=1)
     parser.add_argument("--switch-frame", type=int, required=True)
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help="auto uses CUDA, then Apple MPS when allowed, otherwise CPU.",
+    )
     parser.add_argument("--keep-video-on-device", action="store_true")
     parser.add_argument("--keep-state-on-device", action="store_true")
     parser.add_argument("--seed", type=int, default=7)
@@ -913,7 +953,11 @@ def ridge_handoff_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--prompt-mask", required=True, type=Path)
     parser.add_argument("--object-id", type=int, default=1)
     parser.add_argument("--switch-frame", type=int, required=True)
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help="auto uses CUDA, then Apple MPS when allowed, otherwise CPU.",
+    )
     parser.add_argument("--keep-video-on-device", action="store_true")
     parser.add_argument("--keep-state-on-device", action="store_true")
     parser.add_argument("--seed", type=int, default=7)

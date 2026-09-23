@@ -16,6 +16,7 @@ from typing import Any
 
 import torch
 
+from vos_memory_inspector.device import resolve_device
 from vos_memory_inspector.runner import load_binary_prompt
 from vos_memory_inspector.sam2_state import (
     canonicalize_sam2_inference_state,
@@ -98,10 +99,11 @@ def main() -> None:
     parser.add_argument("--prompt-mask", required=True)
     parser.add_argument("--object-id", type=int, required=True)
     parser.add_argument("--switch-frame", type=int, required=True)
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--device", default="auto")
     parser.add_argument("--json")
     parser.add_argument("--summary-only", action="store_true")
     args = parser.parse_args()
+    args.device = resolve_device(args.device, allow_mps=False)
 
     sam2_repo = Path(args.sam2_repo).resolve()
     verify_sam2_checkout(sam2_repo)
