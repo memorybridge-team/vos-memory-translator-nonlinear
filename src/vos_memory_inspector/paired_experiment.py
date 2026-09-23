@@ -11,6 +11,7 @@ import torch
 from torch.nn import functional as F
 
 from .case_cache import load_case_cache
+from .device import resolve_device
 from .metrics import benchmark_translation, direct_improvement, evaluate_state
 from .state_schema import CanonicalState, StateSpec
 from .translator_training import fit_gradient_translator
@@ -275,7 +276,7 @@ def run_paired_experiment(
     ridge_lambda: float = 0.01,
     hidden_dim: int = 128,
     translator_names: tuple[str, ...] | None = None,
-    device: str = "cpu",
+    device: str | None = None,
     spatial_samples_per_pair: int | None = None,
 ) -> dict[str, Any]:
     """Fit/evaluate offline paired canonical state without claiming injection."""
@@ -289,6 +290,7 @@ def run_paired_experiment(
     invalid = sorted(set(selected) - set(allowed))
     if invalid:
         raise ValueError(f"unknown translators: {invalid}; allowed={list(allowed)}")
+    device = resolve_device(device)
     torch.manual_seed(seed)
     source_spec = train_pairs[0][0].spec
     target_spec = train_pairs[0][1].spec

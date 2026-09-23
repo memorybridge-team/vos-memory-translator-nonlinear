@@ -17,6 +17,7 @@ from vos_memory_inspector.davis_evaluation import (
     load_official_davis_metrics,
     write_davis_future_report,
 )
+from vos_memory_inspector.device import resolve_device
 from vos_memory_inspector.roundtrip import run_cached_translator_handoff
 from vos_memory_inspector.temporal_evaluation import evaluate_temporal_handoff
 from vos_memory_inspector.translators import (
@@ -49,7 +50,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--evaluation-repo", required=True, type=Path)
     parser.add_argument("--output-root", required=True, type=Path)
     parser.add_argument("--hot-cache-root", type=Path)
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--device", default="auto")
     parser.add_argument("--seed", type=int, default=7)
     return parser
 
@@ -167,6 +168,9 @@ def _write_aggregate(rows: list[dict[str, Any]], output_root: Path) -> None:
 
 def main() -> None:
     args = _parser().parse_args()
+    requested_device = args.device
+    translator_device = resolve_device(requested_device)
+    sam2_device = resolve_device(requested_device, allow_mps=False)
     selection = json.loads(args.selection_manifest.read_text(encoding="utf-8"))
     cases = [
         case for case in selection["cases"] if case.get("paired_split") == "validation"
@@ -182,7 +186,7 @@ def main() -> None:
         if not isinstance(payload, dict):
             raise ValueError("artifact has no residual_mlp payload")
         learned = (
-            ResidualMLPStateTranslator.from_payload(payload).to(args.device).eval()
+            ResidualMLPStateTranslator.from_payload(payload).to(translator_device).eval()
         )
         artifact_sha = _sha256(artifact_path)
         if args.component_policy == "full":
@@ -248,7 +252,7 @@ def main() -> None:
             target_model_id=args.target_model_id,
             video_dir=video,
             annotation_dir=annotation,
-            device=args.device,
+            device=sam2_device,
             seed=args.seed,
             artifact_dir=case_output,
             translator=translator,

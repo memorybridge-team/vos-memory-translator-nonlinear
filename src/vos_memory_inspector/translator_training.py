@@ -7,6 +7,7 @@ from typing import Iterable
 import torch
 from torch.nn import functional as F
 
+from .device import resolve_device
 from .state_schema import CanonicalState
 from .translators import _LearnedStateTranslator, _pair_guard, _resample_spatial
 
@@ -30,9 +31,10 @@ def fit_gradient_translator(
     *,
     epochs: int = 100,
     learning_rate: float = 1e-3,
-    device: str | torch.device = "cpu",
+    device: str | torch.device | None = None,
     spatial_samples_per_pair: int | None = None,
 ) -> list[float]:
+    device = resolve_device(device)
     pair_list = list(pairs)
     if not pair_list:
         raise ValueError("at least one paired state is required")
