@@ -225,3 +225,11 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[상태]** Task 03 v1.0 완료 증거는 보존한다. VOST license/download/checksum,
   25/50/75% switch manifest, loader와 공식 `J/J_tr`, external access ledger가 남아 있어
   protocol v1.1의 Project 상태는 다시 `In Progress`다.
+
+## 29. 2026-09-24 — 팀원용 진행 현황 정보 구조와 Project 동기화
+
+- **[결정]** GitHub Project는 상세 연구 문서의 저장소가 아니라 상태·담당·순서·blocker와 canonical evidence 링크를 모으는 관제판으로 사용한다.
+- **[읽기 경로]** 새 팀원은 `README → docs/research_progress_summary.md → Project의 In Progress 카드 → 연결 Issue → PR·reports` 순서로 현재 상태를 파악한다.
+- **[정보 위치]** 안정된 연구 개요는 README, 검증된 snapshot은 research progress summary, task 범위·완료 조건·논의는 Issue, 변경 검토는 PR, 실행 명령·정량 결과·한계는 `reports/`에 둔다.
+- **[Project 반영]** Task 07·08·09·10·11·13의 설명을 protocol v1.1에 맞게 수정했다. MOSE/LVOS fit·dev만 학습/선택에 사용하고, official validation은 config freeze 뒤 sealed final, VOST는 primary external zero-shot, DAVIS는 engineering-seen external로 제한한다.
+- **[상태]** Task 03은 VOST manifest·loader·공식 `J/J_tr`·access ledger가 남아 `In Progress`; Task 07 이후는 `Todo`를 유지한다.

@@ -1,3 +1,14 @@
+# CMMT 현재 연구 진행 요약
+
+> 팀원이 현재 상태를 처음 확인할 때 읽는 canonical snapshot입니다. 세부 task 상태는 [Project #2](https://github.com/orgs/memorybridge-team/projects/2/views/1), 실행 범위와 완료 조건은 연결된 Issue, 변경 검토는 PR, 재현 증거는 `reports/`를 따릅니다. 이 문서는 보드 항목을 나열하는 대신 현재까지 검증된 사실과 다음 gate를 요약합니다.
+
+## 한눈에 보기
+
+- 완료: Task 01 연구 범위, Task 02 State I/O, Task 06 runtime export·assembly·injection
+- 진행 중: Task 03 benchmark protocol v1.1 — VOST external zero-shot onboarding이 남음
+- 다음: Task 07 paired-state 수집 → Task 08 baselines → Task 09–11 nonlinear 학습·동결 → final/external 평가
+- 현재 결과 해석: runtime은 exact하게 동작하지만, Small→Base+ nonlinear translator의 성능은 아직 검증하지 않음
+
 # 1. 연구 문제와 범위
 
 - 작업:

@@ -15,6 +15,16 @@
 
 이 저장소는 이전 프로젝트에서 검증한 상태 추출·주입, DAVIS 평가, 기존 baseline runner, MLP 학습 코드를 **새 Git 이력으로 선별 이관한 시작점**입니다. 이전 Tiny→Large 실험은 [과거 결과](reports/legacy/)로 보존했습니다. Small/Base+ runtime I/O inventory와 Base+ same-checkpoint round-trip은 완료됐고, Small→Base+ 전체 baseline 비교와 nonlinear 학습 결과는 아직 생성되지 않았습니다.
 
+### 팀원이 현재 연구 상태를 읽는 순서
+
+1. [현재 연구 진행 요약](docs/research_progress_summary.md)에서 확정된 연구 질문, 완료 결과, 미완료 gate와 다음 작업을 먼저 읽습니다.
+2. [Project #2 Tasks](https://github.com/orgs/memorybridge-team/projects/2/views/1)에서 현재 `In Progress` task, 담당자, 순서와 blocker를 확인합니다.
+3. 해당 카드가 연결한 canonical Issue에서 범위·완료 조건·결정 이유를 확인합니다.
+4. 연결된 PR과 `reports/`에서 실제 변경 diff, 실행 명령, 수치와 알려진 한계를 검토합니다.
+5. 구현을 재현하거나 이어서 작업할 때만 [State I/O 계약](docs/design/small_base_state_io_contract.md), [Benchmark protocol](docs/design/03_benchmark_protocol.md), [협업 파이프라인](docs/github_task_workflow.md) 원문을 읽습니다.
+
+Project Board는 상세 연구 문서를 복제해 보관하는 곳이 아니라 **상태·담당·완료 기준·근거 링크를 찾는 관제판**입니다. 안정된 현재 상태는 이 README와 진행 요약에, task별 논의는 Issue에, 검토 가능한 변경과 실행 증거는 PR·보고서에 둡니다.
+
 ### 연구·협업 진행판
 
 | 단계 | 보드 상태 | 지금의 완료 조건 |
