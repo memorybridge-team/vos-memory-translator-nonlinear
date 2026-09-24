@@ -235,6 +235,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[상태]** Task 03은 VOST manifest·loader·공식 `J/J_tr`·access ledger가 남아 `In Progress`; Task 07 이후는 `Todo`를 유지한다.
 - **[업데이트 2026-09-24]** VOST 공식 Data page·S3 archive·CC BY-NC-SA 4.0 이용조건과 TRI-ML 평가 코드 위치를 확인해 access ledger를 만들었다. archive 다운로드·SHA-256·inventory·25/50/75% manifest·실제 `J/J_tr` 실행은 아직 남아 있다.
 - **[진행 2026-09-24]** 공식 VOST archive의 `Content-Length=54,012,104,924` bytes를 확인하고 RunPod `/workspace/datasets/VOST/VOST.zip`에 `wget --continue` 다운로드를 시작했다. 완료 전 checksum·inventory·loader gate는 미완료로 유지한다.
+- **[진행 2026-09-25]** VOST archive SHA-256 `fb17075ab3afab0fe30f264d8adce2e29ce6249a73cd44d2a9cf4936cc8de978`를 계산했다. ZIP 목록에서 153,136개 파일과 train/val/test 572/70/71 sequence를 확인했으며, 압축 해제 후 실제 annotation·frame inventory와 loader 검증이 남아 있다.
 
 ## 30. 2026-09-24 — Task 중심 보고서 구조 확정
 
