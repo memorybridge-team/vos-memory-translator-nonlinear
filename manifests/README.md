@@ -1,6 +1,6 @@
 # Frozen evaluation manifests
 
-이 디렉터리는 데이터셋 원본 이미지·마스크를 저장하지 않는다. 현재 남은 파일은 LVOS v2 validation의 객체별 최초 prompt frame이다. `scripts/evaluate_lvos_base_roundtrip.py`가 이 값만 읽고, switch는 manifest case가 아니라 클립 순번 20으로 고정한다.
+이 디렉터리는 데이터셋 원본 이미지·마스크를 저장하지 않는다. 현재 남은 파일은 LVOS v2 validation의 객체별 최초 prompt frame이다.
 
 ## LVOS v2 validation
 
