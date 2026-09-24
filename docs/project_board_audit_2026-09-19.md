@@ -58,9 +58,9 @@ Tasks 기본 보기는 제목 오름차순으로 저장했다. 따라서 보드�
 
 ## 2026-09-24 protocol v1.1 보드 수정
 
-- **03 Benchmark:** 네 데이터 역할, VOST license/download/checksum, manifest·loader·`J/J_tr`, external access ledger를 완료 조건에 추가한다.
+- **03 Benchmark:** 네 데이터 역할, VOST license/download/checksum, manifest·loader·`J/J_last`, external access ledger를 완료 조건에 추가한다.
 - **07 Paired state:** MOSEv2/LVOS v2 fit/dev만 training shard에 넣는다. DAVIS/VOST는 training paired-state source에서 제외한다.
-- **08 Baselines:** Moment-Matched 통계는 fit shard로만 계산하고 VOST `J/J_tr`, in-domain/external 결과 분리를 구현한다.
+- **08 Baselines:** Moment-Matched 통계는 fit shard로만 계산하고 VOST `J/J_last`, in-domain/external 결과 분리를 구현한다.
 - **09–11 Training:** 모든 architecture/loss/checkpoint 선택은 MOSEv2/LVOS v2 dev에서 끝내고 config freeze 후 official validation과 external benchmark를 연다.
 - **13 Evaluation:** MOSE/LVOS sealed in-domain과 VOST/DAVIS external을 다른 표로 보고한다. DAVIS는 `engineering-seen`, VOST는 primary untouched external로 표시한다.
 

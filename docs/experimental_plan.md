@@ -77,7 +77,7 @@ GT mask를 switch 시점에 새로 주지 않는다. Last-Visible 선택은 sour
 ## 4주차: in-domain·external 결과와 논문
 
 - MOSEv2 valid와 LVOS v2 val을 **in-domain held-out** 표로 보고한다.
-- VOST val/test를 primary **external cross-dataset zero-shot**으로 보고하고 공식 `J`, `J_tr`를 사용한다.
+- VOST val/test를 primary **external cross-dataset zero-shot**으로 보고하고 공식 `J`, `J_last`를 사용한다.
 - DAVIS val은 전체 및 사건별 J&F를 보고하되 Task 06 개발 노출 때문에 `engineering-seen external`로 표기한다.
 - VOST switch는 미래 GT 사건을 쓰지 않고 25/50/75% temporal quantile(primary 50%)로 고정한다.
 - VOST-train adaptation을 수행하면 zero-shot 표와 분리한 upper-bound ablation으로만 보고한다.
@@ -91,7 +91,7 @@ GT mask를 switch 시점에 새로 주지 않는다. Last-Visible 선택은 sour
 ## 날짜별 통합 게이트
 
 - **9/23:** DAVIS·MOSEv2·LVOS v2 protocol v1.0과 runtime gate를 완료했다.
-- **9/24~26:** protocol v1.1의 네 데이터 역할을 문서·보드에 반영하고 VOST license/download/checksum, manifest, loader, `J/J_tr` evaluator를 검증한다.
+- **9/24~26:** protocol v1.1의 네 데이터 역할을 문서·보드에 반영하고 VOST license/download/checksum, manifest, loader, `J/J_last` evaluator를 검증한다.
 - **9/26~30:** MOSEv2/LVOS v2 fit/dev에서만 paired state 수집을 shard 단위로 확장한다. DAVIS/VOST state는 학습 shard에 넣지 않는다.
 - **10/3~11:** overfit/smoke gate를 통과한 shard부터 세 nonlinear 후보의 재개 가능한 전체 학습·반복 평가를 시작한다. 기존 일정의 10/8 일괄 시작을 기다리지 않는다.
 - **10/7:** 후보 구조와 평가 프로토콜의 중간 검토만 한다. 최종 방법은 전체 결과를 보기 전까지 확정하지 않는다.

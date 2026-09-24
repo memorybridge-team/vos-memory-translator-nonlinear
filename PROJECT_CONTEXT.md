@@ -223,7 +223,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[결과 구조]** `MOSE-only`, `LVOS-only`, `MOSE+LVOS` 학습 행과 MOSE/LVOS/DAVIS/VOST
   평가 열을 보고한다. VOST-train fine-tuning은 별도 adaptation upper-bound ablation이다.
 - **[상태]** Task 03 v1.0 완료 증거는 보존한다. VOST license/download/checksum,
-  25/50/75% switch manifest, loader와 공식 `J/J_tr`, external access ledger가 남아 있어
+  25/50/75% switch manifest, loader와 공식 `J/J_last`, external access ledger가 남아 있어
   protocol v1.1의 Project 상태는 다시 `In Progress`다.
 
 ## 29. 2026-09-24 — 팀원용 진행 현황 정보 구조와 Project 동기화
@@ -232,13 +232,14 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[읽기 경로]** 새 팀원은 `README → docs/research_progress_summary.md → Project의 In Progress 카드 → 연결 Issue → PR·reports` 순서로 현재 상태를 파악한다.
 - **[정보 위치]** 안정된 연구 개요는 README, 검증된 snapshot은 research progress summary, task 범위·완료 조건·논의는 Issue, 변경 검토는 PR, 실행 명령·정량 결과·한계는 `reports/`에 둔다.
 - **[Project 반영]** Task 07·08·09·10·11·13의 설명을 protocol v1.1에 맞게 수정했다. MOSE/LVOS fit·dev만 학습/선택에 사용하고, official validation은 config freeze 뒤 sealed final, VOST는 primary external zero-shot, DAVIS는 engineering-seen external로 제한한다.
-- **[상태]** Task 03은 VOST manifest·loader·공식 `J/J_tr`·access ledger가 남아 `In Progress`; Task 07 이후는 `Todo`를 유지한다.
-- **[업데이트 2026-09-24]** VOST 공식 Data page·S3 archive·CC BY-NC-SA 4.0 이용조건과 TRI-ML 평가 코드 위치를 확인해 access ledger를 만들었다. archive 다운로드·SHA-256·inventory·25/50/75% manifest·실제 `J/J_tr` 실행은 아직 남아 있다.
+- **[상태]** Task 03은 VOST manifest·loader·공식 `J/J_last`·access ledger가 남아 `In Progress`; Task 07 이후는 `Todo`를 유지한다.
+- **[업데이트 2026-09-24]** VOST 공식 Data page·S3 archive·CC BY-NC-SA 4.0 이용조건과 TRI-ML 평가 코드 위치를 확인해 access ledger를 만들었다. archive 다운로드·SHA-256·inventory·25/50/75% manifest·실제 `J/J_last` 실행은 아직 남아 있다.
 - **[진행 2026-09-24]** 공식 VOST archive의 `Content-Length=54,012,104,924` bytes를 확인하고 RunPod `/workspace/datasets/VOST/VOST.zip`에 `wget --continue` 다운로드를 시작했다. 완료 전 checksum·inventory·loader gate는 미완료로 유지한다.
 - **[진행 2026-09-25]** VOST archive SHA-256 `fb17075ab3afab0fe30f264d8adce2e29ce6249a73cd44d2a9cf4936cc8de978`를 계산했다. ZIP 목록에서 153,136개 파일과 train/val/test 572/70/71 sequence를 확인했으며, 압축 해제 후 실제 annotation·frame inventory와 loader 검증이 남아 있다.
-- **[진행 2026-09-25]** VOST 압축 해제를 `/workspace/datasets/VOST/extracted`에서 완료했다. 1차 inventory는 Annotations 67,751개, JPEGImages 67,751개, JPEGImages_10fps 15,607개, Videos 642개이며, annotation/frame 대응·25/50/75% switch manifest·prompt loader·공식 `J/J_tr` smoke가 남아 있다. Task 03은 이 gate들이 끝날 때까지 `In Progress`다.
-- **[검증 2026-09-25]** VOST inventory에서 train 59,930쌍과 val 7,820쌍의 frame/annotation stem 대응이 모두 통과(`failure_count=0`)했다. 배포본의 test는 71개 sequence 이름 목록만 있고 로컬 frame/annotation이 없어 공식 서버용으로 분리한다. 다음 gate는 val 기준 switch manifest·prompt loader·공식 `J/J_tr` smoke다.
-- **[산출물 2026-09-25]** VOST val 70 sequence에 25/50/75% temporal quantile을 적용한 210-case switch manifest를 생성했다. content SHA-256은 `47bab054c87281e7b904831ea8891b81d22f1d8683786f1d5cf84a4f1ba85cbf`다. 이는 prompt/예측 loader와 공식 `J/J_tr` 실행 전의 metadata gate이며 Task 03은 아직 `In Progress`다.
+- **[진행 2026-09-25]** VOST 압축 해제를 `/workspace/datasets/VOST/extracted`에서 완료했다. 1차 inventory는 Annotations 67,751개, JPEGImages 67,751개, JPEGImages_10fps 15,607개, Videos 642개이며, annotation/frame 대응·25/50/75% switch manifest·prompt loader·공식 `J/J_last` smoke가 남아 있다. Task 03은 이 gate들이 끝날 때까지 `In Progress`다.
+- **[검증 2026-09-25]** VOST inventory에서 train 59,930쌍과 val 7,820쌍의 frame/annotation stem 대응이 모두 통과(`failure_count=0`)했다. 배포본의 test는 71개 sequence 이름 목록만 있고 로컬 frame/annotation이 없어 공식 서버용으로 분리한다. 다음 gate는 val 기준 switch manifest·prompt loader·공식 `J/J_last` smoke다.
+- **[산출물 2026-09-25]** VOST val 70 sequence에 25/50/75% temporal quantile을 적용한 210-case switch manifest를 생성했다. content SHA-256은 `47bab054c87281e7b904831ea8891b81d22f1d8683786f1d5cf84a4f1ba85cbf`다. 이는 prompt/예측 loader와 공식 `J/J_last` 실행 전의 metadata gate이며 Task 03은 아직 `In Progress`다.
+- **[검증 2026-09-25]** TRI-ML/VOST official evaluator commit `fe274574`를 GT-copy·512px smoke에서 실행해 `J-Mean=1.000`, `J_last-Mean=1.000`을 확인했다. `J_last`가 공식 코드의 실제 후반 구간 지표 이름이다. 원본 해상도 119-frame smoke는 약 60GB에서 `SIGKILL`돼, 최종 평가는 sequence 단위 메모리 상한·CSV 병합 방식으로 운영한다. CMMT PNG export smoke는 남아 있다.
 
 ## 30. 2026-09-24 — Task 중심 보고서 구조 확정
 

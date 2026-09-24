@@ -162,7 +162,7 @@ Base+-native 대비 후속 binary IoU: 0.0
 
 다음 단계에서는 동일한 protocol로 paired state와 baseline을 준비한 뒤 Nonlinear Translator를 평가한다.
 
-Task 03 v1.1: VOST checksum, manifest, loader, 공식 J/J_tr 검증
+Task 03 v1.1: VOST checksum, manifest, loader, 공식 J/J_last 검증
 
 Task 07: MOSEv2/LVOS v2 fit/dev에서 Small과 Base+ paired-state 수집
 

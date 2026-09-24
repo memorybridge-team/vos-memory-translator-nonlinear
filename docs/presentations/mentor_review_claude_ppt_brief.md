@@ -176,7 +176,7 @@
 핵심 문장: 동일한 protocol로 paired state와 baseline을 준비한 뒤 Nonlinear Translator를 평가한다.
 
 다음 실험:
-- Task 03 v1.1: VOST checksum·manifest·loader·공식 J/J_tr 검증
+- Task 03 v1.1: VOST checksum·manifest·loader·공식 J/J_last 검증
 - Task 07: MOSEv2/LVOS v2 fit/dev에서 Small과 Base+ paired-state 수집
 - Task 08: 모든 baseline을 같은 evaluator와 switch case에서 평가
 - Task 09: Nonlinear 후보 학습, validation, 구조 선정

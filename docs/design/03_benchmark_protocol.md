@@ -176,7 +176,7 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - **DAVIS 2017:** 공개 validation GT에서 공식 semi-supervised `J`, `F`, `J&F`를 보고한다.
 - **MOSEv2:** 공식 README는 train의 dense annotation과 validation의 first-frame-only annotation을 구분하고, validation/test 제출은 공식 Evaluation Server 경로로 안내한다. 따라서 로컬 MOSEv2 validation의 switch 이후 값은 official J&F라고 부르지 않으며, `first-frame prompt continuation diagnostic`으로만 기록한다. dense train의 switch J&F는 model selection·debug용이다.
 - **LVOS v2:** 공식 `lvos-evaluation` toolkit의 `semi-supervised` validation score를 dataset-level 결과로 사용한다. CMMT의 `switch +1/+5/+20`, recovery length, visible/absent slice는 같은 prediction을 추가로 분석하는 자체 지표이며 LVOS 공식 score를 대체하지 않는다. test는 공식 CodaLab server 외의 local score로 주장하지 않는다.
-- **VOST:** 공식 `J`와 마지막 25% frame의 transformation score `J_tr`를 주 지표로
+- **VOST:** 공식 `J`와 마지막 25% frame의 transformation score `J_last`를 주 지표로
   보고한다. VOST는 경계가 모호하고 motion blur가 큰 특성을 반영해 `F`를 공식 지표처럼
   주장하지 않는다. CMMT switch는 미래 GT 사건에 맞추지 않고 영상 길이의 25/50/75%
   temporal quantile로 고정하며 primary switch는 50%다.
@@ -216,7 +216,7 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - [x] VOST train/val annotation·frame inventory를 검증했다 (`failure_count=0`;
   train 59,930쌍, val 7,820쌍). Test archive는 이름 목록만 포함되어 로컬 평가에서 제외한다.
 - [ ] VOST val/test 역할, 25/50/75% switch manifest와 checksum을 생성한다.
-- [ ] VOST prompt loader와 공식 `J/J_tr` evaluator를 실제 데이터로 검증한다.
+- [ ] VOST prompt loader와 공식 `J/J_last` evaluator를 실제 데이터로 검증한다.
 - [ ] 외부 benchmark access ledger를 만들고 config freeze commit을 기록한다.
 
 v1.0의 세 데이터셋 gate는 2026-09-23 모두 충족했다. 2026-09-24에 평가 역할을
