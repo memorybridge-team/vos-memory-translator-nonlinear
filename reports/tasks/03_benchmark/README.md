@@ -27,6 +27,9 @@ onboarding gate를 추가했으므로 Task 03 v1.1은 진행 중이다.
 - [2026-09-23 loader validation JSON](runs/2026-09-23_loader_validation/)
 - [2026-09-24 VOST access ledger](runs/2026-09-24_vost_onboarding/access_ledger.md)
 
+VOST 공식 archive(약 54.0GB)는 RunPod에서 재개 가능한 방식으로 다운로드 중이다.
+완료 전에는 checksum·inventory·loader gate를 통과한 것으로 간주하지 않는다.
+
 ## 남은 v1.1 gate
 
 - [x] VOST 이용조건·공식 download source 확인 ([access ledger](runs/2026-09-24_vost_onboarding/access_ledger.md))

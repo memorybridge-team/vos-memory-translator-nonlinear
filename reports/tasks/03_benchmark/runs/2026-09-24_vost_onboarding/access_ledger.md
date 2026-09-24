@@ -12,11 +12,17 @@ Task 03 v1.1의 첫 gate로 VOST 공식 배포 경로, 이용조건, 평가 구�
 |---|---|---|
 | 공식 dataset page | [VOST Data](https://www.vostdataset.org/data.html) | 확인 |
 | 공식 code/evaluation | [TRI-ML/VOST](https://github.com/TRI-ML/VOST), `evaluation/evaluation_method.py` | 확인 |
-| train/validation archive | `https://tri-ml-public.s3.amazonaws.com/datasets/VOST.zip` | 다운로드 전 |
+| train/validation archive | `https://tri-ml-public.s3.amazonaws.com/datasets/VOST.zip` | 다운로드 중 |
 | test split | 공식 페이지에서 challenge deadline 전 별도 공개한다고 안내 | 접근 시점 확인 필요 |
 | license | Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0) | 확인 |
 | official metrics | VOST evaluator의 `J`와 변환 구간 중심 `J_tr`를 보고 | 코드 실행 전 |
 | archive SHA-256 | 다운로드 후 계산 | 미완료 |
+
+2026-09-24 KST에 공식 URL의 HEAD를 확인했다. `Content-Length`는
+`54,012,104,924` bytes(약 50.3 GiB)이며, multipart S3 `ETag`는 SHA-256 대체값으로
+사용하지 않는다. RunPod `/workspace/datasets/VOST/VOST.zip`에 `wget --continue`로
+다운로드를 시작했고, 로그는 `/workspace/logs/vost_download.log`에 둔다. archive가
+완전히 닫힌 뒤에만 SHA-256과 압축 구조를 검증한다.
 
 ## 연구상 고정 규칙
 
