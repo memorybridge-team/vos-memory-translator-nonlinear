@@ -17,7 +17,7 @@ from typing import Any
 import torch
 
 from vos_memory_inspector.device import resolve_device
-from vos_memory_inspector.runner import load_binary_prompt
+from vos_memory_inspector.roundtrip import load_binary_prompt
 from vos_memory_inspector.sam2_state import (
     canonicalize_sam2_inference_state,
     init_sam2_inference_state_without_warmup,
