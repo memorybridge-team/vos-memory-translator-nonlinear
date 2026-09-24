@@ -27,16 +27,16 @@ onboarding gate를 추가했으므로 Task 03 v1.1은 진행 중이다.
 - [2026-09-23 loader validation JSON](runs/2026-09-23_loader_validation/)
 - [2026-09-24 VOST access ledger](runs/2026-09-24_vost_onboarding/access_ledger.md)
 
-VOST 공식 archive(약 54.0GB)는 RunPod에서 재개 가능한 방식으로 다운로드 중이다.
-완료 전에는 checksum·inventory·loader gate를 통과한 것으로 간주하지 않는다.
-
-Archive 다운로드와 SHA-256 계산은 완료됐다. 공식 split 목록은 train 572, val 70,
-test 71 sequence이며, 압축 해제와 실제 파일 inventory는 진행 중이다.
+VOST 공식 archive(약 54.0GB)는 RunPod에 다운로드·압축 해제되었다.
+Archive SHA-256은 `fb17075ab3afab0fe30f264d8adce2e29ce6249a73cd44d2a9cf4936cc8de978`이며,
+공식 split 목록은 train 572, val 70, test 71 sequence이다. 추출본의 1차 파일 수는
+Annotations 67,751개, JPEGImages 67,751개, JPEGImages_10fps 15,607개, Videos 642개로
+확인했다. 실제 annotation/frame 대응·switch manifest·loader gate는 아직 남아 있다.
 
 ## 남은 v1.1 gate
 
 - [x] VOST 이용조건·공식 download source 확인 ([access ledger](runs/2026-09-24_vost_onboarding/access_ledger.md))
-- [ ] VOST archive 다운로드·SHA-256 기록
+- [x] VOST archive 다운로드·SHA-256·압축 해제 기록
 - [ ] VOST val/test inventory와 25/50/75% switch manifest 생성
 - [ ] VOST prompt loader와 공식 `J`/`J_tr` evaluator 검증
 - [ ] external benchmark access ledger와 config-freeze commit 기록
