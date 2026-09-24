@@ -15,10 +15,7 @@ import torch
 from PIL import Image
 
 from .device import resolve_device
-from .runner import load_binary_prompt
-from .artifacts import write_handoff_artifacts
 from .case_cache import load_case_cache, write_case_cache
-from .metrics import evaluate_state
 from .sam2_state import (
     canonicalize_sam2_inference_state,
     init_sam2_inference_state_without_warmup,
@@ -29,6 +26,20 @@ from .translators import DirectCopyTranslator
 
 
 CACHED_BASELINES = ("target_reset", "last_mask", "replay_k", "full_replay")
+
+
+def load_binary_prompt(path: str | Path, object_id: int) -> np.ndarray:
+    labels = np.asarray(Image.open(path))
+    if labels.ndim == 3:
+        labels = labels[..., 0]
+    mask = labels == object_id
+    if not mask.any():
+        unique = np.unique(labels).tolist()
+        raise ValueError(
+            f"Prompt mask {path} contains no pixels for object_id={object_id}; "
+            f"labels={unique[:20]}"
+        )
+    return mask
 
 
 @dataclass(frozen=True)
@@ -553,15 +564,12 @@ def run_cached_translator_handoff(
     target_checkpoint: str | Path,
     target_model_id: str,
     video_dir: str | Path,
-    annotation_dir: str | Path | None = None,
     device: str | None = None,
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
-    artifact_dir: str | Path | None = None,
     translator: Any | None = None,
     translator_name: str = "direct_copy",
-    candidate_label: str = "Direct Copy",
 ) -> dict[str, Any]:
     """Run only target continuation from a checksummed prepared case cache."""
 
@@ -644,7 +652,6 @@ def run_cached_translator_handoff(
         candidate_future[int(frame_idx)] = masks.detach().cpu().float()
     downstream = _compare_future_masks(oracle_future, candidate_future)
     candidate_resources = _resource_measurement(started_at, device)
-    state_alignment = evaluate_state(translated, target_canonical)
     report = {
         "source_model_id": metadata["source_model_id"],
         "target_model_id": target_model_id,
@@ -658,7 +665,6 @@ def run_cached_translator_handoff(
         "case_cache_sha256": Path(case_cache).with_suffix(
             Path(case_cache).suffix + ".sha256"
         ).read_text(encoding="ascii").split()[0],
-        "state_alignment_to_target_native": state_alignment,
         "injection": injection,
         "backbone_calls_before_injection": calls_before_injection,
         "backbone_calls_during_injection": calls_after_injection - calls_before_injection,
@@ -672,19 +678,6 @@ def run_cached_translator_handoff(
         "resources_candidate_only": candidate_resources,
         "resources_shared_reference_preparation": metadata.get("preparation_resources"),
     }
-    if artifact_dir is not None:
-        if annotation_dir is None:
-            raise ValueError("annotation_dir is required when artifact_dir is set")
-        report["artifacts"] = write_handoff_artifacts(
-            video_dir=video_dir,
-            annotation_dir=annotation_dir,
-            object_id=int(metadata["object_id"]),
-            oracle_masks=oracle_future,
-            candidate_masks=candidate_future,
-            output_dir=artifact_dir,
-            report=report,
-            candidate_label=candidate_label,
-        )
     del inference_state, predictor
     gc.collect()
     if torch.cuda.is_available():
@@ -702,13 +695,11 @@ def run_cached_baseline(
     target_model_id: str,
     video_dir: str | Path,
     prompt_mask: str | Path | None = None,
-    annotation_dir: str | Path | None = None,
     replay_frames: int | None = None,
     device: str | None = None,
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
-    artifact_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     """Run a non-translator target baseline from a prepared case cache.
 
@@ -872,19 +863,6 @@ def run_cached_baseline(
             "preparation_resources"
         ),
     }
-    if artifact_dir is not None:
-        if annotation_dir is None:
-            raise ValueError("annotation_dir is required when artifact_dir is set")
-        report["artifacts"] = write_handoff_artifacts(
-            video_dir=video_dir,
-            annotation_dir=annotation_dir,
-            object_id=object_id,
-            oracle_masks=oracle_future,
-            candidate_masks=candidate_future,
-            output_dir=artifact_dir,
-            report=report,
-            candidate_label=labels[baseline],
-        )
     del inference_state, predictor
     gc.collect()
     if torch.cuda.is_available():
@@ -1628,10 +1606,8 @@ def run_cross_model_translator_handoff(
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
-    artifact_dir: str | Path | None = None,
     translator: Any | None = None,
     translator_name: str = "direct_copy",
-    candidate_label: str = "Direct Copy",
 ) -> dict[str, Any]:
     """Run an end-to-end cross-model handoff with a supplied translator."""
 
@@ -1711,7 +1687,6 @@ def run_cross_model_translator_handoff(
             f"target spec {target_canonical.spec}"
         )
     translated = translator.translate(source_canonical)
-    state_alignment = evaluate_state(translated, target_canonical)
 
     _seed_everything(seed)
     target_predictor = build_sam2_video_predictor(
@@ -1759,7 +1734,6 @@ def run_cross_model_translator_handoff(
         "video_id": video_dir.name,
         "switch_frame": switch_frame,
         "future_frames": sorted(candidate_future),
-        "state_alignment_to_target_native": state_alignment,
         "injection": injection,
         "backbone_calls_before_injection": calls_before_injection,
         "backbone_calls_during_injection": calls_after_injection
@@ -1771,17 +1745,6 @@ def run_cross_model_translator_handoff(
         "device": device,
         "resources": _resource_measurement(started_at, device),
     }
-    if artifact_dir is not None:
-        report["artifacts"] = write_handoff_artifacts(
-            video_dir=video_dir,
-            annotation_dir=Path(prompt_mask).resolve().parent,
-            object_id=object_id,
-            oracle_masks=oracle_future,
-            candidate_masks=candidate_future,
-            output_dir=artifact_dir,
-            report=report,
-            candidate_label=candidate_label,
-        )
     del target_state, target_predictor
     gc.collect()
     if torch.cuda.is_available():
