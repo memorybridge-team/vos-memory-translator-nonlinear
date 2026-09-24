@@ -25,10 +25,12 @@ onboarding gate를 추가했으므로 Task 03 v1.1은 진행 중이다.
 - [2026-09-24 v1.1 addendum](milestones/2026-09-24_v1_1_addendum.md)
 - [2026-09-22 manifest validation](runs/2026-09-22_manifest_validation.md)
 - [2026-09-23 loader validation JSON](runs/2026-09-23_loader_validation/)
+- [2026-09-24 VOST access ledger](runs/2026-09-24_vost_onboarding/access_ledger.md)
 
 ## 남은 v1.1 gate
 
-- [ ] VOST 이용조건·공식 download source·archive checksum 기록
+- [x] VOST 이용조건·공식 download source 확인 ([access ledger](runs/2026-09-24_vost_onboarding/access_ledger.md))
+- [ ] VOST archive 다운로드·SHA-256 기록
 - [ ] VOST val/test inventory와 25/50/75% switch manifest 생성
 - [ ] VOST prompt loader와 공식 `J`/`J_tr` evaluator 검증
 - [ ] external benchmark access ledger와 config-freeze commit 기록

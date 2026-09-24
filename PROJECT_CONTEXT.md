@@ -233,6 +233,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[정보 위치]** 안정된 연구 개요는 README, 검증된 snapshot은 research progress summary, task 범위·완료 조건·논의는 Issue, 변경 검토는 PR, 실행 명령·정량 결과·한계는 `reports/`에 둔다.
 - **[Project 반영]** Task 07·08·09·10·11·13의 설명을 protocol v1.1에 맞게 수정했다. MOSE/LVOS fit·dev만 학습/선택에 사용하고, official validation은 config freeze 뒤 sealed final, VOST는 primary external zero-shot, DAVIS는 engineering-seen external로 제한한다.
 - **[상태]** Task 03은 VOST manifest·loader·공식 `J/J_tr`·access ledger가 남아 `In Progress`; Task 07 이후는 `Todo`를 유지한다.
+- **[업데이트 2026-09-24]** VOST 공식 Data page·S3 archive·CC BY-NC-SA 4.0 이용조건과 TRI-ML 평가 코드 위치를 확인해 access ledger를 만들었다. archive 다운로드·SHA-256·inventory·25/50/75% manifest·실제 `J/J_tr` 실행은 아직 남아 있다.
 
 ## 30. 2026-09-24 — Task 중심 보고서 구조 확정
 
@@ -242,8 +243,8 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
   `runs/YYYY-MM-DD_slug/`는 실행 명령·원본 수치·JSON·실패를 보존한다. 중간 동결본은
   `milestones/`, Done 전 통합 결과는 `FINAL_REPORT.md`에 둔다.
 - **[완료]** Task 02와 06의 최종 통합본을 만들고 기존 runtime·benchmark 증거를
-  Task 02·03·06 디렉터리로 이동했다. 기존 `reports/benchmark`와 `reports/runtime`에는
-  새 경로 안내 인덱스를 남겼다.
+  Task 02·03·06 디렉터리로 이동했다. 중복을 피하기 위해 이전 category-first 호환 경로는
+  제거하고 `reports/tasks/`만 공식 경로로 사용한다.
 - **[완료 절차]** 날짜별 증거 → `FINAL_REPORT.md` → Issue 완료 기준별 링크 → PR
   test/review·main 병합 → Issue checklist → Project Done 순서로 닫는다.
 - **[읽기 경로]** `README → research_progress_summary → Project → canonical Issue →
