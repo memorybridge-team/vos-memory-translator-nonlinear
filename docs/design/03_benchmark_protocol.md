@@ -213,6 +213,8 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - [x] MOSEv2/LVOS v2 공식 metric 구현·명칭과 자체 switch metric의 구분을 검증한다. (MOSEv2 validation은 first-frame annotation·official server 경로로, LVOS v2 validation은 공식 `lvos-evaluation` semi-supervised toolkit으로 분리한다.)
 - [x] VOST 공식 배포본의 이용조건·download source snapshot을 기록했다. ([access ledger](../../reports/tasks/03_benchmark/runs/2026-09-24_vost_onboarding/access_ledger.md))
 - [x] VOST archive를 내려받아 압축 구조와 checksum을 기록한다.
+- [x] VOST train/val annotation·frame inventory를 검증했다 (`failure_count=0`;
+  train 59,930쌍, val 7,820쌍). Test archive는 이름 목록만 포함되어 로컬 평가에서 제외한다.
 - [ ] VOST val/test 역할, 25/50/75% switch manifest와 checksum을 생성한다.
 - [ ] VOST prompt loader와 공식 `J/J_tr` evaluator를 실제 데이터로 검증한다.
 - [ ] 외부 benchmark access ledger를 만들고 config freeze commit을 기록한다.

@@ -32,6 +32,9 @@ Archive SHA-256은 `fb17075ab3afab0fe30f264d8adce2e29ce6249a73cd44d2a9cf4936cc8d
 공식 split 목록은 train 572, val 70, test 71 sequence이다. 추출본의 1차 파일 수는
 Annotations 67,751개, JPEGImages 67,751개, JPEGImages_10fps 15,607개, Videos 642개로
 확인했다. 실제 annotation/frame 대응·switch manifest·loader gate는 아직 남아 있다.
+annotation/frame 대응 inventory는 train 59,930쌍, val 7,820쌍에서 `failure_count=0`으로
+확인했다. test는 sequence 이름 목록만 있고 로컬 frame/annotation은 없어 공식 서버용으로
+분리한다. [inventory 보고서](runs/2026-09-25_vost_inventory.md)
 
 ## 남은 v1.1 gate
 

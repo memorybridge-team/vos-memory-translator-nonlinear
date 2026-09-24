@@ -34,6 +34,11 @@ inventory는 Annotations 67,751, JPEGImages 67,751, JPEGImages_10fps 15,607,
 Videos 642이며, split 파일은 train/val/test 572/70/71 sequence다. 다음 단계에서
 annotation/video/frame 대응과 실제 25/50/75% switch manifest를 검증한다.
 
+2026-09-25 KST inventory에서 train 59,930 frame/annotation 쌍과 val 7,820 쌍은 모두
+stem 대응 `failure_count=0`이었다. test는 이름 목록 71개만 포함되고 frame/annotation은
+없어 로컬 test 평가 대상으로 사용하지 않는다. 상세 결과는
+[`2026-09-25_vost_inventory.md`](../2026-09-25_vost_inventory.md)에 기록했다.
+
 ## 연구상 고정 규칙
 
 - VOST는 `primary external cross-dataset zero-shot` 평가로만 사용한다.
