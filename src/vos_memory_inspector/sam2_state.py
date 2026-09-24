@@ -1,4 +1,4 @@
-"""SAM 2 predictor-state probing and canonical handoff conversion."""
+"""SAM 2 inference-state export and canonical handoff injection."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ from typing import Any
 
 import torch
 
-from .state_inspector import InspectionReport, inspect_state
 from .state_schema import CanonicalState
 
 
@@ -234,12 +233,6 @@ def canonicalize_sam2_inference_state(
         },
         metadata=metadata,
     ).validate()
-
-
-def probe_sam2_inference_state(inference_state: Mapping[str, Any]) -> InspectionReport:
-    """Recursively inventory the full predictor container without modifying it."""
-
-    return inspect_state(inference_state, root_name="sam2_inference_state")
 
 
 def materialize_sam2_history(
