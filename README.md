@@ -26,7 +26,7 @@ translated handoff state
 target inference_state  maskmem_features, target PE, obj_ptr
         │  propagate_in_video(start_frame_idx = switch + 1)
         ▼
-future masks → J&F, temporal metrics
+future masks
 ```
 
 `handoff state`는 switch 시점까지의 객체별 memory를 translator가 읽고 쓸 수 있게 묶은 텐서다. 축은 batch, object, record다. 번역하는 값은 spatial memory와 object pointer뿐이고, frame 번호·slot·conditioning 여부·valid mask·object id·switch frame은 그대로 복사한다. Target positional encoding은 target memory encoder가 다시 만든다. Source `pred_masks`와 `object_score_logits`는 진단용으로만 남기고 target에는 넣지 않는다.
