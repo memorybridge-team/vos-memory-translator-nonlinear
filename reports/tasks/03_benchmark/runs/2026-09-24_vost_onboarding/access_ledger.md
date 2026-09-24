@@ -39,6 +39,10 @@ stem 대응 `failure_count=0`이었다. test는 이름 목록 71개만 포함되
 없어 로컬 test 평가 대상으로 사용하지 않는다. 상세 결과는
 [`2026-09-25_vost_inventory.md`](../2026-09-25_vost_inventory.md)에 기록했다.
 
+val 70 sequence에 25/50/75% temporal quantile switch manifest(210 case)를 생성했다.
+manifest SHA-256은 `47bab054c87281e7b904831ea8891b81d22f1d8683786f1d5cf84a4f1ba85cbf`다.
+이는 prompt loader·공식 `J/J_tr` evaluator 실행 전의 metadata 산출물이다.
+
 ## 연구상 고정 규칙
 
 - VOST는 `primary external cross-dataset zero-shot` 평가로만 사용한다.

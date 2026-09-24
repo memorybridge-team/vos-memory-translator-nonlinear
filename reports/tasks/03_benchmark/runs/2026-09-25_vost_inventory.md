@@ -17,3 +17,14 @@ RunPod path: `/workspace/datasets/VOST/extracted/VOST`
 
 현재 VOST local benchmark의 실행 대상은 val 70 sequence이며, train/val 모두 translator
 학습·선택에는 사용하지 않는다. 25/50/75% switch manifest와 공식 `J/J_tr` 검증은 다음 gate다.
+
+## Switch manifest
+
+val 70 sequence에 temporal quantile 25/50/75%를 적용해 210 case를 생성했다.
+각 case는 실제 첫 frame을 `prompt_frame`으로, 해당 quantile의 실제 frame을
+`switch_frame`으로 기록하며 미래 GT는 사용하지 않는다.
+
+- manifest: `vost_val_switch_manifest.json`
+- content SHA-256: `47bab054c87281e7b904831ea8891b81d22f1d8683786f1d5cf84a4f1ba85cbf`
+- 주의: 이는 데이터·시점 계약 manifest이며 SAM 2 prompt/예측 loader와 공식 `J/J_tr`
+  evaluator 실행을 대체하지 않는다.

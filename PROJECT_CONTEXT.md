@@ -238,6 +238,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[진행 2026-09-25]** VOST archive SHA-256 `fb17075ab3afab0fe30f264d8adce2e29ce6249a73cd44d2a9cf4936cc8de978`를 계산했다. ZIP 목록에서 153,136개 파일과 train/val/test 572/70/71 sequence를 확인했으며, 압축 해제 후 실제 annotation·frame inventory와 loader 검증이 남아 있다.
 - **[진행 2026-09-25]** VOST 압축 해제를 `/workspace/datasets/VOST/extracted`에서 완료했다. 1차 inventory는 Annotations 67,751개, JPEGImages 67,751개, JPEGImages_10fps 15,607개, Videos 642개이며, annotation/frame 대응·25/50/75% switch manifest·prompt loader·공식 `J/J_tr` smoke가 남아 있다. Task 03은 이 gate들이 끝날 때까지 `In Progress`다.
 - **[검증 2026-09-25]** VOST inventory에서 train 59,930쌍과 val 7,820쌍의 frame/annotation stem 대응이 모두 통과(`failure_count=0`)했다. 배포본의 test는 71개 sequence 이름 목록만 있고 로컬 frame/annotation이 없어 공식 서버용으로 분리한다. 다음 gate는 val 기준 switch manifest·prompt loader·공식 `J/J_tr` smoke다.
+- **[산출물 2026-09-25]** VOST val 70 sequence에 25/50/75% temporal quantile을 적용한 210-case switch manifest를 생성했다. content SHA-256은 `47bab054c87281e7b904831ea8891b81d22f1d8683786f1d5cf84a4f1ba85cbf`다. 이는 prompt/예측 loader와 공식 `J/J_tr` 실행 전의 metadata gate이며 Task 03은 아직 `In Progress`다.
 
 ## 30. 2026-09-24 — Task 중심 보고서 구조 확정
 

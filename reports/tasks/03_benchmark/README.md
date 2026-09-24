@@ -40,7 +40,7 @@ annotation/frame 대응 inventory는 train 59,930쌍, val 7,820쌍에서 `failur
 
 - [x] VOST 이용조건·공식 download source 확인 ([access ledger](runs/2026-09-24_vost_onboarding/access_ledger.md))
 - [x] VOST archive 다운로드·SHA-256·압축 해제 기록
-- [ ] VOST val/test inventory와 25/50/75% switch manifest 생성
+- [ ] VOST val/test inventory와 25/50/75% switch manifest 생성 (val inventory·manifest 완료; test 파일은 archive에 없음)
 - [ ] VOST prompt loader와 공식 `J`/`J_tr` evaluator 검증
 - [ ] external benchmark access ledger와 config-freeze commit 기록
 
