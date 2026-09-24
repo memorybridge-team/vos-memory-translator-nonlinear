@@ -15,6 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+lvos-eval = ["opencv-python-headless>=4.8", "scikit-image>=0.21"]
 
 [project.scripts]
 sam2-memory-probe = "vos_memory_inspector.cli:probe_main"
