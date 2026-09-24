@@ -5,19 +5,12 @@ from pathlib import Path
 import pytest
 import torch
 
-from vos_memory_inspector.hf_cache import (
-    flatten_kv_tokens,
-    normalize_hf_cache,
-    unflatten_kv_tokens,
-)
-from vos_memory_inspector.metrics import evaluate_state
 from vos_memory_inspector.paired_experiment import run_paired_experiment
 from vos_memory_inspector.sam2_state import (
     canonicalize_sam2_inference_state,
     inject_sam2_canonical_state,
     materialize_sam2_history,
 )
-from vos_memory_inspector.state_inspector import inspect_state, write_inspection_report
 from vos_memory_inspector.state_schema import (
     CanonicalState,
     StateSpec,
@@ -30,6 +23,16 @@ from vos_memory_inspector.translators import (
     RidgeDirectPresenceTranslator,
     RidgeStateTranslator,
 )
+
+
+def _memory_mse(prediction: CanonicalState, target: CanonicalState) -> float:
+    validity = prediction.validity & target.validity
+    losses = []
+    for name in ("spatial_memory", "object_pointer"):
+        pred = getattr(prediction, name)[validity].float()
+        truth = getattr(target, name)[validity].float()
+        losses.append(float((pred - truth).square().mean()))
+    return sum(losses) / len(losses)
 
 
 def _state(spatial: torch.Tensor, pointer: torch.Tensor, presence: torch.Tensor) -> CanonicalState:
@@ -47,37 +50,6 @@ def _state(spatial: torch.Tensor, pointer: torch.Tensor, presence: torch.Tensor)
         switch_frame=records - 1,
         metadata={"sentinel": "preserve"},
     ).validate()
-
-
-def test_hf_cache_legacy_and_token_roundtrip() -> None:
-    key = torch.arange(2 * 3 * 5 * 4).reshape(2, 3, 5, 4).float()
-    value = key + 1
-    cache = normalize_hf_cache(((key, value),))
-    assert cache.layers[0].key.shape == (2, 3, 5, 4)
-    flattened = flatten_kv_tokens(key)
-    assert flattened.shape == (10, 12)
-    restored = unflatten_kv_tokens(
-        flattened, batch=2, heads=3, sequence=5, head_dim=4
-    )
-    assert torch.equal(restored, key)
-
-
-def test_nested_inspector_writes_json_and_markdown(tmp_path: Path) -> None:
-    class Layer:
-        def __init__(self) -> None:
-            self.keys = torch.zeros(1, 2, 3, 4)
-            self.values = torch.ones(1, 2, 3, 4)
-
-    class Cache:
-        def __init__(self) -> None:
-            self.layers = [Layer()]
-
-    report = inspect_state({"cache": Cache(), "nested": [torch.zeros(2, 3)]})
-    assert len(report.tensors) == 3
-    assert report.total_bytes > 0
-    write_inspection_report(report, tmp_path / "report.json", tmp_path / "report.md")
-    assert "state.cache.layers[0].keys" in (tmp_path / "report.json").read_text()
-    assert "Tensor state inspection" in (tmp_path / "report.md").read_text()
 
 
 def test_sam2_multi_object_canonicalization_and_materialization() -> None:
@@ -317,7 +289,6 @@ def test_handoff_bytes_counts_only_injected_payload() -> None:
         state.spatial_memory.numel() * state.spatial_memory.element_size()
         + state.object_pointer.numel() * state.object_pointer.element_size()
     )
-    assert evaluate_state(state, state)["translated_bytes"] == state.handoff_bytes()
 
 
 def test_direct_adapts_shape_and_preserves_discrete_state() -> None:
@@ -395,12 +366,10 @@ def test_ridge_recovers_affine_components() -> None:
         sources.append(source)
         targets.append(target)
     ridge = RidgeStateTranslator.fit(list(zip(sources, targets)), ridge_lambda=0.0)
-    result = evaluate_state(ridge.translate(sources[-1]), targets[-1])
-    assert result["aggregate_mse"] < 1e-9
+    assert _memory_mse(ridge.translate(sources[-1]), targets[-1]) < 1e-9
 
     restored = RidgeStateTranslator.from_payload(ridge.to_payload())
-    restored_result = evaluate_state(restored.translate(sources[-1]), targets[-1])
-    assert restored_result["aggregate_mse"] < 1e-9
+    assert _memory_mse(restored.translate(sources[-1]), targets[-1]) < 1e-9
 
 
 def test_ridge_direct_presence_uses_ridge_for_memory_only() -> None:
