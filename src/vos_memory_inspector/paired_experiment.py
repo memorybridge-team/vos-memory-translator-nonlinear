@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
-from statistics import mean
+from statistics import mean, median
 from typing import Any
 
 import torch
@@ -12,7 +13,6 @@ from torch.nn import functional as F
 
 from .case_cache import load_case_cache
 from .device import resolve_device
-from .metrics import benchmark_translation, direct_improvement, evaluate_state
 from .state_schema import CanonicalState, StateSpec
 from .translator_training import fit_gradient_translator
 from .translators import (
@@ -134,25 +134,44 @@ def load_case_cache_pair(path: Path) -> tuple[CanonicalState, CanonicalState]:
     return source, target
 
 
+def _aggregate_mse(prediction: CanonicalState, target: CanonicalState) -> float:
+    prediction.validate()
+    target.validate()
+    validity = prediction.validity & target.validity.to(prediction.validity.device)
+    losses = []
+    for name in ("spatial_memory", "object_pointer"):
+        pred = getattr(prediction, name)[validity].float()
+        truth = getattr(target, name).to(pred.device)[validity].float()
+        losses.append(float((pred - truth).square().mean().cpu()))
+    return sum(losses) / len(losses)
+
+
 def _mean_evaluation(
     translator: Any, pairs: list[tuple[CanonicalState, CanonicalState]]
-) -> dict[str, Any]:
-    evaluations = []
+) -> dict[str, float]:
+    losses = []
     with torch.no_grad():
         for source, target in pairs:
-            evaluations.append(evaluate_state(translator.translate(source), target))
-    components: dict[str, dict[str, float]] = {}
-    for component in evaluations[0]["components"]:
-        components[component] = {
-            metric: mean(item["components"][component][metric] for item in evaluations)
-            for metric in ("mse", "cosine", "relative_error")
-        }
-    return {
-        "components": components,
-        "aggregate_mse": mean(item["aggregate_mse"] for item in evaluations),
-        "valid_records": sum(item["valid_records"] for item in evaluations),
-        "translated_bytes_per_state": evaluations[0]["translated_bytes"],
-    }
+            losses.append(_aggregate_mse(translator.translate(source), target))
+    return {"aggregate_mse": mean(losses)}
+
+
+def _latency_cpu(operation: Any) -> dict[str, float]:
+    with torch.no_grad():
+        for _ in range(2):
+            operation()
+        timings = []
+        for _ in range(8):
+            start = time.perf_counter()
+            operation()
+            timings.append((time.perf_counter() - start) * 1000.0)
+    return {"median_ms": median(timings)}
+
+
+def _direct_improvement(model_mse: float, direct_mse: float) -> float:
+    if direct_mse <= 0:
+        return 0.0
+    return (direct_mse - model_mse) / direct_mse
 
 
 def run_synthetic_experiment(
@@ -195,12 +214,10 @@ def run_synthetic_experiment(
     for name, translator in translators.items():
         evaluation = _mean_evaluation(translator, test_pairs)
         evaluation["parameter_count"] = translator.parameter_count()
-        evaluation["latency_cpu"] = benchmark_translation(
-            lambda translator=translator: translator.translate(latency_source),
-            warmup=2,
-            repeats=8,
+        evaluation["latency_cpu"] = _latency_cpu(
+            lambda translator=translator: translator.translate(latency_source)
         )
-        evaluation["direct_mse_improvement"] = direct_improvement(
+        evaluation["direct_mse_improvement"] = _direct_improvement(
             evaluation["aggregate_mse"], direct_mse
         )
         results[name] = evaluation
@@ -342,12 +359,10 @@ def run_paired_experiment(
     for name, translator in translators.items():
         evaluation = _mean_evaluation(translator, test_pairs)
         evaluation["parameter_count"] = translator.parameter_count()
-        evaluation["latency_cpu"] = benchmark_translation(
-            lambda translator=translator: translator.translate(test_pairs[0][0]),
-            warmup=2,
-            repeats=8,
+        evaluation["latency_cpu"] = _latency_cpu(
+            lambda translator=translator: translator.translate(test_pairs[0][0])
         )
-        evaluation["direct_mse_improvement"] = direct_improvement(
+        evaluation["direct_mse_improvement"] = _direct_improvement(
             evaluation["aggregate_mse"], direct_mse
         )
         results[name] = evaluation
