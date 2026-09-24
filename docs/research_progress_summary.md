@@ -49,8 +49,9 @@
   - Small→Base+ Direct Copy: binary IoU 0.0
   - 같은 tensor shape라도 모델 간 표현 의미가 다를 수 있음을 확인
 - 증빙 링크:
-  - [Base+ self-injection 결과](../reports/runtime/2026-09-20_base_plus_self_injection/README.md)
-  - [Task 06 edge case·Direct Copy 결과](../reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/README.md)
+  - [Task 06 최종 통합 보고서](../reports/tasks/06_runtime/FINAL_REPORT.md)
+  - [Base+ self-injection 원본 실행](../reports/tasks/06_runtime/runs/2026-09-20_base_plus_self_injection/README.md)
+  - [Task 06 edge case·Direct Copy 원본 실행](../reports/tasks/06_runtime/runs/2026-09-21_edge_case_and_direct_injection/README.md)
 
 # 4. 벤치마크·데이터셋
 

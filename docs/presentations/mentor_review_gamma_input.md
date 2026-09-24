@@ -197,20 +197,20 @@ Task 09: Nonlinear 후보 학습, validation, 구조 선정
 ## 검증 원문과 링크
 
 - State Assembly Map: https://memorybridge-team.github.io/vos-memory-translator-nonlinear/architecture/cmmt-state-assembly-map.html
-- Task 03 Benchmark freeze: https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/reports/benchmark/2026-09-23_task03_freeze.md
-- Task 03 Benchmark v1.1 addendum: https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/reports/benchmark/2026-09-24_task03_v1_1_addendum.md
-- Task 06 correction·repeated switch: https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-23_task06_correction_and_repeated_switch
-- Task 06 edge cases·Direct Copy: https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-21_task06_edge_case_and_direct_injection
+- Task 03 현재 보고서: https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/tasks/03_benchmark
+- Task 03 Benchmark v1.1 addendum: https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/reports/tasks/03_benchmark/milestones/2026-09-24_v1_1_addendum.md
+- Task 06 최종 통합본: https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/reports/tasks/06_runtime/FINAL_REPORT.md
+- Task 06 edge cases·Direct Copy: https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/tasks/06_runtime/runs/2026-09-21_edge_case_and_direct_injection
 - Task 06 merged PR: https://github.com/memorybridge-team/vos-memory-translator-nonlinear/pull/8
 - 결과 홈페이지: https://memorybridge-team.github.io/vos-memory-translator-nonlinear/
 
 ## 로컬 원문
 
 - `docs/architecture/cmmt-state-assembly-map.html`
-- `reports/benchmark/2026-09-23_task03_freeze.md`
-- `reports/benchmark/2026-09-24_task03_v1_1_addendum.md`
-- `reports/runtime/2026-09-23_task06_correction_and_repeated_switch/README.md`
-- `reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/README.md`
+- `reports/tasks/03_benchmark/milestones/2026-09-23_benchmark_v1_0_freeze.md`
+- `reports/tasks/03_benchmark/milestones/2026-09-24_v1_1_addendum.md`
+- `reports/tasks/06_runtime/FINAL_REPORT.md`
+- `reports/tasks/06_runtime/runs/2026-09-21_edge_case_and_direct_injection/README.md`
 
 ## 생성 후 사실 검수 체크리스트
 

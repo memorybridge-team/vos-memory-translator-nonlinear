@@ -20,8 +20,9 @@
 1. [현재 연구 진행 요약](docs/research_progress_summary.md)에서 확정된 연구 질문, 완료 결과, 미완료 gate와 다음 작업을 먼저 읽습니다.
 2. [Project #2 Tasks](https://github.com/orgs/memorybridge-team/projects/2/views/1)에서 현재 `In Progress` task, 담당자, 순서와 blocker를 확인합니다.
 3. 해당 카드가 연결한 canonical Issue에서 범위·완료 조건·결정 이유를 확인합니다.
-4. 연결된 PR과 `reports/`에서 실제 변경 diff, 실행 명령, 수치와 알려진 한계를 검토합니다.
-5. 구현을 재현하거나 이어서 작업할 때만 [State I/O 계약](docs/design/small_base_state_io_contract.md), [Benchmark protocol](docs/design/03_benchmark_protocol.md), [협업 파이프라인](docs/github_task_workflow.md) 원문을 읽습니다.
+4. [`reports/` Task 인덱스](reports/README.md)에서 Task별 현재 보고서와 최종 통합본을 읽습니다.
+5. 연결된 PR과 날짜별 `runs/`에서 실제 diff, 실행 명령, 원본 수치와 한계를 검토합니다.
+6. 구현을 재현하거나 이어서 작업할 때만 [State I/O 계약](docs/design/small_base_state_io_contract.md), [Benchmark protocol](docs/design/03_benchmark_protocol.md), [협업 파이프라인](docs/github_task_workflow.md) 원문을 읽습니다.
 
 Project Board는 상세 연구 문서를 복제해 보관하는 곳이 아니라 **상태·담당·완료 기준·근거 링크를 찾는 관제판**입니다. 안정된 현재 상태는 이 README와 진행 요약에, task별 논의는 Issue에, 검토 가능한 변경과 실행 증거는 PR·보고서에 둡니다.
 
@@ -30,9 +31,9 @@ Project Board는 상세 연구 문서를 복제해 보관하는 곳이 아니라
 | 단계 | 보드 상태 | 지금의 완료 조건 |
 |---|---|---|
 | 연구 범위·성공 기준 고정 | `Done` — [Issue #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1) | [Baseline·성공·중단 기준](docs/design/01_scope_baselines_success_stop.md) 동결 완료 |
-| Small/Base+ State I/O 계약 | `Done` — [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2) | [I/O 계약 v1.1](docs/design/small_base_state_io_contract.md), runtime inventory, paired dump, Map 동결 완료 |
-| dataset·난이도·baseline·metric 동결 | `In Progress` — [Issue #4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4) | v1.0 세 데이터셋 gate는 완료. [Benchmark protocol v1.1](docs/design/03_benchmark_protocol.md)에서 네 데이터 역할을 동결했고 VOST manifest·loader·`J/J_tr` 검증이 남음 |
-| 상태 추출·self-injection·target injection | `Done` — KIMKYUDO | 단일/다객체·late prompt·재등장·전환 전후 correction·반복 handoff exact; Small→Base+ injection 실행 완료 |
+| Small/Base+ State I/O 계약 | `Done` — [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2) | [I/O 계약 v1.1](docs/design/small_base_state_io_contract.md), [Task 02 최종 보고서](reports/tasks/02_state_io/FINAL_REPORT.md) |
+| dataset·난이도·baseline·metric 동결 | `In Progress` — [Issue #4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4) | [Task 03 현재 보고서](reports/tasks/03_benchmark/README.md); VOST manifest·loader·`J/J_tr` 검증이 남음 |
+| 상태 추출·self-injection·target injection | `Done` — [Issue #5](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/5) | [Task 06 최종 보고서](reports/tasks/06_runtime/FINAL_REPORT.md); correction·반복 handoff까지 exact |
 | paired Small/Base+ state 수집 | `Todo` | MOSEv2/LVOS v2 fit/dev만 사용한 video-level split, checksum manifest, compact state pair |
 | 공통 evaluator·baseline | `Todo` | 같은 manifest에서 강한 재인코딩·replay·native 비교 결과 |
 | nonlinear 후보 학습·비교 | `Todo` | MLP/gated MLP/slot-context 후보의 downstream·비용 비교 |
@@ -90,6 +91,8 @@ Nonlinear 후보는 component-wise residual MLP, gated MLP, slot/context attenti
 | `docs/project_board_audit_2026-09-19.md` | Project #2의 01→20 task 감사·수정 기록 |
 | `docs/design/small_base_state_io_contract.md` | Small/Base+ memory tensor와 translator 입력·복사·재생성 정책 |
 | `docs/design/03_benchmark_protocol.md` | fit/dev·sealed in-domain·external zero-shot 역할, difficulty taxonomy, baseline 입력, metric·통계·누수 방지 계약 |
+| `reports/README.md` | Task별 현재 보고서·최종 통합본·날짜별 실행 증거 인덱스 |
+| `reports/tasks/` | Project Task 번호와 직접 대응하는 연구 보고서와 재현 증거 |
 | `src/vos_memory_inspector/mose.py` | MOSEv2 validation first-frame-only manifest builder |
 | `src/vos_memory_inspector/lvos.py` | LVOS v2 공식 split metadata 기반 manifest builder |
 | `manifests/mosev2_valid_v1.json` | MOSEv2 validation 고정 switch/object manifest; 원본 데이터는 포함하지 않음 |

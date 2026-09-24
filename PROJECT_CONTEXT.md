@@ -106,8 +106,8 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[확인]** DAVIS `walking`, object 1, switch frame 10에서 Base+→Base+ state export→inject를 실행했다. 이후 61개 frame의 native/injected 결과가 mean binary IoU `1.0`, mean MSE `0.0`, max absolute error `0.0`였고 injection 동안 과거 backbone call은 `0`이었다. wall time은 `132.53 s`, peak CUDA memory는 `974,874,624 bytes`였다. 단일 객체·첫 frame prompt 조건의 self-injection gate는 통과했다.
 - **[제한]** 이 결과는 단일 객체·첫 frame prompt에서 state assembly 구현의 정확성을 입증하지만 Small→Base+ translator의 성공 증거는 아니다. Small/Base+ runtime inventory와 paired dump는 task 02 계약 근거다. multi-object, late prompt, absence/reappearance, prompt correction 및 복수 영상/switch 검증은 task 06 완료 조건이다.
 - **[결정, 2026-09-20]** Project task 경계를 `01=왜·범위·판정 기준`, `02=무엇을 옮길지에 관한 state I/O 계약`, `06=어떻게 추출·조립·주입하고 continuation을 검증할지`로 고정했다. Base+ 필요성을 묻는 hard-event gate는 01에서 정의하지만 실제 pilot/evaluation 실행은 후속 실험 task가 담당한다.
-- **[산출물]** 원본 JSON·상태·로그와 해석은 `reports/runtime/2026-09-20_base_plus_self_injection/`에 보존했다.
-- **[확인]** 동일 DAVIS case에서 실제 Small/Base+ canonical state를 각각 수집하고 paired cache를 생성했다. 두 모델 모두 spatial `[1,1,11,64,64,64]` bfloat16, pointer `[1,1,11,256]` float32, presence `[1,1,11,1]` float32와 동일한 discrete timeline을 보였다. 166,882,485-byte paired cache의 SHA-256은 `5e9bca17217d522335acf80a454834cf2beab22d4dd8f6204fcd221d2bf1a5f0`이며 원본은 RunPod volume, lightweight inventory는 `reports/runtime/2026-09-20_small_base_runtime_inventory/`에 둔다. 이 결과로 단일 paired example gate는 통과했지만 여러 case와 interaction 조건의 반복 검증은 남아 있다.
+- **[산출물]** 원본 JSON·상태·로그와 해석은 `reports/tasks/06_runtime/runs/2026-09-20_base_plus_self_injection/`에 보존했다.
+- **[확인]** 동일 DAVIS case에서 실제 Small/Base+ canonical state를 각각 수집하고 paired cache를 생성했다. 두 모델 모두 spatial `[1,1,11,64,64,64]` bfloat16, pointer `[1,1,11,256]` float32, presence `[1,1,11,1]` float32와 동일한 discrete timeline을 보였다. 166,882,485-byte paired cache의 SHA-256은 `5e9bca17217d522335acf80a454834cf2beab22d4dd8f6204fcd221d2bf1a5f0`이며 원본은 RunPod volume, lightweight inventory는 `reports/tasks/02_state_io/runs/2026-09-20_runtime_inventory/`에 둔다. 이 결과로 단일 paired example gate는 통과했지만 여러 case와 interaction 조건의 반복 검증은 남아 있다.
 - **[Notion]** 전달된 Documents database의 `모델API&실험` 그룹에 `CMMT 연구 실행 허브 — Project #2` 페이지를 만들고 Project·repository·PR·assembly map 링크, 01/02 Done gate, evidence 기록 규칙, 최신 self-injection 결과를 기록했다. Notion connector가 연결된 KNSW workspace에서는 이 guest workspace page를 `NOT_FOUND`로 반환해, 로그인된 Notion UI를 통해 작성 권한과 최종 내용을 검증했다.
 
 ## 16. 2026-09-20 Task 01·02 동결과 Notion 자동 기록 권한
@@ -130,7 +130,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[구현]** Pinned SAM 2가 최신 memory를 `non_blocking=True`로 GPU→CPU offload하므로, `canonicalize_sam2_inference_state`가 export 전에 producer CUDA device를 동기화하도록 수정했다. 이 race-condition fix에는 CPU 회귀 test와 실제 checkpoint history parity 진단 도구를 추가했다.
 - **[확인]** 수정 뒤 DAVIS `walking`, object 1, switch 10의 11개 history record에서 `maskmem_features`, Target-generated `maskmem_pos_enc`, `obj_ptr`가 모두 bit-exact였다. 이후 61 frames의 Base+ native/injected logits도 mean MSE `0`, max error `0`, binary IoU `1.0`, injection 중 과거 backbone call `0`으로 strict gate를 통과했다.
 - **[해석]** 이 결과는 v1.1 최소 read-state가 단일 객체·첫 frame prompt no-replay continuation에 충분하다는 구현 증거다. Small→Base+ 번역 성능 증거는 아니며, Task 06은 다객체·late prompt·absence/reappearance·correction·cross-model target injection이 남아 `In Progress`다.
-- **[산출물]** `reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/`에 원인 분석, 재현 명령, report JSON과 history diagnostic을 보존한다.
+- **[산출물]** `reports/tasks/06_runtime/runs/2026-09-21_base_plus_self_injection_after_sync/`에 원인 분석, 재현 명령, report JSON과 history diagnostic을 보존한다.
 
 ## 18. 2026-09-21 — Task 06 edge-case와 cross-model Direct Copy gate
 
@@ -139,7 +139,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[확인]** DAVIS `india`의 object 3, switch 35 부재·재등장 사례에서도 후속 45 frames가 mean MSE `0`, max error `0`, mean binary IoU `1.0`, injection 중 과거 backbone call `0`이었다.
 - **[Pilot]** DAVIS `walking`, object 1, switch 10에서 Small→Base+ Direct Copy는 11 history records를 replay 없이 기계적으로 주입했지만 Base+-native 대비 후속 61 frames의 mean binary IoU가 `0.0`이었다. Spatial-memory cosine은 `0.0211`, object-pointer cosine은 `-0.0220`이었다. 한 case 결과이므로 전체 일반화 결론은 아니지만, 동일 shape의 직접 복사만으로 표현 의미가 정렬되지 않으며 Moment-Matched/Nonlinear Translator 비교가 필요하다는 근거다.
 - **[상태]** Task 06은 다객체·late prompt·부재/재등장·cross-model target injection gate까지 통과 또는 실행 증거를 확보했다. Prompt correction과 여러 sequence/switch 반복 검증이 남아 `In Progress`다.
-- **[산출물]** `reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/`에 세 원본 JSON과 해석을 보존한다.
+- **[산출물]** `reports/tasks/06_runtime/runs/2026-09-21_edge_case_and_direct_injection/`에 세 원본 JSON과 해석을 보존한다.
 
 ## 19. 2026-09-21 — 연구용 최소 handoff payload와 동일 영상 전제
 
@@ -197,7 +197,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[전환 전 correction]** switch 20, correction 10은 prompt anchor 0부터 frame 20까지 21 frames를 Target으로 replay했다. frame 21–71의 51개 결과가 native와 exact였다.
 - **[반복 handoff]** switch 10→20의 두 injection 모두 backbone call `0`이었고, 첫 전환 뒤 61 frames와 두 번째 전환 뒤 51 frames가 모두 exact였다.
 - **[결함 발견·수정]** v1.1 injected history는 진단용 `object_score_logits`를 의도적으로 제외하지만 exporter가 재-export 때 이를 필수로 요구했다. continuation 필수 field를 `maskmem_features`·`obj_ptr`로 바로잡고, 누락 진단 record는 `missing_presence_records` metadata에 기록했다. score는 payload나 Target history에 다시 넣지 않았으므로 v1.1 계약은 바뀌지 않는다.
-- **[검증]** 수정 후 RunPod 전체 test `57 passed`. 원본은 `reports/runtime/2026-09-23_task06_correction_and_repeated_switch/`에 보존한다.
+- **[검증]** 수정 후 RunPod 전체 test `57 passed`. 원본은 `reports/tasks/06_runtime/runs/2026-09-23_correction_and_repeated_switch/`에 보존한다.
 - **[상태]** 단일/다객체·late prompt·부재/재등장, 전환 전후 correction, 반복 handoff, Small→Base+ target injection 실행까지 확보해 Task 06을 `Done`으로 판정한다. Direct Copy의 실패는 translator 성능 결론이 아니라 Task 08 baseline pilot 증거다. 다음 단계는 Task 07 paired-state 수집이다.
 
 ## 26. 2026-09-22 — Task 03 DAVIS validation manifest 고정
@@ -233,3 +233,18 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[정보 위치]** 안정된 연구 개요는 README, 검증된 snapshot은 research progress summary, task 범위·완료 조건·논의는 Issue, 변경 검토는 PR, 실행 명령·정량 결과·한계는 `reports/`에 둔다.
 - **[Project 반영]** Task 07·08·09·10·11·13의 설명을 protocol v1.1에 맞게 수정했다. MOSE/LVOS fit·dev만 학습/선택에 사용하고, official validation은 config freeze 뒤 sealed final, VOST는 primary external zero-shot, DAVIS는 engineering-seen external로 제한한다.
 - **[상태]** Task 03은 VOST manifest·loader·공식 `J/J_tr`·access ledger가 남아 `In Progress`; Task 07 이후는 `Todo`를 유지한다.
+
+## 30. 2026-09-24 — Task 중심 보고서 구조 확정
+
+- **[결정]** 연구 보고서는 category-first가 아니라 Project Board와 직접 대응하는
+  `reports/tasks/NN_short_name/` 구조를 기준으로 관리한다.
+- **[구조]** Task `README.md`는 현재 상태·핵심 결과·남은 gate의 인덱스이고,
+  `runs/YYYY-MM-DD_slug/`는 실행 명령·원본 수치·JSON·실패를 보존한다. 중간 동결본은
+  `milestones/`, Done 전 통합 결과는 `FINAL_REPORT.md`에 둔다.
+- **[완료]** Task 02와 06의 최종 통합본을 만들고 기존 runtime·benchmark 증거를
+  Task 02·03·06 디렉터리로 이동했다. 기존 `reports/benchmark`와 `reports/runtime`에는
+  새 경로 안내 인덱스를 남겼다.
+- **[완료 절차]** 날짜별 증거 → `FINAL_REPORT.md` → Issue 완료 기준별 링크 → PR
+  test/review·main 병합 → Issue checklist → Project Done 순서로 닫는다.
+- **[읽기 경로]** `README → research_progress_summary → Project → canonical Issue →
+  Task 보고서 → PR → 날짜별 run` 순서로 안내한다.

@@ -63,7 +63,7 @@
       <div class="links">
         <a href="architecture/cmmt-state-assembly-map.html"><strong>State Assembly Map</strong><br><span class="muted">CanonicalState → Target inference_state + sidecar</span></a>
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/design/small_base_state_io_contract.md"><strong>I/O 계약 v1.1</strong><br><span class="muted">shape·dtype·정렬·device·correction 정책</span></a>
-        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-20_small_base_runtime_inventory"><strong>Runtime inventory</strong><br><span class="muted">Small/Base+ paired tensor와 checksum</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/tasks/02_state_io"><strong>Task 02 최종 보고서</strong><br><span class="muted">Small/Base+ State I/O와 runtime inventory</span></a>
       </div>
       <p class="evidence">확인된 경계: spatial <code>[1,1,11,64,64,64]</code> bfloat16 · pointer <code>[1,1,11,256]</code> float32 · presence <code>[1,1,11,1]</code> float32</p>
     </article>
@@ -76,7 +76,7 @@
       <p>v1.0에서 DAVIS 2017·MOSEv2·LVOS v2 manifest와 loader를 검증했습니다. v1.1은 MOSE/LVOS fit·dev와 sealed in-domain final, VOST primary external zero-shot, DAVIS engineering-seen external을 분리했습니다. VOST manifest·loader·공식 J/J<sub>tr</sub> 검증이 남아 있습니다.</p>
       <div class="links">
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/design/03_benchmark_protocol.md"><strong>Benchmark protocol v1.1</strong><br><span class="muted">fit · dev · sealed final · external zero-shot</span></a>
-        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/reports/benchmark/2026-09-24_task03_v1_1_addendum.md"><strong>v1.1 decision addendum</strong><br><span class="muted">데이터 노출·결과 matrix·남은 gate</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/tasks/03_benchmark"><strong>Task 03 보고서</strong><br><span class="muted">v1.0 milestone·v1.1 데이터 역할·남은 gate</span></a>
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/design/01_scope_baselines_success_stop.md"><strong>Task 01 판정 기준</strong><br><span class="muted">성공·중단 기준과 비교군 입력 원칙</span></a>
       </div>
       <p class="evidence">주 비교군: Source-only · Base+-native/Full Replay · Direct · Moment-Matched · Original · Last-Visible · Original+Last-Visible · Original+Replay-4/8/16 · Nonlinear.</p>
@@ -89,9 +89,9 @@
       </div>
       <p>Base+ state를 새 Base+ predictor에 replay 없이 주입하는 단일 객체·다객체·late prompt·부재/재등장 gate와 전환 전후 correction·반복 handoff gate를 모두 통과했습니다. Small→Base+ Direct Copy도 기계적으로 주입됐지만 Target-native mask와 전 프레임 IoU 0으로 실패해 번역 필요성을 확인했습니다.</p>
       <div class="links">
-        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-20_base_plus_self_injection"><strong>Base+ self-injection 보고서</strong><br><span class="muted">61 frames · IoU 1.0 · replay 0</span></a>
-        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-21_task06_edge_case_and_direct_injection"><strong>Task 06 edge-case 보고서</strong><br><span class="muted">다객체·재등장 exact · Direct Copy IoU 0</span></a>
-        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-23_task06_correction_and_repeated_switch"><strong>Task 06 runtime 마감 보고서</strong><br><span class="muted">전환 전후 correction · 반복 handoff exact</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/reports/tasks/06_runtime/FINAL_REPORT.md"><strong>Task 06 최종 통합 보고서</strong><br><span class="muted">self-injection·edge cases·correction·반복 handoff</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/tasks/06_runtime/runs/2026-09-20_base_plus_self_injection"><strong>Base+ self-injection 원본</strong><br><span class="muted">61 frames · IoU 1.0 · replay 0</span></a>
+        <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/tasks/06_runtime/runs/2026-09-21_edge_case_and_direct_injection"><strong>Task 06 edge-case 원본</strong><br><span class="muted">다객체·재등장 exact · Direct Copy IoU 0</span></a>
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/docs/runpod_l4_operations.md"><strong>RunPod 재현 방법</strong><br><span class="muted">환경·checkpoint·실행 절차</span></a>
         <a href="https://github.com/memorybridge-team/vos-memory-translator-nonlinear/pull/3"><strong>현재 구현 PR #3</strong><br><span class="muted">코드·검증 기록·diff</span></a>
       </div>

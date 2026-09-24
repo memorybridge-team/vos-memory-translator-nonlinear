@@ -203,15 +203,15 @@
 ## 6. 근거 문서
 
 - State Assembly Map: `docs/architecture/cmmt-state-assembly-map.html`
-- Task 03 freeze: `reports/benchmark/2026-09-23_task03_freeze.md`
-- Task 03 v1.1 addendum: `reports/benchmark/2026-09-24_task03_v1_1_addendum.md`
-- Task 06 correction and repeated switch: `reports/runtime/2026-09-23_task06_correction_and_repeated_switch/README.md`
-- Task 06 edge cases and Direct Copy: `reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/README.md`
+- Task 03 freeze: `reports/tasks/03_benchmark/milestones/2026-09-23_benchmark_v1_0_freeze.md`
+- Task 03 v1.1 addendum: `reports/tasks/03_benchmark/milestones/2026-09-24_v1_1_addendum.md`
+- Task 06 final report: `reports/tasks/06_runtime/FINAL_REPORT.md`
+- Task 06 edge cases and Direct Copy: `reports/tasks/06_runtime/runs/2026-09-21_edge_case_and_direct_injection/README.md`
 
 공개 원문:
 
 - https://memorybridge-team.github.io/vos-memory-translator-nonlinear/architecture/cmmt-state-assembly-map.html
-- https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/reports/benchmark/2026-09-23_task03_freeze.md
-- https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/reports/benchmark/2026-09-24_task03_v1_1_addendum.md
-- https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-23_task06_correction_and_repeated_switch
-- https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/runtime/2026-09-21_task06_edge_case_and_direct_injection
+- https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/reports/tasks/03_benchmark/milestones/2026-09-23_benchmark_v1_0_freeze.md
+- https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/reports/tasks/03_benchmark/milestones/2026-09-24_v1_1_addendum.md
+- https://github.com/memorybridge-team/vos-memory-translator-nonlinear/blob/main/reports/tasks/06_runtime/FINAL_REPORT.md
+- https://github.com/memorybridge-team/vos-memory-translator-nonlinear/tree/main/reports/tasks/06_runtime/runs/2026-09-21_edge_case_and_direct_injection
