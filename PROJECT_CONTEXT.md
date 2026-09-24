@@ -249,3 +249,10 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
   test/review·main 병합 → Issue checklist → Project Done 순서로 닫는다.
 - **[읽기 경로]** `README → research_progress_summary → Project → canonical Issue →
   Task 보고서 → PR → 날짜별 run` 순서로 안내한다.
+
+## 31. 2026-09-24 — RunPod Runtime 중간 변경 감사와 정리
+
+- **[원인]** RunPod checkout은 `226790d`에 머문 채 Task 06 완료 과정의 중간 코드가 미커밋 상태로 남아 있었다. GitHub `main`은 이미 PR #8 병합 commit `01889b3`까지 전진해 있었으므로, Board의 Done과 RunPod working tree가 어긋난 것은 GitHub 완료 누락이 아니라 오래된 checkout 문제였다.
+- **[판정]** 중간 코드는 `object_score_logits`를 다시 필수로 요구하고 영상 크기·prompt/tracking metadata를 handoff state에 포함해 현재 최소 계약을 되돌렸다. 최신 `main`에는 correction·repeated handoff와 이 회귀를 막는 테스트가 이미 포함되어 있어 별도 병합 가치가 없었다.
+- **[처리]** 변경을 임시 snapshot commit `a6ec48c`으로 보존한 뒤 RunPod `main`을 `01889b3`으로 fast-forward했다. 독립 가상환경 `/workspace/.venvs/cmmt-runtime-audit`에서 전체 테스트 `57 passed`를 확인하고 임시 branch를 삭제했다.
+- **[현재 상태]** RunPod `/workspace/vos-memory-translator-nonlinear`은 clean `main`이며, Task 03 PR과 후속 실험을 기존 중간 코드와 섞지 않고 진행할 수 있다.
