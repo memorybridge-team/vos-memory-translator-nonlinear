@@ -8,21 +8,121 @@ import json
 import shutil
 import subprocess
 import sys
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from vos_memory_inspector.baseline_sweep import (
-    RARE_EVENT_TAGS,
-    cache_checksum_matches,
-    case_slug,
-    select_cases,
-    selection_manifest,
-    write_json_atomic,
-)
 from vos_memory_inspector.case_cache import load_case_cache
-from vos_memory_inspector.evaluation_manifest import load_evaluation_manifest
 from vos_memory_inspector.paired_state_cache import write_paired_state_cache
+
+RARE_EVENT_TAGS = frozenset(
+    {
+        "full_occlusion_entry",
+        "reappearance",
+        "strong_area_drop",
+        "strong_area_growth",
+    }
+)
+_DAVIS_MANIFEST_SCHEMA = "cmmt.davis_evaluation_manifest.v1"
+
+
+def case_slug(case: Mapping[str, Any]) -> str:
+    return (
+        f"{case['sequence']}_obj{int(case['object_id'])}_"
+        f"switch{int(case['switch_frame'])}"
+    )
+
+
+def select_cases(
+    manifest: Mapping[str, Any],
+    *,
+    tags: Iterable[str] = RARE_EVENT_TAGS,
+    case_ids: Iterable[str] | None = None,
+) -> list[dict[str, Any]]:
+    selected_tags = frozenset(tags)
+    requested_ids = None if case_ids is None else frozenset(case_ids)
+    cases = []
+    seen: set[str] = set()
+    for raw_case in manifest["cases"]:
+        case = dict(raw_case)
+        case_id = str(case["case_id"])
+        if case_id in seen:
+            raise ValueError(f"duplicate case id in manifest: {case_id}")
+        seen.add(case_id)
+        if requested_ids is not None:
+            include = case_id in requested_ids
+        else:
+            include = bool(selected_tags.intersection(case["tags"]))
+        if include:
+            cases.append(case)
+    if requested_ids is not None:
+        missing = sorted(requested_ids - seen)
+        if missing:
+            raise ValueError(f"requested case ids are absent from manifest: {missing}")
+    return cases
+
+
+def selection_manifest(
+    source_manifest: Mapping[str, Any],
+    cases: Sequence[Mapping[str, Any]],
+    *,
+    tags: Iterable[str],
+    case_ids: Iterable[str] | None = None,
+) -> dict[str, Any]:
+    policy = (
+        {"match": "explicit_case_ids", "case_ids": sorted(set(case_ids))}
+        if case_ids is not None
+        else {"match": "any_tag", "tags": sorted(set(tags))}
+    )
+    payload: dict[str, Any] = {
+        "schema_version": "cmmt.paired_state_selection.v1",
+        "source_manifest_content_sha256": source_manifest["content_sha256"],
+        "selection_policy": policy,
+        "case_count": len(cases),
+        "cases": [dict(case) for case in cases],
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    payload["content_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return payload
+
+
+def write_json_atomic(payload: Mapping[str, Any], output: str | Path) -> None:
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    partial = output.with_suffix(output.suffix + ".partial")
+    partial.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    partial.replace(output)
+
+
+def cache_checksum_matches(path: str | Path) -> bool:
+    path = Path(path)
+    checksum = path.with_suffix(path.suffix + ".sha256")
+    if not path.is_file() or not checksum.is_file():
+        return False
+    tokens = checksum.read_text(encoding="ascii").split()
+    if not tokens:
+        return False
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest() == tokens[0]
+
+
+def load_evaluation_manifest(path: str | Path) -> dict[str, Any]:
+    manifest = json.loads(Path(path).read_text(encoding="utf-8"))
+    if manifest.get("schema_version") != _DAVIS_MANIFEST_SCHEMA:
+        raise ValueError(
+            f"unsupported evaluation manifest: {manifest.get('schema_version')!r}"
+        )
+    digest = manifest.pop("content_sha256", None)
+    canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":"))
+    expected = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    manifest["content_sha256"] = digest
+    if digest != expected:
+        raise ValueError("evaluation manifest content_sha256 does not match its content")
+    return manifest
 
 
 def _parser() -> argparse.ArgumentParser:
