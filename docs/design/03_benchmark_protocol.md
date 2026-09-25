@@ -1,6 +1,6 @@
 # Task 03 — Benchmark protocol v1.1
 
-> 상태: **IN PROGRESS** — v1.0은 2026-09-23 완료, v1.1의 VOST onboarding gate가 남음
+> 상태: **IN PROGRESS** — v1.0과 v1.1 VOST onboarding gate는 완료했으나, 추가 검증 데이터셋의 역할·manifest·loader·metric 계약을 동결하기 전에는 Task를 닫지 않는다.
 > 범위: SAM 2.1 Small → Base+ nonlinear state handoff  
 > 목적: 결과를 보기 전에 dataset role, case taxonomy, baseline 입력, metric과 통계 단위를 고정한다.
 > 변경일: 2026-09-24 — in-domain held-out와 external cross-dataset zero-shot을 분리했다.
@@ -29,12 +29,16 @@
 |---|---|---|---|
 | MOSEv2 | 2025 공개본, train 3,666 / val 433 / test 614 videos | 주 fit/dev 및 sealed in-domain final; 복잡 장면·재등장·distractor | 공식 train의 video-disjoint 80/20 fit/dev만 학습·선택에 쓴다. 공식 valid는 checkpoint 동결 후 최종 평가에만 사용한다. 311 compatibility set은 주 결과에 섞지 않는다. |
 | LVOS v2 | 2024 공개본(v2), train 420 / val 140 / test 160 videos | 주 fit/dev 및 sealed in-domain final; 장기 부재·재등장 | 공식 train의 video-disjoint 80/20 fit/dev만 학습·선택에 쓴다. 공식 val은 checkpoint 동결 후 최종 평가에만 사용한다. |
-| DAVIS 2017 | 공식 2017 multi-object semi-supervised VOS, train 60 / val 30 videos | 보조 external cross-dataset 평가와 runtime regression | translator fit/dev에서 제외한다. val의 `walking`, `bike-packing`, `india`를 Task 06 개발에 사용했으므로 `engineering-seen external`로 표시하고 untouched zero-shot이라고 부르지 않는다. |
 | VOST | 713 videos; train 572 / val 70 / test 71, 51 transformation types, 5 FPS | 주 external cross-dataset zero-shot; 극단적 appearance/identity transformation | main translator는 VOST train/val을 전혀 보지 않는다. val은 config 동결 후 한 번 평가하고, 가능하면 official test server를 최종 외부 평가로 사용한다. VOST-train fine-tuning은 별도 adaptation upper-bound ablation이다. |
+
+### 2.1 VOST split별 실행 계약
+
+- **VOST train (572):** main translator fit·dev, Moment-Matched 통계, checkpoint 선택에 사용하지 않는다. 필요한 경우 `VOST adaptation upper bound`라는 별도 실험으로만 fine-tuning하며 zero-shot 표와 절대 평균내지 않는다.
+- **VOST val (70, 공개 GT):** MOSEv2/LVOS v2 dev에서 모든 설정을 동결한 뒤 한 번 실행하는 primary external zero-shot 평가다. 첫 prompt mask는 표준 VOS 입력으로 쓰되, val 결과로 설정을 바꾸지 않는다. 로컬 `J`와 공식 evaluator의 `J_last`를 보고한다.
+- **VOST test (71, 로컬 GT 비공개):** 서버 또는 공식 배포가 제공하는 영상·initial prompt가 실제로 접근 가능할 때만 prediction PNG를 생성해 official evaluation server에 제출한다. 서버 점수·순위·오류 메시지로 설정을 선택하지 않는다. 현재 공개 archive에는 test sequence 이름만 있어, 접근 계약 확인 전에는 완료된 로컬 test로 주장하지 않는다.
 
 공식 자료:
 
-- DAVIS: <https://davischallenge.org/> — 로컬 재배포 자료에는 CC BY-NC 4.0 표기를 유지한다.
 - MOSEv2: <https://arxiv.org/abs/2508.05630>, <https://github.com/henghuiding/MOSE-api>
 - LVOS v2: <https://arxiv.org/abs/2404.19326>, <https://github.com/LingyiHongfd/LVOS>
 - VOST: <https://arxiv.org/abs/2212.06200>, <https://www.vostdataset.org/>, <https://github.com/TRI-ML/VOST/tree/main/evaluation>
@@ -44,16 +48,15 @@ GitHub 저장소의 코드 license와 dataset 자체의 이용조건을 같은 �
 Git에 넣지 않는다. 실제 사용 snapshot에는 download source, archive/file checksum,
 추출 날짜와 split manifest checksum을 남긴다.
 
-고정 이용조건은 다음과 같다. DAVIS 재배포는 CC BY-NC 4.0, MOSEv2는
-CC BY-NC-SA 4.0 및 비상업 연구 용도, LVOS annotation은 CC BY 4.0이고 원본
+고정 이용조건은 다음과 같다. MOSEv2는 CC BY-NC-SA 4.0 및 비상업 연구 용도, LVOS annotation은 CC BY 4.0이고 원본
 영상 데이터는 비상업 연구 용도다. LVOS evaluation toolkit의 BSD-3-Clause는
 평가 코드의 license이며 dataset license로 확장하지 않는다. VOST는
 CC BY-NC-SA 4.0이다.
 
-### 2.1 Zero-shot의 정확한 의미와 금지 사항
+### 2.2 Zero-shot의 정확한 의미와 금지 사항
 
 본 연구에서 zero-shot은 **frozen SAM 2 backbone의 pretraining provenance 전체가 아니라,
-translator-level cross-dataset zero-shot transfer**를 뜻한다. DAVIS/VOST에서는 다음을
+translator-level cross-dataset zero-shot transfer**를 뜻한다. VOST에서는 다음을
 금지한다.
 
 - gradient, early stopping, architecture/loss/checkpoint 선택
@@ -65,15 +68,15 @@ translator-level cross-dataset zero-shot transfer**를 뜻한다. DAVIS/VOST에�
 본 뒤 설정을 바꾸면 새 설정의 외부 결과는 zero-shot confirmatory result가 아니라
 exploratory result로 구분한다.
 
-### 2.2 결과표의 고정 구조
+### 2.3 결과표의 고정 구조
 
 주 결과는 두 영역으로 나눈다.
 
 - **In-domain held-out:** MOSEv2 valid, LVOS v2 val
-- **External cross-dataset zero-shot:** VOST val/test, DAVIS val(`engineering-seen` 표기)
+- **External cross-dataset zero-shot:** VOST val/test
 
 학습 노출 matrix의 행은 `MOSE-only`, `LVOS-only`, `MOSE+LVOS`이고, 열은
-MOSE valid, LVOS val, DAVIS val, VOST val이다. `MOSE+LVOS+VOST-train`은 필요한 경우에만
+MOSE valid, LVOS val, VOST val이다. `MOSE+LVOS+VOST-train`은 필요한 경우에만
 별도 adaptation upper-bound 행으로 보고하며 zero-shot 행과 평균내지 않는다.
 
 ## 3. 공통 case manifest
@@ -153,7 +156,7 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - 과거 mask를 다른 시점의 RGB에 붙이지 않고 항상 원래 frame ID와 함께 사용한다.
 - Moment-Matched statistics는 MOSEv2/LVOS v2 **fit video**의 paired state로만 계산한다.
 - development는 MOSEv2/LVOS v2 train에서 동결한 video-disjoint dev만 사용한다.
-- MOSEv2/LVOS v2 official validation과 DAVIS/VOST의 Target-native state나 future frame을
+- MOSEv2/LVOS v2 official validation과 VOST의 Target-native state나 future frame을
   translator fitting·통계·선택에 쓰지 않는다.
 - 각 방법의 입력 RGB 수, mask/prompt 수, state bytes, Target backbone call을 함께 기록한다.
 - `state bytes`는 실제 handoff API가 옮기는 `maskmem_features`, `obj_ptr`, `frame_indices`, `slot_order`, `is_conditioning`, `validity`, `object_ids`, `switch_frame`만 센다. `presence_logits`, Source mask archive, prompt manifest, 영상 checksum, `num_frames`·높이·너비와 Target-generated PE는 제외한다.
@@ -173,7 +176,6 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 
 ### 공식 평가와 CMMT switch 평가의 분리
 
-- **DAVIS 2017:** 공개 validation GT에서 공식 semi-supervised `J`, `F`, `J&F`를 보고한다.
 - **MOSEv2:** 공식 README는 train의 dense annotation과 validation의 first-frame-only annotation을 구분하고, validation/test 제출은 공식 Evaluation Server 경로로 안내한다. 따라서 로컬 MOSEv2 validation의 switch 이후 값은 official J&F라고 부르지 않으며, `first-frame prompt continuation diagnostic`으로만 기록한다. dense train의 switch J&F는 model selection·debug용이다.
 - **LVOS v2:** 공식 `lvos-evaluation` toolkit의 `semi-supervised` validation score를 dataset-level 결과로 사용한다. CMMT의 `switch +1/+5/+20`, recovery length, visible/absent slice는 같은 prediction을 추가로 분석하는 자체 지표이며 LVOS 공식 score를 대체하지 않는다. test는 공식 CodaLab server 외의 local score로 주장하지 않는다.
 - **VOST:** 공식 `J`와 마지막 25% frame의 transformation score `J_last`를 주 지표로
@@ -202,14 +204,14 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 
 - [x] 네 데이터 역할과 결과 섹션을 분리했다.
 - [x] MOSEv2/LVOS v2 fit·dev와 sealed official validation을 분리했다.
-- [x] DAVIS를 `engineering-seen external`, VOST를 primary untouched external로 고정했다.
+- [x] VOST를 primary untouched external로 고정하고 DAVIS를 연구 범위에서 제외했다.
 - [x] translator-level zero-shot의 금지 데이터 사용을 고정했다.
 - [x] 주 비교군·제외 비교군·진단군과 각 입력 데이터를 고정했다.
 - [x] difficulty taxonomy, metric, clustered 통계 단위를 고정했다.
-- [x] DAVIS·MOSEv2·LVOS v2 배포본의 이용조건, snapshot/checksum과 manifest를 기록했다.
+- [x] MOSEv2·LVOS v2 배포본의 이용조건, snapshot/checksum과 manifest를 기록했다.
 - [x] MOSEv2/LVOS v2 fit/development membership과 checksum을 생성했다. (seed 7,
   hash 기반 80/20 video-level split)
-- [x] DAVIS·MOSEv2·LVOS v2의 prompt/switch loader를 전수 검증했다. (`failure_count=0`)
+- [x] MOSEv2·LVOS v2의 prompt/switch loader를 전수 검증했다. (`failure_count=0`)
 - [x] MOSEv2/LVOS v2 공식 metric 구현·명칭과 자체 switch metric의 구분을 검증한다. (MOSEv2 validation은 first-frame annotation·official server 경로로, LVOS v2 validation은 공식 `lvos-evaluation` semi-supervised toolkit으로 분리한다.)
 - [x] VOST 공식 배포본의 이용조건·download source snapshot을 기록했다. ([access ledger](../../reports/tasks/03_benchmark/runs/2026-09-24_vost_onboarding/access_ledger.md))
 - [x] VOST archive를 내려받아 압축 구조와 checksum을 기록한다.

@@ -11,7 +11,7 @@
 ## 2. 확정 범위
 
 - Model: 공식 SAM 2.1 Small → Base+ 한 방향. 같은 revision의 코드와 각각의 checkpoint를 사용한다.
-- Dataset role: MOSEv2/LVOS v2 train-fit·dev로 translator를 학습·선택하고 official validation을 sealed in-domain final로 사용한다. VOST val/test는 primary external zero-shot, DAVIS 2017 val은 Task 06 노출을 밝힌 `engineering-seen external`로 사용한다.
+- Dataset role: MOSEv2/LVOS v2 train-fit·dev로 translator를 학습·선택하고 official validation을 sealed in-domain final로 사용한다. VOST val/test는 primary external zero-shot으로 사용한다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외한다.
 - Method: nonlinear. 첫 모델은 component-wise residual MLP. 필요성을 검증하며 gated MLP와 slot/context attention을 비교한다. 새로운 Linear/Ridge 학습은 범위가 아니다.
 - Baseline: Source-only, Base+-native/Full Replay, Direct Copy, Moment-Matched Copy, 객체별 Original-Prompt, Last-Visible Source Mask, Original+Last-Visible, Original-Prompt(s)+Replay-4/8/16, Nonlinear Translator. Last-Mask와 original anchor 없는 Recent-Window Replay-k는 최종 비교군에서 제외한다. Empty-reset proxy는 구현 진단군으로만 유지한다.
 - 기간: [대한전자공학회 2026 추계학술대회](https://conf.theieie.org/2026f/pages/outlines.vm)의 논문 제출일은 2026-10-19로 확인했다. 정확한 마감 시각·시간대와 업로드 형식은 제출 화면에서 재확인한다. 일정은 필요한 데이터셋·사례·반복 횟수를 줄이는 상한이 아니다. 추가 GPU·작업 자원과 재개 가능한 실행으로 규모를 유지한다.
@@ -31,7 +31,7 @@
 
 ## 5. 실험 규칙
 
-- MOSEv2/LVOS v2 train을 영상 단위 fit/dev로 분리하고 official validation은 config freeze 전까지 열지 않는다. DAVIS/VOST 결과를 모델 선택에 쓰지 않는다.
+- MOSEv2/LVOS v2 train을 영상 단위 fit/dev로 분리하고 official validation은 config freeze 전까지 열지 않는다. VOST 결과를 모델 선택에 쓰지 않는다.
 - 모든 비교군은 switch 이전에 등록된 동일 객체 집합과 실제 prompt timeline을 쓴다. 미래 GT로 handoff 입력을 고르지 않는다.
 - Original-Prompt는 객체별 최초 지정 frame을 뜻한다. Last-Visible은 source 예측에서 객체별 마지막 비어 있지 않은 mask와 해당 RGB를 쓴다.
 - Source-only는 수학적 하한, Base+-native는 수학적 상한이 아니다.
@@ -41,7 +41,7 @@
 
 ## 6. 현재 위치와 다음 단계
 
-새 저장소 구성 및 범위 고정 → Base+ checkpoint와 same-checkpoint export→inject 검증 → Task 03 v1.1/VOST onboarding → MOSE/LVOS paired-state·baseline·nonlinear 학습 → sealed in-domain 평가 → VOST/DAVIS external 평가 → 논문 작성. 자세한 일정과 성공 판정은 [실험 계획](docs/experimental_plan.md)을 따른다.
+새 저장소 구성 및 범위 고정 → Base+ checkpoint와 same-checkpoint export→inject 검증 → Task 03 v1.1/VOST onboarding → MOSE/LVOS paired-state·baseline·nonlinear 학습 → sealed in-domain 평가 → VOST external 평가 → 논문 작성. 자세한 일정과 성공 판정은 [실험 계획](docs/experimental_plan.md)을 따른다.
 
 GitHub repository를 새로 만들었다는 사실만으로 실험이 이전됐다는 뜻은 아니다. 기존 GPU cache는 pair와 checkpoint가 일치하는지 확인한 뒤 사용하고 Base+-native state는 새로 생성한다.
 
@@ -263,3 +263,14 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[판정]** 중간 코드는 `object_score_logits`를 다시 필수로 요구하고 영상 크기·prompt/tracking metadata를 handoff state에 포함해 현재 최소 계약을 되돌렸다. 최신 `main`에는 correction·repeated handoff와 이 회귀를 막는 테스트가 이미 포함되어 있어 별도 병합 가치가 없었다.
 - **[처리]** 변경을 임시 snapshot commit `a6ec48c`으로 보존한 뒤 RunPod `main`을 `01889b3`으로 fast-forward했다. 독립 가상환경 `/workspace/.venvs/cmmt-runtime-audit`에서 전체 테스트 `57 passed`를 확인하고 임시 branch를 삭제했다.
 - **[현재 상태]** RunPod `/workspace/vos-memory-translator-nonlinear`은 clean `main`이며, Task 03 PR과 후속 실험을 기존 중간 코드와 섞지 않고 진행할 수 있다.
+
+## 32. 2026-09-25 — DAVIS 활성 범위 제외와 Task 03 종료 유보
+
+- **[결정]** DAVIS 2017은 SAM 2 학습 데이터 노출 및 Task 06 engineering 개발 노출이
+  결합되어 현재 translator 연구의 학습·평가·표·주장 범위에서 제외한다. 기존 DAVIS runtime
+  smoke와 pilot은 구현 통로를 검증한 역사적 증거로만 보존하며, 새 결론에 사용하지 않는다.
+- **[결정]** 활성 데이터 역할은 MOSEv2/LVOS v2 train-fit·video-disjoint dev,
+  MOSEv2 official valid·LVOS v2 official val sealed final, VOST external zero-shot이다.
+- **[상태]** VOST archive·manifest·loader·official evaluator contract는 완료했으나,
+  사용자가 추가 검증 데이터셋을 요청했으므로 Task 03은 `In Progress`로 유지한다. 그 데이터셋의
+  이름·연구 역할·사용 가능한 GT/공식 evaluator는 아직 미확정이다.

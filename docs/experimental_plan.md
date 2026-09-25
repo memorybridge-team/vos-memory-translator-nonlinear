@@ -4,7 +4,7 @@
 
 Baseline의 정확한 입력 데이터, 공정성 규칙, 성공·중단 판정은 [`01 연구 범위 동결`](design/01_scope_baselines_success_stop.md)을 기준으로 한다.
 
-**실험 규모 원칙:** 4주는 일정 관리 기준이며 데이터 크기·case 수·반복·필요 비교군의 상한이 아니다. MOSEv2/LVOS v2의 in-domain 평가와 DAVIS/VOST의 external 평가에서 결론을 뒷받침할 만큼 실행한다. 실험은 checksum과 상태 파일을 가진 재개 가능한 GPU 작업으로 운영한다. 일정 때문에 표본을 줄인 결과를 전체 benchmark라고 주장하지 않는다.
+**실험 규모 원칙:** 4주는 일정 관리 기준이며 데이터 크기·case 수·반복·필요 비교군의 상한이 아니다. MOSEv2/LVOS v2의 in-domain 평가와 VOST external 평가에서 결론을 뒷받침할 만큼 실행한다. 실험은 checksum과 상태 파일을 가진 재개 가능한 GPU 작업으로 운영한다. 일정 때문에 표본을 줄인 결과를 전체 benchmark라고 주장하지 않는다.
 
 ## 고정 조건
 
@@ -14,7 +14,7 @@ Baseline의 정확한 입력 데이터, 공정성 규칙, 성공·중단 판정�
 | Translator fit | MOSEv2 train-fit + LVOS v2 train-fit |
 | In-domain development | 두 train split의 video-disjoint dev; 모든 구조·loss·threshold 선택은 여기서 종료 |
 | Sealed in-domain final | MOSEv2 official valid + LVOS v2 official val |
-| External benchmark | VOST val/test(primary untouched), DAVIS 2017 val(engineering-seen) |
+| External benchmark | VOST val/test(primary external zero-shot) |
 | 제안 방식 | Nonlinear memory translator |
 | 후속 성능 | J&F, 재등장·부재 오류, switch 직후 성능 |
 | 시스템 비용 | handoff 지연, 과거 재처리량, VRAM, 전송 bytes |
@@ -27,18 +27,18 @@ Source와 Target은 동일 영상·동일 frame 순서·동일 preprocessing을 
 
 - 주 translator의 학습 행은 `MOSE-only`, `LVOS-only`, `MOSE+LVOS`로 고정한다.
 - official MOSE/LVOS validation은 최종 checkpoint 동결 전까지 열지 않는다.
-- DAVIS/VOST는 gradient, early stopping, 구조·loss·threshold·replay-k 선택, train statistics와
-  Moment-Matched target moments에 사용하지 않는다.
+- VOST는 gradient, early stopping, 구조·loss·threshold·replay-k 선택, train statistics와
+  Moment-Matched target moments에 사용하지 않는다. DAVIS는 현재 연구 범위에서 제외한다.
 - 첫-frame GT prompt와 metric용 GT는 표준 VOS 평가 입력·채점으로 허용한다.
 - VOST-train fine-tuning은 main method가 아니라 별도 in-domain adaptation upper bound다.
 - zero-shot은 **translator-level cross-dataset zero-shot**으로 한정해 표현한다.
 
 ## 1주차: 상태 계약과 자료 준비
 
-- 공식 SAM 2 revision, Small/Base+ checkpoint hash, DAVIS/MOSEv2/LVOS v2/VOST의 이용 조건·version·split·해상도·fps를 기록한다.
+- 공식 SAM 2 revision, Small/Base+ checkpoint hash, MOSEv2/LVOS v2/VOST의 이용 조건·version·split·해상도·fps를 기록한다.
 - Base+ same-checkpoint export→inject가 native continuation을 재현하는지 검증한다. 객체가 안 보이거나 다시 등장하는 사례와 다객체 ID를 포함한다.
-- 네 데이터셋의 표준 loader와 `(video, object, switch)` manifest 형식을 맞춘다. Source와 target이 같은 frame/prompt 이력을 사용하는지 검사한다.
-- 데이터는 학습·모델 선택·최종 평가 사이에 영상 단위로 분리한다. 기존 DAVIS train 내부 pilot을 untouched test라고 부르지 않는다.
+- 세 활성 데이터셋의 표준 loader와 `(video, object, switch)` manifest 형식을 맞춘다. Source와 target이 같은 frame/prompt 이력을 사용하는지 검사한다.
+- 데이터는 학습·모델 선택·최종 평가 사이에 영상 단위로 분리한다.
 
 **산출물:** 데이터/체크포인트 inventory, checksum이 있는 manifest, Base+ round-trip 보고서, smoke 테스트와 실행 명령.
 
@@ -78,7 +78,6 @@ GT mask를 switch 시점에 새로 주지 않는다. Last-Visible 선택은 sour
 
 - MOSEv2 valid와 LVOS v2 val을 **in-domain held-out** 표로 보고한다.
 - VOST val/test를 primary **external cross-dataset zero-shot**으로 보고하고 공식 `J`, `J_last`를 사용한다.
-- DAVIS val은 전체 및 사건별 J&F를 보고하되 Task 06 개발 노출 때문에 `engineering-seen external`로 표기한다.
 - VOST switch는 미래 GT 사건을 쓰지 않고 25/50/75% temporal quantile(primary 50%)로 고정한다.
 - VOST-train adaptation을 수행하면 zero-shot 표와 분리한 upper-bound ablation으로만 보고한다.
 - Source-only와 Base+-native 차이를 확인한 뒤 translator의 정확도–전환 지연–전송량 관계를 강한 mask/prompt/replay 비교군과 함께 제시한다.
@@ -90,9 +89,9 @@ GT mask를 switch 시점에 새로 주지 않는다. Last-Visible 선택은 sour
 
 ## 날짜별 통합 게이트
 
-- **9/23:** DAVIS·MOSEv2·LVOS v2 protocol v1.0과 runtime gate를 완료했다.
+- **9/23:** MOSEv2·LVOS v2 protocol v1.0과 runtime gate를 완료했다. DAVIS 기반 과거 pilot은 역사적 자료로 분리했다.
 - **9/24~26:** protocol v1.1의 네 데이터 역할을 문서·보드에 반영하고 VOST license/download/checksum, manifest, loader, `J/J_last` evaluator를 검증한다.
-- **9/26~30:** MOSEv2/LVOS v2 fit/dev에서만 paired state 수집을 shard 단위로 확장한다. DAVIS/VOST state는 학습 shard에 넣지 않는다.
+- **9/26~30:** MOSEv2/LVOS v2 fit/dev에서만 paired state 수집을 shard 단위로 확장한다. VOST state는 학습 shard에 넣지 않는다.
 - **10/3~11:** overfit/smoke gate를 통과한 shard부터 세 nonlinear 후보의 재개 가능한 전체 학습·반복 평가를 시작한다. 기존 일정의 10/8 일괄 시작을 기다리지 않는다.
 - **10/7:** 후보 구조와 평가 프로토콜의 중간 검토만 한다. 최종 방법은 전체 결과를 보기 전까지 확정하지 않는다.
 - **10/12~14:** in-domain sealed 평가와 external zero-shot 평가, 전체 비교군·hard-event strata·시스템 비용을 대조해 표·그림을 동결한다. 미완료/실패는 그대로 명시한다.
@@ -100,7 +99,7 @@ GT mask를 switch 시점에 새로 주지 않는다. Last-Visible 선택은 sour
 - **10/18:** [공식 제출 안내](https://conf.theieie.org/2026f/pages/conference_paperinfo.vm)의 실제 업로드 파일 형식과 양식을 재확인하고 제출 모의 실행을 한다. PDF만 준비하면 된다고 가정하지 않는다.
 - **10/19:** 확인된 마감 시각 이전에 최종 원고를 제출하고 접수 증빙을 보관한다.
 
-일정은 작업의 선후관계와 검증 게이트를 나타낸다. 기간을 맞추려고 MOSEv2·LVOS v2 in-domain, DAVIS·VOST external, 필수 비교군, 반복 seed 또는 실패 사례 보고를 조용히 축소하지 않는다.
+일정은 작업의 선후관계와 검증 게이트를 나타낸다. 기간을 맞추려고 MOSEv2·LVOS v2 in-domain, VOST external, 필수 비교군, 반복 seed 또는 실패 사례 보고를 조용히 축소하지 않는다.
 
 ## 주간 Go/No-Go
 

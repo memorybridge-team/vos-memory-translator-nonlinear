@@ -8,7 +8,7 @@
 
 ```text
 /workspace/vos-memory-translator-nonlinear/  # Git checkout과 .venv
-/workspace/vos-memory-translator-nonlinear/data/      # DAVIS/MOSEv2/LVOS v2
+/workspace/vos-memory-translator-nonlinear/data/      # MOSEv2/LVOS v2
 /workspace/vos-memory-translator-nonlinear/checkpoints/
 /workspace/vos-memory-translator-nonlinear/outputs/   # raw cache, logs, run status
 ```
@@ -29,16 +29,14 @@ bash scripts/runpod_preflight.sh "$PWD"
 
 bootstrap은 공식 SAM 2 revision, SAM 2.1 Small/Base+ checkpoint, Python package를 준비하고 CUDA·checkpoint SHA-256·GPU 정보를 `outputs/inventory/`에 기록한다. preflight는 `/workspace` mount, 40 GiB 이상의 여유 공간, checkpoint와 venv 존재를 검사한다.
 
-## 첫 GPU gate: Base+ same-checkpoint round-trip
+## 첫 GPU gate: Base+ same-checkpoint round-trip (역사적 engineering 증거)
 
-DAVIS가 `/workspace/vos-memory-translator-nonlinear/data/DAVIS`에 있고 `blackswan`, object 1, switch frame 10을 사용한다면 다음을 실행한다.
+DAVIS 기반 예시는 Task 06에서 통로 정확성을 확인한 역사적 engineering 증거다. DAVIS는 현재
+학습·평가 범위에서 제외하므로 새 실행에는 MOSEv2/LVOS v2의 동등한 prompt timeline case를 사용한다.
 
-```bash
-bash scripts/runpod_base_plus_roundtrip.sh \
-  /workspace/vos-memory-translator-nonlinear \
-  /workspace/vos-memory-translator-nonlinear/data/DAVIS \
-  blackswan 1 10
-```
+새 연구 실행은 확정된 MOSEv2/LVOS v2 manifest에서 첫 prompt와 switch timeline을 고른 뒤
+동일한 round-trip runner에 전달한다. 옛 DAVIS 명령은 재현 기록
+`reports/tasks/06_runtime/`에만 보존한다.
 
 성공 조건은 다음 세 가지다.
 

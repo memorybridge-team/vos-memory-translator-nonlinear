@@ -72,7 +72,7 @@ Target: SAM 2.1 Base+
 
 학습·in-domain: MOSEv2, LVOS v2
 
-external: VOST(primary), DAVIS 2017(engineering-seen)
+external: VOST(primary)
 
 제안 방식: Nonlinear Translator
 
@@ -82,7 +82,7 @@ external: VOST(primary), DAVIS 2017(engineering-seen)
 
 ### 슬라이드 6. 연구 단계와 현재 위치
 
-기존 benchmark와 runtime 검증을 마쳤고, VOST external gate를 추가한 뒤 paired-state를 수집한다.
+기존 runtime 검증과 VOST core gate를 마쳤고, 추가 검증 데이터셋 계약을 동결한 뒤 paired-state를 수집한다.
 
 01 연구 범위와 성공 기준: 완료
 
@@ -110,9 +110,9 @@ Task 01: 연구 질문, baseline, 성공 기준, 중단 기준을 확정했다.
 
 Task 02: maskmem_features와 obj_ptr의 export, 검증, Target 조립 규칙을 확정했다.
 
-Task 03 v1.0: DAVIS 2017, MOSEv2, LVOS v2 manifest, video-level split, checksum을 고정했다.
+Task 03 v1.0: MOSEv2·LVOS v2 manifest, video-level split, checksum을 고정했다.
 
-Task 03 v1.1: MOSE/LVOS fit·dev와 sealed final, VOST/DAVIS external 역할을 고정했고 VOST loader/evaluator contract 검증까지 완료했다.
+Task 03 v1.1: MOSE/LVOS fit·dev와 sealed final, VOST external 역할을 고정했고 VOST loader/evaluator contract 검증까지 완료했다. 추가 검증 데이터셋 반영 전까지 Task 03은 진행 중이다.
 
 전체 RGB, prompt mask, object ID, switch frame loader 검증 결과는 failure_count=0이다.
 
@@ -144,7 +144,7 @@ Base+ self-injection 결과: MSE 0, 최대 오차 0, binary IoU 1.0
 
 Small state는 Base+ history에 구조적으로 들어갔지만 후속 객체 추적에는 실패했다.
 
-조건: DAVIS walking, object 1, switch frame 10, 후속 61 frames
+조건: 과거 단일 video direct-copy pilot, switch 뒤 61 frames
 
 spatial-memory cosine: 0.0211
 
@@ -154,7 +154,7 @@ Base+-native 대비 후속 binary IoU: 0.0
 
 해석: tensor shape가 같아도 Small과 Base+의 state 의미는 호환되지 않는다.
 
-이 결과는 한 case의 Direct Copy 파일럿이며 Nonlinear Translator의 성공 결과가 아니다.
+이 결과는 현재 범위에서 제외한 과거 단일-case Direct Copy 파일럿이며 Nonlinear Translator의 성공 결과가 아니다. 발표용 성능 근거로 사용하지 않는다.
 
 시각 구성: 왼쪽의 Small state가 Base+에 주입되는 흐름은 성공 표시, 오른쪽의 후속 mask continuation은 실패 표시. 결과 숫자 세 개를 크게 보여준다.
 
@@ -162,7 +162,7 @@ Base+-native 대비 후속 binary IoU: 0.0
 
 다음 단계에서는 동일한 protocol로 paired state와 baseline을 준비한 뒤 Nonlinear Translator를 평가한다.
 
-Task 03 v1.1: VOST checksum, manifest, loader, 공식 J/J_last 검증
+Task 03: 추가 검증 데이터셋의 역할·manifest·loader·metric 계약 동결
 
 Task 07: MOSEv2/LVOS v2 fit/dev에서 Small과 Base+ paired-state 수집
 
@@ -170,7 +170,7 @@ Task 08: 모든 baseline을 같은 evaluator와 switch case에서 평가
 
 Task 09: Nonlinear 후보 학습, validation, 구조 선정
 
-이후: MOSE/LVOS sealed in-domain과 VOST/DAVIS external 평가, ablation
+이후: MOSE/LVOS sealed in-domain과 VOST external 평가, ablation
 
 멘토 검토 질문
 

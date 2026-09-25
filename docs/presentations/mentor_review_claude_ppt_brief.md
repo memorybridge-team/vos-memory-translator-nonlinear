@@ -18,9 +18,9 @@
 - Target: SAM 2.1 Base+
 - 제안 방식: Nonlinear Translator
 - 학습·in-domain: MOSEv2, LVOS v2
-- external: VOST(primary), DAVIS 2017(engineering-seen)
-- 완료 Task: 01 Scope, 02 State I/O, 03 v1.0, 06 Runtime
-- 현재 Task: 03 v1.1 VOST onboarding; 이후 07 Paired-state collection
+- external: VOST(primary)
+- 완료 Task: 01 Scope, 02 State I/O, 06 Runtime
+- 현재 Task: 03 추가 검증 데이터셋 계약 반영; 이후 07 Paired-state collection
 
 초기 Tiny→Large, Ridge, Residual MLP와 rare-event 결과는 역사적 파일럿이다. 현재 버전의 성능 결과로 사용하지 않는다.
 
@@ -94,7 +94,7 @@
 - Target: SAM 2.1 Base+
 - 방법: Nonlinear Translator
 - 학습·in-domain: MOSEv2, LVOS v2
-- external: VOST(primary), DAVIS 2017(engineering-seen)
+- external: VOST(primary)
 - 초기 Tiny→Large, Ridge, Residual MLP는 현재 성능 결과에 포함하지 않는다.
 
 ### 슬라이드 6. 연구 단계와 현재 위치
@@ -120,8 +120,8 @@
 내용:
 - Task 01: 연구 질문, baseline, 성공 기준, 중단 기준 확정
 - Task 02: `maskmem_features`와 `obj_ptr`의 export, validator, Target 조립 규칙 확정
-- Task 03 v1.0: DAVIS·MOSEv2·LVOS v2 manifest, video-level split, checksum 확정
-- Task 03 v1.1: fit/dev·sealed final·external 역할 고정; VOST loader/evaluator contract 검증 완료
+- Task 03 v1.0: MOSEv2·LVOS v2 manifest, video-level split, checksum 확정
+- Task 03 v1.1: fit/dev·sealed final·VOST external 역할 고정; VOST loader/evaluator contract 검증 완료. 추가 검증 데이터셋 반영 전까지 진행 중
 - RGB, prompt mask, object ID, switch frame 전수 loader 검증 `failure_count=0`
 
 구성: Task 01, 02, 03을 순서대로 연결하고 마지막에 검증 완료 결과를 표시한다.
@@ -154,8 +154,8 @@
 핵심 문장: Small state는 Base+ history에 구조적으로 들어갔지만 후속 객체 추적에는 실패했다.
 
 조건:
-- DAVIS `walking`
-- object 1
+- 과거 단일 video pilot
+- 한 객체
 - switch frame 10
 - 후속 61 frames
 
@@ -166,7 +166,7 @@
 
 해석:
 - tensor shape가 같아도 Small과 Base+의 state 의미는 호환되지 않았다.
-- 한 DAVIS case의 Direct Copy pilot이며 전체 데이터셋 결론이 아니다.
+- 현재 범위에서 제외한 과거 Direct Copy pilot이며 전체 데이터셋 결론이나 발표용 성능 근거가 아니다.
 - Nonlinear Translator의 성공 결과가 아니다.
 
 구성: 왼쪽에는 state 주입 성공, 오른쪽에는 후속 mask continuation 실패를 표시한다. 검증된 현재 버전의 prediction PNG가 없으므로 임의 mask 이미지를 만들지 않는다.
@@ -176,11 +176,11 @@
 핵심 문장: 동일한 protocol로 paired state와 baseline을 준비한 뒤 Nonlinear Translator를 평가한다.
 
 다음 실험:
-- Task 03 v1.1: VOST checksum·manifest·loader·공식 J/J_last 검증
+- Task 03: 추가 검증 데이터셋의 역할·manifest·loader·metric 계약 동결
 - Task 07: MOSEv2/LVOS v2 fit/dev에서 Small과 Base+ paired-state 수집
 - Task 08: 모든 baseline을 같은 evaluator와 switch case에서 평가
 - Task 09: Nonlinear 후보 학습, validation, 구조 선정
-- 이후: MOSE/LVOS sealed in-domain과 VOST/DAVIS external 평가, ablation
+- 이후: MOSE/LVOS sealed in-domain과 VOST external 평가, ablation
 
 멘토 검토 질문:
 1. `maskmem_features`와 `obj_ptr`를 번역 대상으로 삼는 것이 충분한가?

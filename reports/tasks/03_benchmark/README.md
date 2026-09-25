@@ -1,15 +1,16 @@
 # Task 03 — Benchmark protocol
 
-> 상태: **Done**
+> 상태: **In Progress** — VOST onboarding core gate 완료, 추가 검증 데이터셋 반영 대기
 > Canonical Issue: [#4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4)
 > 현재 PR: [#9](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/pull/9)
 
 ## 한눈에 보기
 
-DAVIS 2017·MOSEv2·LVOS v2의 v1.0 manifest, video-level split과 loader 검증은
-2026-09-23 완료했다. 2026-09-24에 in-domain과 external zero-shot을 분리하면서 VOST
-onboarding gate를 추가했고 2026-09-25에 archive·manifest·loader·evaluator contract 검증까지
-완료했다.
+MOSEv2·LVOS v2의 v1.0 manifest, video-level split과 loader 검증은 2026-09-23 완료했다.
+2026-09-24에 in-domain과 external zero-shot을 분리하면서 VOST onboarding gate를 추가했고
+2026-09-25에 archive·manifest·loader·evaluator contract 검증까지 완료했다. 다만 사용자의
+추가 검증 데이터셋 반영 요청으로 Task는 열린 상태를 유지한다. DAVIS v1.0 자료는 역사적
+milestone으로만 보존하며 현재 연구 범위에는 포함하지 않는다.
 
 ## 현재 데이터 역할
 
@@ -18,7 +19,7 @@ onboarding gate를 추가했고 2026-09-25에 archive·manifest·loader·evaluat
 | Translator fit | MOSEv2/LVOS v2 train-fit |
 | In-domain development | 두 train의 video-disjoint dev |
 | Sealed in-domain final | MOSEv2 official valid, LVOS v2 official val |
-| External frozen benchmark | VOST primary, DAVIS engineering-seen |
+| External frozen benchmark | VOST primary external zero-shot |
 
 ## 완료된 milestone과 실행 기록
 
@@ -40,7 +41,13 @@ annotation/frame 대응 inventory는 train 59,930쌍, val 7,820쌍에서 `failur
 확인했다. test는 sequence 이름 목록만 있고 로컬 frame/annotation은 없어 공식 서버용으로
 분리한다. [inventory 보고서](runs/2026-09-25_vost_inventory.md)
 
-## 남은 v1.1 gate
+## VOST split별 사용 규칙
+
+- train 572개는 main translator의 fit/dev와 model selection에 쓰지 않는다. 별도 VOST adaptation upper-bound만 허용한다.
+- 공개 GT가 있는 val 70개는 MOSE/LVOS dev에서 설정을 동결한 뒤 한 번 실행하는 external zero-shot 평가다. first prompt mask는 VOS 입력으로 허용하되 결과로 설정을 바꾸지 않는다.
+- test 71개는 공개 archive에 영상·GT가 없고 sequence 이름만 있다. official server가 영상과 initial prompt를 제공하는 접근 계약을 확인한 뒤 PNG를 제출하는 sealed 결과로만 사용한다.
+
+## VOST onboarding core gate
 
 - [x] VOST 이용조건·공식 download source 확인 ([access ledger](runs/2026-09-24_vost_onboarding/access_ledger.md))
 - [x] VOST archive 다운로드·SHA-256·압축 해제 기록
@@ -48,5 +55,6 @@ annotation/frame 대응 inventory는 train 59,930쌍, val 7,820쌍에서 `failur
 - [x] VOST prompt loader와 공식 `J`/`J_last` evaluator 검증 (actual VOST SAM 2 export + evaluator contract smoke)
 - [x] external benchmark access ledger와 config-freeze commit 기록
 
-모든 v1.1 gate를 통과했다. Task 03은 dataset/protocol 동결 Task로서 완료이며, 전체 baseline 및
-translator score 실행은 Task 08·09·13에서 수행한다.
+VOST onboarding core gate는 모두 통과했다. 하지만 추가 검증 데이터셋의 역할·manifest·loader·metric
+계약이 아직 미정이므로 Task 03은 `In Progress`를 유지한다. 전체 baseline 및 translator score 실행은
+Task 08·09·13에서 수행한다.
