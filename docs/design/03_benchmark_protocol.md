@@ -215,11 +215,13 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - [x] VOST archive를 내려받아 압축 구조와 checksum을 기록한다.
 - [x] VOST train/val annotation·frame inventory를 검증했다 (`failure_count=0`;
   train 59,930쌍, val 7,820쌍). Test archive는 이름 목록만 포함되어 로컬 평가에서 제외한다.
-- [ ] VOST val/test 역할, 25/50/75% switch manifest와 checksum을 생성한다.
-- [ ] VOST prompt loader와 공식 `J/J_last` evaluator를 실제 데이터로 검증한다.
-- [ ] 외부 benchmark access ledger를 만들고 config freeze commit을 기록한다.
+- [x] VOST val/test 역할, 25/50/75% switch manifest와 checksum을 생성한다. (local val 210 case;
+  test는 이름 목록만 있어 official server/별도 archive로 분리)
+- [x] VOST prompt loader와 공식 `J/J_last` evaluator를 실제 데이터로 검증한다. (actual SAM 2
+  state-export 및 official-layout PNG export; evaluator GT-copy contract smoke)
+- [x] 외부 benchmark access ledger를 만들고 config freeze commit을 기록한다.
 
 v1.0의 세 데이터셋 gate는 2026-09-23 모두 충족했다. 2026-09-24에 평가 역할을
-강화하면서 VOST onboarding gate가 추가됐으므로 Task 03은 다시 `In Progress`다. 결과를
-본 뒤 taxonomy, k 값, metric 또는 split을 유리하게 바꾸려면 날짜·이유·영향받는 run을
-decision log에 남긴다.
+강화하면서 VOST onboarding gate를 추가했고 2026-09-25에 완료했다. 이후 결과를 본 뒤
+taxonomy, k 값, metric 또는 split을 유리하게 바꾸려면 날짜·이유·영향받는 run을 decision
+log에 남긴다.

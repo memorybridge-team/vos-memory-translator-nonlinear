@@ -89,7 +89,7 @@
 
 ## 다음 단계
 
-1. VOST archive를 다운로드해 checksum·manifest·loader·공식 `J/J_last`를 검증하고 Task 03 v1.1을 닫는다.
+1. Task 03 v1.1 VOST archive·checksum·manifest·loader·공식 `J/J_last` contract 검증을 완료했다.
 2. MOSEv2/LVOS v2 fit/dev에서만 Small/Base+ paired state를 수집한다.
 3. 같은 evaluator에서 baseline을 구현하고 fit 통계와 dev model selection을 검증한다.
 4. nonlinear 후보를 학습·선정한 뒤 config를 동결한다.

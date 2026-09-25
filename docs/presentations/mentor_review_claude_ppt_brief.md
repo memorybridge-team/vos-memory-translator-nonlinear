@@ -121,7 +121,7 @@
 - Task 01: 연구 질문, baseline, 성공 기준, 중단 기준 확정
 - Task 02: `maskmem_features`와 `obj_ptr`의 export, validator, Target 조립 규칙 확정
 - Task 03 v1.0: DAVIS·MOSEv2·LVOS v2 manifest, video-level split, checksum 확정
-- Task 03 v1.1: fit/dev·sealed final·external 역할 고정; VOST loader/evaluator는 남음
+- Task 03 v1.1: fit/dev·sealed final·external 역할 고정; VOST loader/evaluator contract 검증 완료
 - RGB, prompt mask, object ID, switch frame 전수 loader 검증 `failure_count=0`
 
 구성: Task 01, 02, 03을 순서대로 연결하고 마지막에 검증 완료 결과를 표시한다.

@@ -240,6 +240,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[검증 2026-09-25]** VOST inventory에서 train 59,930쌍과 val 7,820쌍의 frame/annotation stem 대응이 모두 통과(`failure_count=0`)했다. 배포본의 test는 71개 sequence 이름 목록만 있고 로컬 frame/annotation이 없어 공식 서버용으로 분리한다. 다음 gate는 val 기준 switch manifest·prompt loader·공식 `J/J_last` smoke다.
 - **[산출물 2026-09-25]** VOST val 70 sequence에 25/50/75% temporal quantile을 적용한 210-case switch manifest를 생성했다. content SHA-256은 `47bab054c87281e7b904831ea8891b81d22f1d8683786f1d5cf84a4f1ba85cbf`다. 이는 prompt/예측 loader와 공식 `J/J_last` 실행 전의 metadata gate이며 Task 03은 아직 `In Progress`다.
 - **[검증 2026-09-25]** TRI-ML/VOST official evaluator commit `fe274574`를 GT-copy·512px smoke에서 실행해 `J-Mean=1.000`, `J_last-Mean=1.000`을 확인했다. `J_last`가 공식 코드의 실제 후반 구간 지표 이름이다. 원본 해상도 119-frame smoke는 약 60GB에서 `SIGKILL`돼, 최종 평가는 sequence 단위 메모리 상한·CSV 병합 방식으로 운영한다. CMMT PNG export smoke는 남아 있다.
+- **[완료 2026-09-25]** VOST val `9671_split_cups`를 numeric symlink staging으로 SAM 2.1 Small에 실제 입력해 state export(frames 0–20)를 만들고, 42개의 prediction PNG를 official VOST frame stem layout으로 export했다. GT와 prediction PNG stem은 42/42로 exact match다. Task 03 v1.1의 VOST data·manifest·loader·evaluator contract gate는 완료됐으며, full baseline/translator scores는 Task 08/09/13으로 넘긴다.
 
 ## 30. 2026-09-24 — Task 중심 보고서 구조 확정
 

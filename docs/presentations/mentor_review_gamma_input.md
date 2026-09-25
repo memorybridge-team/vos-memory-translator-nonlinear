@@ -112,7 +112,7 @@ Task 02: maskmem_features와 obj_ptr의 export, 검증, Target 조립 규칙을 
 
 Task 03 v1.0: DAVIS 2017, MOSEv2, LVOS v2 manifest, video-level split, checksum을 고정했다.
 
-Task 03 v1.1: MOSE/LVOS fit·dev와 sealed final, VOST/DAVIS external 역할을 고정했으며 VOST loader/evaluator 검증은 남아 있다.
+Task 03 v1.1: MOSE/LVOS fit·dev와 sealed final, VOST/DAVIS external 역할을 고정했고 VOST loader/evaluator contract 검증까지 완료했다.
 
 전체 RGB, prompt mask, object ID, switch frame loader 검증 결과는 failure_count=0이다.
 
