@@ -1,6 +1,6 @@
-# Task 03 — Benchmark protocol v1.1
+# Task 03 — Benchmark protocol v1.3
 
-> 상태: **IN PROGRESS** — v1.0과 v1.1 VOST onboarding gate는 완료했으나, PUMaVOS의 download/checksum·manifest·loader·metric 계약을 검증하고 동결하기 전에는 Task를 닫지 않는다.
+> 상태: **IN PROGRESS** — VOST onboarding gate는 완료했으나, PUMaVOS와 M³-VOS의 download/checksum·manifest·loader·dataset-native metric 계약을 검증하고 동결하기 전에는 Task를 닫지 않는다.
 > 범위: SAM 2.1 Small → Base+ nonlinear state handoff  
 > 목적: 결과를 보기 전에 dataset role, case taxonomy, baseline 입력, metric과 통계 단위를 고정한다.
 > 변경일: 2026-09-24 — in-domain held-out와 external cross-dataset zero-shot을 분리했다.
@@ -31,6 +31,7 @@
 | LVOS v2 | 2024 공개본(v2), train 420 / val 140 / test 160 videos | 주 fit/dev 및 sealed in-domain final; 장기 부재·재등장 | 공식 train의 video-disjoint 80/20 fit/dev만 학습·선택에 쓴다. 공식 val은 checkpoint 동결 후 최종 평가에만 사용한다. |
 | VOST | 713 videos; train 572 / val 70 / test 71, 51 transformation types, 5 FPS | 주 external cross-dataset zero-shot; 극단적 appearance/identity transformation | main translator는 VOST train/val을 전혀 보지 않는다. val은 config 동결 후 한 번 평가하고, 가능하면 official test server를 최종 외부 평가로 사용한다. VOST-train fine-tuning은 별도 adaptation upper-bound ablation이다. |
 | PUMaVOS | 논문/project page 기준 24 videos, 21,187 dense frames, 30 FPS; 공식 split 없음 | 보조 external zero-shot stress; partial/unusual masks, object parts, fast motion, occlusion | 공식 공개 archive 전체를 config 동결 후 한 번 평가한다. 내부 dev split이나 학습·통계 추정에 쓰지 않는다. 객체별 first-nonempty GT mask 한 장만 prompt로 사용한다. |
+| M³-VOS | 최신 project page·arXiv v3 기준 479 high-resolution videos, 205,181 dense masks; full/core와 void label | 보조 external zero-shot stress; material phase transition과 topology 변화 | Config 동결 후 official full/core를 한 번 평가한다. 미래 GT·Target-native state를 학습·통계·선택에 쓰지 않는다. 논문 주지표는 `J/J_tr/J_cc`다. |
 
 ### 2.1 VOST split별 실행 계약
 
@@ -44,6 +45,7 @@
 - LVOS v2: <https://arxiv.org/abs/2404.19326>, <https://github.com/LingyiHongfd/LVOS>
 - VOST: <https://arxiv.org/abs/2212.06200>, <https://www.vostdataset.org/>, <https://github.com/TRI-ML/VOST/tree/main/evaluation>
 - PUMaVOS: <https://arxiv.org/abs/2307.15958>, <https://github.com/mbzuai-metaverse/XMem2>
+- M³-VOS: <https://arxiv.org/abs/2412.13803>, <https://zixuan-chen.github.io/M-cube-VOS.github.io/>, <https://github.com/zixuan-chen/M3VOS_Experiment/blob/main/docs/EVALUATION.md>
 
 PUMaVOS 논문과 project page는 24 videos·21,187 frames를 보고하지만 현재 GitHub README의
 overview 문장은 23 videos라고 적는다. 다운로드한 공식 archive의 sequence/frame/object inventory와
@@ -62,7 +64,7 @@ CC BY-NC-SA 4.0이고 PUMaVOS는 CC BY 4.0이다.
 ### 2.2 Zero-shot의 정확한 의미와 금지 사항
 
 본 연구에서 zero-shot은 **frozen SAM 2 backbone의 pretraining provenance 전체가 아니라,
-translator-level cross-dataset zero-shot transfer**를 뜻한다. VOST와 PUMaVOS에서는 다음을
+translator-level cross-dataset zero-shot transfer**를 뜻한다. VOST, PUMaVOS, M³-VOS에서는 다음을
 금지한다.
 
 - gradient, early stopping, architecture/loss/checkpoint 선택
@@ -204,6 +206,11 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - **PUMaVOS:** 공식 train/val/test 분할이나 단일 evaluator가 없으므로 first-nonempty-mask
   semi-supervised protocol을 고정하고 local J/F/J&F와 CMMT switch-relative 지표를 계산한다.
   공식 공개 archive의 영상별 결과와 video-clustered bootstrap CI를 함께 보고한다.
+- **M³-VOS:** 원 논문의 dataset-native 주지표 `J`, `J_tr`(마지막 25% frame), `J_cc`
+  (connected-component averaged Jaccard)를 본문에 보고한다. Void label은 공식 규칙대로 제외한다.
+  Boundary `F/J&F`는 공식 주지표가 아니며 GT-copy, shard merge, export/reload, native-resolution,
+  resize round-trip과 1-pixel morphology 민감도 integrity gate를 통과한 경우에만 부록에 보조지표로
+  보고한다. 실패하면 원인과 수치만 engineering report에 남기고 본문에서는 제외한다.
 
 출처는 MOSEv2 공식 [README](https://github.com/henghuiding/MOSE-api)와 LVOS 공식 [evaluation toolkit](https://github.com/LingyiHongfd/lvos-evaluation)이다.
 
@@ -222,7 +229,7 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - seed 평균·분산과 유효 video/object/case 수를 함께 보고한다.
 - 사전에 정한 `1.0 J&F point` 비열등 margin을 쓸 때는 비용 이득도 함께 제시한다.
 
-## 7. Task 03 v1.1 완료 기준
+## 7. Task 03 v1.3 완료 기준
 
 - [x] 네 데이터 역할과 결과 섹션을 분리했다.
 - [x] MOSEv2/LVOS v2 fit·dev와 sealed official validation을 분리했다.
@@ -246,9 +253,13 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - [x] 외부 benchmark access ledger를 만들고 config freeze commit을 기록한다.
 - [ ] PUMaVOS download/checksum, 공식 archive의 dense annotation inventory와 23/24 표기 불일치 해소, object-ID와 first-nonempty
   prompt loader, fixed switch manifest, local J/F/J&F evaluator contract를 검증한다.
+- [ ] M³-VOS access/licensing ledger, archive checksum·479-video/205,181-frame inventory,
+  official full/core split, void-aware first-prompt loader, fixed switch manifest를 검증한다.
+- [ ] M³-VOS 공식 `J/J_tr/J_cc` evaluator의 GT-copy·shard merge contract와 boundary F/J&F
+  integrity gate를 검증한다.
 
 v1.0의 세 데이터셋 gate는 2026-09-23 모두 충족했다. 2026-09-24에 평가 역할을
-강화하면서 VOST onboarding gate를 추가했고 2026-09-25에 완료했다. PUMaVOS onboarding은
+강화하면서 VOST onboarding gate를 추가했고 2026-09-25에 완료했다. PUMaVOS와 M³-VOS onboarding은
 새 남은 gate이며 완료 전 Task 03을 닫지 않는다. 이후 결과를 본 뒤
 taxonomy, k 값, metric 또는 split을 유리하게 바꾸려면 날짜·이유·영향받는 run을 decision
 log에 남긴다.

@@ -82,7 +82,7 @@ external: VOST(primary)
 
 ### 슬라이드 6. 연구 단계와 현재 위치
 
-기존 runtime 검증과 VOST core gate를 마쳤고, PUMaVOS secondary external contract를 검증한 뒤 paired-state를 수집한다.
+기존 runtime 검증과 VOST core gate를 마쳤고, PUMaVOS·M³-VOS complementary external contract를 검증한 뒤 paired-state를 수집한다.
 
 01 연구 범위와 성공 기준: 완료
 
@@ -112,7 +112,7 @@ Task 02: maskmem_features와 obj_ptr의 export, 검증, Target 조립 규칙을 
 
 Task 03 v1.0: MOSEv2·LVOS v2 manifest, video-level split, checksum을 고정했다.
 
-Task 03: MOSE/LVOS fit·dev와 sealed final, VOST primary external 역할을 고정했고 VOST loader/evaluator contract 검증까지 완료했다. PUMaVOS secondary external onboarding 전까지 Task 03은 진행 중이다.
+Task 03: MOSE/LVOS fit·dev와 sealed final, VOST primary external 역할을 고정했고 VOST loader/evaluator contract 검증까지 완료했다. PUMaVOS·M³-VOS external onboarding 전까지 Task 03은 진행 중이다.
 
 전체 RGB, prompt mask, object ID, switch frame loader 검증 결과는 failure_count=0이다.
 
@@ -170,7 +170,7 @@ Task 08: 모든 baseline을 같은 evaluator와 switch case에서 평가
 
 Task 09: Nonlinear 후보 학습, validation, 구조 선정
 
-이후: MOSE/LVOS sealed in-domain, VOST primary·PUMaVOS secondary external 평가, ablation
+이후: MOSE/LVOS sealed in-domain, VOST primary·PUMaVOS/M³-VOS complementary external 평가, ablation
 
 멘토 검토 질문
 

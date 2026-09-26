@@ -11,7 +11,8 @@ Translator는 **MOSEv2·LVOS v2 train의 video-disjoint fit/dev**에서만 학�
 설정과 checkpoint를 완전히 동결한 뒤 **LVOS v2 validation은 공개 GT로 상세 평가**,
 **MOSEv2 validation은 Codabench의 숨은 GT로 공식 aggregate 평가**,
 **VOST validation은 primary translator-level external zero-shot 평가**,
-**PUMaVOS 공식 공개 archive 전체는 secondary external zero-shot stress test**에 사용한다.
+**PUMaVOS 공식 공개 archive 전체는 partial/unusual-mask external stress**,
+**M³-VOS official full/core는 material phase-transition external stress**에 사용한다.
 
 MOSEv2 validation에서는 숨은 후속 GT가 필요한 CMMT 자체 switch/recovery/identity 수치를
 로컬 결과처럼 주장하지 않는다. 대신 GT가 필요 없는 latency·VRAM·handoff bytes·replay량은
@@ -86,6 +87,7 @@ normalization/statistics, early stopping, threshold, 구조·loss·checkpoint �
 | VOST validation | 전체 GT 공개 | primary external zero-shot | 공식 J/J_last와 CMMT 세부 지표 |
 | VOST test | 현재 공개 archive에는 sequence 이름만 있고 영상·GT 없음 | 공식 영상·prompt·server가 실제 제공될 때만 optional sealed test | 공식 서버가 제공하는 지표 |
 | PUMaVOS 공식 공개 archive 전체 | 논문·project page 기준 24 videos, 21,187 dense frames; 공식 train/val/test 구분 없음 | secondary external zero-shot stress test | 사전 고정 first-nonempty-mask protocol의 J/F/J&F, switch·recovery·system 지표 |
+| M³-VOS official full/core | 최신 project page·arXiv v3 기준 479 videos, 205,181 dense masks; void label 포함 | material phase-transition external zero-shot stress | 공식 J/J_tr/J_cc; integrity gate 통과 시 비공식 보조 F/J&F; switch·system 지표 |
 
 공식 근거:
 
@@ -93,6 +95,7 @@ normalization/statistics, early stopping, threshold, 구조·loss·checkpoint �
 - LVOS v2: <https://lingyihongfd.github.io/lvos.github.io/dataset.html>
 - VOST: <https://www.vostdataset.org/>, <https://github.com/TRI-ML/VOST/tree/main/evaluation>
 - PUMaVOS: <https://github.com/mbzuai-metaverse/XMem2>, <https://arxiv.org/abs/2307.15958>
+- M³-VOS: <https://zixuan-chen.github.io/M-cube-VOS.github.io/>, <https://arxiv.org/abs/2412.13803>, <https://github.com/zixuan-chen/M3VOS_Experiment/blob/main/docs/EVALUATION.md>
 
 PUMaVOS 수량에는 공식 자료 간 불일치가 있다. 논문과 project page는 24 videos·21,187
 frames라고 하지만 현재 GitHub README의 overview 문장은 23 videos라고 쓴다. 따라서 실제 연구에서
@@ -177,7 +180,7 @@ Final/external 실행 전에 다음을 기록하고 변경을 막는다.
 - baseline별 입력·fallback·비용 규칙
 
 MOSE/LVOS dev 결과만 freeze 결정에 사용할 수 있다. MOSE official validation, LVOS official
-validation, VOST validation의 결과를 보고 freeze 내용을 바꾸지 않는다.
+validation, VOST/PUMaVOS/M³-VOS의 결과를 보고 freeze 내용을 바꾸지 않는다.
 
 ### 4.4 LVOS v2 validation: local in-domain final
 
@@ -277,22 +280,51 @@ secondary external zero-shot stress test로 사용한다.
 - 영상 수가 24개로 작으므로 per-video 결과와 video-clustered bootstrap confidence interval을
   함께 보고하고, VOST나 in-domain 점수와 단순 평균하지 않는다.
 
+### 4.9 M³-VOS: material phase-transition external zero-shot
+
+M³-VOS는 고체뿐 아니라 liquid·aerosol/gas의 phase transition과 topology 변화를 포함하는
+complementary external stress benchmark다. MOSE/LVOS dev에서 config/checkpoint를 동결한 뒤
+동일 Translator를 변경 없이 적용한다.
+
+- First prompt 이후 미래 GT는 채점에만 사용하며 gradient, normalization/statistics,
+  checkpoint·threshold·replay-k 선택에 사용하지 않는다.
+- 공식 비교 지표는 `J`, `J_tr`(마지막 25% frame), `J_cc`(connected-component averaged
+  Jaccard)다. 논문 본문의 M³-VOS 주결론은 이 세 지표로 고정한다.
+- 배포본의 void label은 공식 evaluator 규칙대로 제외한다. Full/core 및 실제 split 이름은
+  archive checksum·inventory와 official evaluation code로 확정한다.
+- Boundary `F`와 `J&F`는 비공식 exploratory metric이다. 결과를 본 뒤 선택적으로 제외하지 않고,
+  아래 사전 integrity gate를 통과한 경우에만 부록에 보조지표로 보고한다.
+
+F integrity gate:
+
+1. Void 제외 후 GT-copy에서 `J=F=1.0`을 재현한다.
+2. Sequence-sharded와 monolithic 집계가 저장 허용오차 안에서 일치한다.
+3. Prediction PNG export→reload가 object ID·frame stem·native resolution을 보존하며 NaN이 없다.
+4. Nearest-neighbor resize round-trip GT-copy가 `J,F ≥ 0.999`이고, 1-pixel dilation/erosion
+   민감도를 object size와 solid/liquid/aerosol-gas strata별로 기록한다.
+5. 실패하면 `F/J&F`를 engineering report에 원인과 함께 남기되 논문 성능표에는 넣지 않는다.
+
+이 기준은 F 값이 낮거나 방법 순위가 불리하다는 이유로 빼는 규칙이 아니다. Evaluator integrity와
+annotation-boundary sensitivity에 대한 결과 독립적인 사전 규칙이다.
+
 ## 5. 지표 coverage matrix
 
-| 지표 | Train-dev | LVOS val | MOSEv2 val | VOST val | PUMaVOS |
-|---|---:|---:|---:|---:|---:|
-| State MSE/cosine | 가능 | 가능 | 가능 | 가능 | 가능 |
-| 공식 J/F/J&F | 가능 | 가능 | Codabench 반환값 | VOST 공식 지표는 J/J_last | 고정 local J/F/J&F |
-| Switch +1/+5/+20 GT 성능 | 가능 | 가능 | 불가 | 가능 | 가능 |
-| GT 기반 recovery | 가능 | 가능 | 불가 | 가능 | 가능 |
-| GT 기반 visible/absent/reappearance | 가능 | 가능 | 불가 | 가능 | 가능 |
-| GT 기반 identity break | 판정 구현 시 가능 | 판정 구현 시 가능 | 불가 | 판정 구현 시 가능 | 판정 구현 시 가능 |
-| Latency/VRAM/replay/bytes | 가능 | 가능 | 가능 | 가능 | 가능 |
+| 지표 | Train-dev | LVOS val | MOSEv2 val | VOST val | PUMaVOS | M³-VOS |
+|---|---:|---:|---:|---:|---:|---:|
+| State MSE/cosine | 가능 | 가능 | 가능 | 가능 | 가능 | 가능 |
+| Dataset-native metric | J/F/J&F | J/F/J&F | Codabench 반환값 | J/J_last | local J/F/J&F | J/J_tr/J_cc |
+| Boundary F/J&F | 가능 | 가능 | 서버 반환 시 | 비공식 미사용 | local 주지표 | integrity gate 통과 시 부록 |
+| Switch +1/+5/+20 GT 성능 | 가능 | 가능 | 불가 | 가능 | 가능 | 가능 |
+| GT 기반 recovery | 가능 | 가능 | 불가 | 가능 | 가능 | 가능 |
+| GT 기반 visible/absent/reappearance | 가능 | 가능 | 불가 | 가능 | 가능 | 가능 |
+| GT 기반 identity break | 판정 구현 시 가능 | 판정 구현 시 가능 | 불가 | 판정 구현 시 가능 | 판정 구현 시 가능 | 판정 구현 시 가능 |
+| Latency/VRAM/replay/bytes | 가능 | 가능 | 가능 | 가능 | 가능 | 가능 |
 
 모든 데이터셋이 모든 지표를 제공할 필요는 없다. 다만 연구의 각 핵심 주장은 적어도 하나의
 model-selection에 쓰지 않은 held-out 데이터에서 검증되어야 한다. MOSEv2 validation은 숨은
 GT 기반 공식 aggregate generalization, LVOS v2 validation은 long-term 상세 분석, VOST
-validation은 transformation external zero-shot, PUMaVOS는 partial/unusual-mask external stress를 담당한다.
+validation은 transformation external zero-shot, PUMaVOS는 partial/unusual-mask external stress,
+M³-VOS는 material phase-transition external stress를 담당한다.
 
 ## 6. Final에서 동일하게 실행할 방법
 
@@ -337,8 +369,9 @@ MOSEv2 Codabench 제출 비용·횟수가 제한되면 dev와 LVOS validation에
   - LVOS val의 local detailed final 역할 명시
   - VOST val의 primary external zero-shot 역할과 optional VOST-train stress test 명시
   - PUMaVOS 공식 공개 archive 전체의 secondary external zero-shot·first-nonempty prompt 계약 명시
+  - M³-VOS official full/core, void-aware loader, `J/J_tr/J_cc`와 conditional F/J&F 계약 명시
 - `docs/experimental_plan.md`
-  - train-fit → train-dev → freeze → LVOS local final → MOSE Codabench → VOST/PUMaVOS zero-shot 순서 반영
+  - train-fit → train-dev → freeze → LVOS local final → MOSE Codabench → VOST/PUMaVOS/M³-VOS zero-shot 순서 반영
 - `docs/research_progress_summary.md`, repository `README.md`
   - 최신 데이터 역할과 현재 gate를 짧게 동기화
 - `reports/tasks/03_benchmark/README.md`와 Task 03 `FINAL_REPORT.md`
@@ -351,11 +384,12 @@ MOSEv2 Codabench 제출 비용·횟수가 제한되면 dev와 LVOS validation에
 - **Task 07:** MOSE/LVOS train-fit/dev에서만 paired state를 수집하고 final/external state를
   학습 shard에 넣지 않음
 - **Task 08:** LVOS local evaluator, MOSE prediction packaging/Codabench contract, VOST official
-  J/J_last evaluator와 공통 system profiler 구현
+  J/J_last, PUMaVOS local J/F/J&F, M³-VOS J/J_tr/J_cc 및 F integrity gate와 공통 system profiler 구현
 - **Task 09:** state-only와 downstream-aware nonlinear 학습, dev-only model selection, freeze artifact
   생성
 - **Task 13:** LVOS detailed final, MOSE official aggregate, VOST primary external zero-shot,
-  PUMaVOS secondary external stress, metric coverage와 missing metric 사유를 분리 보고
+  PUMaVOS partial/unusual-mask stress, M³-VOS material phase-transition stress, metric coverage와
+  missing metric 사유를 분리 보고
 
 Project Board는 상세 본문을 복제하지 않고 이 문서·canonical Issue·관련 PR/보고서 링크와
 상태·blocker만 표시한다.

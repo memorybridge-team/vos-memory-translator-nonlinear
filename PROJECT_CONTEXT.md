@@ -11,7 +11,7 @@
 ## 2. 확정 범위
 
 - Model: 공식 SAM 2.1 Small → Base+ 한 방향. 같은 revision의 코드와 각각의 checkpoint를 사용한다.
-- Dataset role: MOSEv2/LVOS v2 train-fit의 paired state로 translator를 학습하고 video-disjoint dev에서 dense-GT downstream 성능으로 선택한다. LVOS v2 validation은 local detailed final, MOSEv2 validation은 Codabench sealed final, VOST val/test는 primary external zero-shot, PUMaVOS 공식 공개 archive 전체는 secondary external stress로 사용한다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외한다.
+- Dataset role: MOSEv2/LVOS v2 train-fit의 paired state로 translator를 학습하고 video-disjoint dev에서 dense-GT downstream 성능으로 선택한다. LVOS v2 validation은 local detailed final, MOSEv2 validation은 Codabench sealed final, VOST validation은 primary external zero-shot으로 사용한다. PUMaVOS와 M³-VOS는 각각 partial/unusual-mask와 material phase-transition을 보는 complementary external zero-shot stress benchmark다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외한다.
 - Method: nonlinear. 첫 모델은 component-wise residual MLP. 필요성을 검증하며 gated MLP와 slot/context attention을 비교한다. 새로운 Linear/Ridge 학습은 범위가 아니다.
 - Baseline: Source-only, Base+-native/Full Replay, Direct Copy, Moment-Matched Copy, 객체별 Original-Prompt, Last-Visible Source Mask, Original+Last-Visible, Original-Prompt(s)+Replay-4/8/16, Nonlinear Translator. Last-Mask와 original anchor 없는 Recent-Window Replay-k는 최종 비교군에서 제외한다. Empty-reset proxy는 구현 진단군으로만 유지한다.
 - 기간: [대한전자공학회 2026 추계학술대회](https://conf.theieie.org/2026f/pages/outlines.vm)의 논문 제출일은 2026-10-19로 확인했다. 정확한 마감 시각·시간대와 업로드 형식은 제출 화면에서 재확인한다. 일정은 필요한 데이터셋·사례·반복 횟수를 줄이는 상한이 아니다. 추가 GPU·작업 자원과 재개 가능한 실행으로 규모를 유지한다.
@@ -31,7 +31,7 @@
 
 ## 5. 실험 규칙
 
-- MOSEv2/LVOS v2 train을 영상 단위 fit/dev로 분리한다. Primary fit에는 future dataset GT를 쓰지 않고 `(b_T,a_T)` state pair를 사용한다. Official validation과 VOST/PUMaVOS는 config freeze 전까지 열지 않으며 모델 선택에 쓰지 않는다.
+- MOSEv2/LVOS v2 train을 영상 단위 fit/dev로 분리한다. Primary fit에는 future dataset GT를 쓰지 않고 `(b_T,a_T)` state pair를 사용한다. Official validation과 VOST/PUMaVOS/M³-VOS는 config freeze 전까지 열지 않으며 모델 선택에 쓰지 않는다.
 - 모든 비교군은 switch 이전에 등록된 동일 객체 집합과 실제 prompt timeline을 쓴다. 미래 GT로 handoff 입력을 고르지 않는다.
 - Original-Prompt는 객체별 최초 지정 frame을 뜻한다. Last-Visible은 source 예측에서 객체별 마지막 비어 있지 않은 mask와 해당 RGB를 쓴다.
 - Source-only는 수학적 하한, Base+-native는 수학적 상한이 아니다.
@@ -41,7 +41,7 @@
 
 ## 6. 현재 위치와 다음 단계
 
-새 저장소 구성 및 범위 고정 → Base+ checkpoint와 same-checkpoint export→inject 검증 → Task 03 VOST/PUMaVOS onboarding → MOSE/LVOS future-GT-free paired-state·baseline·nonlinear 학습 → sealed in-domain 평가 → VOST/PUMaVOS external 평가 → 논문 작성. 자세한 일정과 성공 판정은 [실험 계획](docs/experimental_plan.md)을 따른다.
+새 저장소 구성 및 범위 고정 → Base+ checkpoint와 same-checkpoint export→inject 검증 → Task 03 VOST/PUMaVOS/M³-VOS onboarding → MOSE/LVOS future-GT-free paired-state·baseline·nonlinear 학습 → sealed in-domain 평가 → VOST/PUMaVOS/M³-VOS external 평가 → 논문 작성. 자세한 일정과 성공 판정은 [실험 계획](docs/experimental_plan.md)을 따른다.
 
 GitHub repository를 새로 만들었다는 사실만으로 실험이 이전됐다는 뜻은 아니다. 기존 GPU cache는 pair와 checkpoint가 일치하는지 확인한 뒤 사용하고 Base+-native state는 새로 생성한다.
 
@@ -318,3 +318,28 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
   inventory와 checksum으로 실제 평가 수량을 확정하고, 차이를 Task 03 보고서에 기록한다.
 - **[보류]** RunPod `/workspace/CMMT`의 DAVIS 원본·과거 산출물 13개 경로는 사용자의 지시에
   따라 삭제하지 않고 그대로 보존한다.
+
+## 35. 2026-09-26 — M³-VOS external zero-shot과 boundary F 정책 확정
+
+- **[결정]** M³-VOS를 MOSEv2/LVOS v2로 학습·선택한 Translator의 **material phase-transition
+  external zero-shot stress benchmark**로 추가한다. VOST는 primary external을 유지하고,
+  PUMaVOS와 M³-VOS는 서로 다른 실패 조건을 보는 complementary secondary benchmark다.
+- **[공식 규모]** 최신 project page와 arXiv v3 기준 M³-VOS는 479 high-resolution videos와
+  205,181 dense masks/frames를 제공한다. 배포본의 split 이름과 실제 video/object 수는
+  download checksum·inventory로 다시 고정한다.
+- **[누수 금지]** M³-VOS는 gradient, normalization/statistics, architecture/loss/checkpoint,
+  threshold 또는 replay-k 선택에 쓰지 않는다. Config/checkpoint freeze 뒤 first prompt만 입력하고
+  미래 GT는 채점에만 사용한다.
+- **[주 지표]** 논문 본문의 M³-VOS 주지표는 원 논문과 직접 비교 가능한 `J`, `J_tr`(마지막
+  25% frame), `J_cc`(connected-component averaged Jaccard)로 사전 고정한다.
+- **[F 정책]** Boundary `F`와 `J&F`는 결과를 본 뒤 유불리에 따라 제외하지 않는다. Void mask
+  처리, GT-copy identity, shard/monolithic 일치, export/reload 무결성, native-resolution 및
+  controlled resize·1-pixel morphology 민감도 검사를 먼저 수행한다. 이 integrity gate를 통과해도
+  M³-VOS의 `F/J&F`는 비공식 보조·부록 지표이며, 통과하지 못하면 engineering report에만
+  원인과 함께 남긴다. 본문 주결론은 항상 `J/J_tr/J_cc`로 낸다.
+- **[상태]** M³-VOS access/licensing ledger, archive checksum·inventory, official full/core split,
+  void-aware loader, first-prompt manifest, `J/J_tr/J_cc` evaluator와 F integrity gate가 Task 03의
+  새 남은 gate다. Task 03은 PUMaVOS와 M³-VOS onboarding 완료 전까지 `In Progress`다.
+- **[근거]** <https://zixuan-chen.github.io/M-cube-VOS.github.io/>,
+  <https://arxiv.org/abs/2412.13803>,
+  <https://github.com/zixuan-chen/M3VOS_Experiment/blob/main/docs/EVALUATION.md>

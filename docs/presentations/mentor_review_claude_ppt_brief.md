@@ -99,7 +99,7 @@
 
 ### 슬라이드 6. 연구 단계와 현재 위치
 
-핵심 문장: 기존 Runtime과 VOST gate를 검증했고, PUMaVOS secondary external contract를 추가한 뒤 paired-state를 수집한다.
+핵심 문장: 기존 Runtime과 VOST gate를 검증했고, PUMaVOS·M³-VOS complementary external contract를 검증한 뒤 paired-state를 수집한다.
 
 단계:
 - 01 연구 범위와 성공 기준: 완료
@@ -121,7 +121,7 @@
 - Task 01: 연구 질문, baseline, 성공 기준, 중단 기준 확정
 - Task 02: `maskmem_features`와 `obj_ptr`의 export, validator, Target 조립 규칙 확정
 - Task 03 v1.0: MOSEv2·LVOS v2 manifest, video-level split, checksum 확정
-- Task 03: fit/dev·sealed final·VOST primary external 역할 고정; VOST loader/evaluator contract 검증 완료. PUMaVOS secondary external onboarding 전까지 진행 중
+- Task 03: fit/dev·sealed final·VOST primary external 역할 고정; VOST loader/evaluator contract 검증 완료. PUMaVOS·M³-VOS external onboarding 전까지 진행 중
 - RGB, prompt mask, object ID, switch frame 전수 loader 검증 `failure_count=0`
 
 구성: Task 01, 02, 03을 순서대로 연결하고 마지막에 검증 완료 결과를 표시한다.
@@ -180,7 +180,7 @@
 - Task 07: MOSEv2/LVOS v2 fit/dev에서 Small과 Base+ paired-state 수집
 - Task 08: 모든 baseline을 같은 evaluator와 switch case에서 평가
 - Task 09: Nonlinear 후보 학습, validation, 구조 선정
-- 이후: MOSE/LVOS sealed in-domain, VOST primary·PUMaVOS secondary external 평가, ablation
+- 이후: MOSE/LVOS sealed in-domain, VOST primary·PUMaVOS/M³-VOS complementary external 평가, ablation
 
 멘토 검토 질문:
 1. `maskmem_features`와 `obj_ptr`를 번역 대상으로 삼는 것이 충분한가?
