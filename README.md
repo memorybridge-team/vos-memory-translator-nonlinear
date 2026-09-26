@@ -42,13 +42,22 @@ Project Board는 상세 연구 문서를 복제해 보관하는 곳이 아니라
 
 ## 브랜치 이름 규칙
 
-팀원이 이름만 보고 목적을 알 수 있도록 다음 형식을 사용합니다.
+팀원이 이름만 보고 목적과 범위를 알 수 있도록 **작업유형/짧은-범위** 형식을 사용합니다.
+모든 이름은 소문자 ASCII와 하이픈만 사용하고, 한 브랜치에는 하나의 작업만 담습니다.
 
-- `task/03-benchmark-protocol` — 특정 Project task 구현·문서화
-- `task/06-continuation-injection` — runtime/state injection 작업
-- `experiment/small-base-direct-copy` — 재현 가능한 실험·비교군
+- `feature/task-03-external-zero-shot-protocol` — Project task의 기능·프로토콜 구현
+- `docs/task-03-benchmark-protocol` — 문서만 수정하는 작업
+- `experiment/small-base-direct-copy` — 재현 가능한 실험·비교군 실행
 - `fix/memory-shape-mismatch` — 결함 수정
-- `docs/reproduction-guide` — 문서 전용 변경
+- `chore/update-ci` — 빌드·CI·도구 정리
+
+일반 흐름은 `main → branch → 작은 단위 commit → PR → review/checks → merge`다. PR 제목은
+브랜치 범위와 같은 동사를 사용하고, Issue·실행 명령·결과 보고서를 연결한다. 연구 Task 번호가
+중요한 경우 `feature/task-번호-범위`처럼 번호를 보존한다.
+
+현재 PR #10의 작업 브랜치는 문서·프로토콜 변경이지만 기존 Task 03 PR 연결을 보존하기 위해
+`feature/task-03-external-zero-shot-protocol-v1-3`로 운영한다. 다음 문서 전용 작업부터는
+`docs/task-번호-범위`를 우선 사용한다.
 
 기존 `feature/task-06-continuation-injection`은 이전 작업의 역사적 branch로 보존합니다. 현재 최소 handoff 계약 전체를 검증하는 변경은 `codex/minimal-handoff-contract`처럼 범위가 넓은 branch로 분리했으며, 앞으로 새 작업은 위 의미 기반 이름을 우선합니다.
 

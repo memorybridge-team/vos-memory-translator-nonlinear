@@ -343,3 +343,17 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[근거]** <https://zixuan-chen.github.io/M-cube-VOS.github.io/>,
   <https://arxiv.org/abs/2412.13803>,
   <https://github.com/zixuan-chen/M3VOS_Experiment/blob/main/docs/EVALUATION.md>
+
+## 36. 2026-09-27 — 브랜치 명명 규칙 정비
+
+- **[근거]** 사용자가 공유한 브랜치·PR 협업 글을 검토했다. 공통 원칙은 `main` 직접 작업을
+  피하고, 목적이 드러나는 소문자 하이픈 브랜치에서 작은 commit을 만든 뒤 PR review와
+  checks를 거쳐 병합하는 것이다. 참고: <https://suhanlim.tistory.com/262>,
+  <https://su-devlog.tistory.com/5>.
+- **[결정]** 이후 브랜치는 `feature/task-번호-범위`, `docs/task-번호-범위`,
+  `experiment/범위`, `fix/범위`, `chore/범위` 중 작업 유형에 맞는 접두어를 사용한다.
+  이름은 소문자 ASCII·하이픈만 사용하고 한 브랜치에 한 작업만 담는다.
+- **[처리]** 기존 로컬 작업 브랜치 `task/03-external-zero-shot-protocol-v1-3`은
+  `feature/task-03-external-zero-shot-protocol-v1-3`로 변경하고 원격에 같은 이름으로
+  게시했다. 기존 PR #10의 원격 head를 저장소 권한 없이 rename할 수 없어 기존 원격
+  브랜치와 PR 연결은 보존했다. PR #10은 새 브랜치와 동일한 3개 commit을 포함한다.
