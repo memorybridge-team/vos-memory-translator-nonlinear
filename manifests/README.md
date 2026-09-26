@@ -2,6 +2,11 @@
 
 이 디렉터리는 데이터셋의 원본 이미지·마스크를 저장하지 않는다. 같은 dataset/split/video/object/switch 조합을 반복해서 평가하기 위한 작은 JSON manifest만 version control 한다.
 
+2026-09-24 protocol v1.1부터 MOSEv2/LVOS v2 train만 translator fit/dev에 사용한다.
+DAVIS 2017 val과 VOST val/test는 external evaluation이며, 외부 manifest의 label-derived 정보는
+모델 입력·학습·선택에 사용하지 않는다. 기존 DAVIS train fit/dev split 파일은 v1.0의
+재현 기록으로 보존하지만 main translator 학습에는 사용하지 않는다.
+
 ## DAVIS 2017 validation v1
 
 - File: `davis2017_val_v1.json`
@@ -74,6 +79,8 @@ MOSEv2 fit 2,680/16,931과 development 615/3,910,
 LVOS v2 fit 347/1,488과 development 73/315다. split manifest는 case를 복제하지 않고
 video membership과 source manifest checksum만 보존한다.
 
+DAVIS split 수치는 v1.0의 역사적 산출물이며 v1.1 main training matrix에서 제외한다.
+
 ## LVOS v2 validation
 
 LVOS v2 Eval archive는 공식 `valid.zip`으로 확보했다. RunPod에서 압축 해제한 결과는
@@ -92,6 +99,19 @@ cmmt-lvos-build-manifest \
   --split val --seed 7 \
   --output manifests/lvosv2_val_v1.json
 ```
+
+## VOST external benchmark — v1.1 pending
+
+- Main role: primary translator-level cross-dataset zero-shot evaluation
+- Allowed split: validation; 가능하면 official test server
+- Main translator에서 금지: VOST train/val gradient, statistics, early stopping, threshold,
+  architecture/loss/checkpoint/replay-k 선택
+- Switch rule: 25/50/75% temporal quantile, primary 50%; 미래 GT event에 정렬하지 않음
+- Official metrics: `J`, `J_tr`(마지막 25% transformation 구간)
+- Optional: VOST-train fine-tuning은 별도 adaptation upper-bound ablation
+
+아직 dataset snapshot, checksum, manifest, loader 및 official evaluator 검증이 완료되지 않았다.
+완료 전까지 Task 03 protocol v1.1은 `In Progress`다.
 
 ## LVOS v2 train v1
 

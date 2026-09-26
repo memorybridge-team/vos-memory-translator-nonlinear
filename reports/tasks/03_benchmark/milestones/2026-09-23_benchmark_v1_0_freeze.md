@@ -1,5 +1,8 @@
 # Task 03 Benchmark Freeze Report
 
+> 역사적 v1.0 완료 기록이다. 2026-09-24의 데이터 역할 분리와 VOST 추가는
+> [v1.1 addendum](2026-09-24_v1_1_addendum.md)을 따른다.
+
 ## 범위
 
 SAM 2.1 Small→Base+ memory handoff를 DAVIS 2017, MOSEv2, LVOS v2에서 동일한

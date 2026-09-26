@@ -12,7 +12,7 @@ Tasks 기본 보기는 제목 오름차순으로 저장했다. 따라서 보드�
 
 | # | Task | 핵심 완료 기준 |
 |---:|---|---|
-| 01 | Scope 고정 | Small→Base+, 세 데이터셋, nonlinear 범위, baseline, 성공·실패 기준과 target-native 필요성 판정 규칙을 동결. hard-event 실험 실행은 후속 pilot/evaluation task |
+| 01 | Scope 고정 | Small→Base+, MOSE/LVOS in-domain과 VOST external 역할, nonlinear 범위, baseline, 성공·실패 기준과 target-native 필요성 판정 규칙을 동결. DAVIS는 현재 연구 범위에서 제외. hard-event 실험 실행은 후속 pilot/evaluation task |
 | 02 | Small/Base+ memory I/O 계약 | component별 shape·dtype·의미·정렬·복사/번역/재생성 정책, 예시 dump, runtime inventory와 State Assembly Map 동결 |
 | 03 | 데이터·난이도·baseline·metric 고정 | switch manifest, 누수 금지, video-clustered CI, 실패·제외 규칙 |
 | 04 | 논문 질문·기여·개요 | 반증 가능한 RQ, claim–evidence 대응, 과장 없는 novelty 범위 |
@@ -51,6 +51,18 @@ Tasks 기본 보기는 제목 오름차순으로 저장했다. 따라서 보드�
 
 - 01은 baseline·공정성 규칙·성공·중단 기준을 `docs/design/01_scope_baselines_success_stop.md` v1.0으로 동결해 Done 기준을 충족했다.
 - 02는 정적 contract·validator·실제 Small/Base+ runtime inventory·paired dump·State Assembly Map을 v1.0으로 동결해 Done 기준을 충족했다.
-- 03은 세 데이터셋의 train/validation manifest, video-level split, 실제 loader 전수 검증, metric 명칭과 누수 규칙을 동결해 Done 기준을 충족했다.
+- 03 v1.0의 DAVIS·MOSEv2·LVOS v2 기록은 역사적 milestone으로 보존한다. 현재 활성 protocol은 MOSEv2·LVOS v2 in-domain과 VOST external만 사용하며, 추가 검증 데이터셋 계약을 반영할 때까지 Task 03은 In Progress다.
 - 06은 단일/다객체·late prompt·부재/재등장, 전환 전후 correction, 반복 handoff의 Base+ same-checkpoint gate와 Small→Base+ Direct Copy target injection을 검증해 Done 기준을 충족했다.
-- 다음 순서는 07 paired-state 수집 → 08 evaluator/baseline → 09~11 nonlinear 학습이다.
+- 2026-09-24 protocol v1.1에서 in-domain과 external zero-shot을 분리하고 VOST를 추가했으므로 03을 다시 `In Progress`로 연다. 기존 v1.0 결과는 취소하지 않는다.
+- 다음 순서는 03 v1.1 VOST onboarding → 07 paired-state 수집 → 08 evaluator/baseline → 09~11 nonlinear 학습이다.
+
+## 2026-09-24 protocol v1.1 보드 수정
+
+- **03 Benchmark:** 네 데이터 역할, VOST license/download/checksum, manifest·loader·`J/J_last`, external access ledger를 완료 조건에 추가한다.
+- **07 Paired state:** MOSEv2/LVOS v2 fit/dev만 training shard에 넣는다. DAVIS/VOST는 training paired-state source에서 제외한다.
+- **08 Baselines:** Moment-Matched 통계는 fit shard로만 계산하고 VOST `J/J_last`, in-domain/external 결과 분리를 구현한다.
+- **09–11 Training:** 모든 architecture/loss/checkpoint 선택은 MOSEv2/LVOS v2 dev에서 끝내고 config freeze 후 official validation과 external benchmark를 연다.
+- **13 Evaluation:** MOSE/LVOS sealed in-domain과 VOST external을 다른 표로 보고한다. DAVIS 결과는 현재 연구의 표·주장에 포함하지 않는다.
+
+Project의 01→20 뼈대와 번호는 바꾸지 않는다. 이번 결정은 새 task를 추가하는 것이 아니라
+03·07·08·09–11·13의 데이터 노출 계약과 완료 기준을 강화한 것이다.

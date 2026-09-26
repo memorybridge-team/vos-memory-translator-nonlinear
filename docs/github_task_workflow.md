@@ -1,5 +1,18 @@
 # GitHub 연구 업무 파이프라인
 
+## 정보가 위치하는 곳
+
+| 위치 | 역할 | 여기에 두지 않는 것 |
+|---|---|---|
+| `README.md` | 연구 목적과 팀원용 진입점 | 일별 실행 로그 |
+| `docs/research_progress_summary.md` | 검증된 현재 상태, 완료 결과, 다음 gate | task별 긴 토론 |
+| GitHub Project | 상태·담당·순서·blocker와 원문 링크 | 상세 프로토콜과 결과 전문 |
+| canonical Issue | task 범위, 완료 조건, 결정과 진행 논의 | 큰 바이너리·원시 로그 |
+| Pull Request | 검토 가능한 변경 diff, 관련 Issue, checks | 아직 합의하지 않은 장기 계획 |
+| `reports/` | 실행 명령, 환경, 정량 결과, 한계 | 작업 상태의 유일한 기록 |
+
+새 팀원은 `README → 현재 연구 진행 요약 → Project의 In Progress 카드 → 연결 Issue → PR·report` 순서로 읽습니다. Project 카드에는 문서 전문을 복사하지 않고 canonical 원문 링크를 유지합니다. 프로젝트 전체의 고수준 변화는 GitHub Project status update로 짧게 남기되, 세부 증거는 반드시 Issue·PR·report에 연결합니다.
+
 ## 기본 흐름
 
 1. Project `Tasks`에서 작업을 고른다.

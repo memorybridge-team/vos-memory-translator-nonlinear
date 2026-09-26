@@ -1,8 +1,8 @@
 # Task 06 edge-case self-injection and Direct Copy pilot
 
-> Date: 2026-09-21 KST  
-> Official SAM 2 revision: `2b90b9f5ceec907a1c18123530e92e794ad901a4`  
-> Dataset: DAVIS 2017  
+> Date: 2026-09-21 KST
+> Official SAM 2 revision: `2b90b9f5ceec907a1c18123530e92e794ad901a4`
+> Dataset: DAVIS 2017
 > Device: NVIDIA RTX 2000 Ada Generation 16 GB
 
 ## 결과 요약

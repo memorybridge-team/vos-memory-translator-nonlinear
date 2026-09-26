@@ -95,21 +95,21 @@ Continuous channel/grid/pointer 차원은 model pair에 따라 달라도 된다.
 
 ## 6. GPU 재개 시 첫 실행
 
-2026-09-20에 `scripts/runpod_preflight.sh`로 revision·checkpoint·storage를 확인한 뒤 `scripts/runpod_base_plus_roundtrip.sh`를 실행했다. DAVIS `walking`, object 1, switch frame 10에서 이후 61 frames의 native/injected 결과가 binary IoU 1.0, MSE 0.0, max absolute error 0.0이었고 injection 중 과거 backbone 호출은 0회였다. 원본 증거는 [`reports/runtime/2026-09-20_base_plus_self_injection/`](../../reports/runtime/2026-09-20_base_plus_self_injection/)에 있다.
+2026-09-20에 `scripts/runpod_preflight.sh`로 revision·checkpoint·storage를 확인한 뒤 `scripts/runpod_base_plus_roundtrip.sh`를 실행했다. DAVIS `walking`, object 1, switch frame 10에서 이후 61 frames의 native/injected 결과가 binary IoU 1.0, MSE 0.0, max absolute error 0.0이었고 injection 중 과거 backbone 호출은 0회였다. 원본 증거는 [`reports/tasks/06_runtime/runs/2026-09-20_base_plus_self_injection/`](../../reports/tasks/06_runtime/runs/2026-09-20_base_plus_self_injection/)에 있다.
 
-이 결과로 단일 객체·첫 frame prompt의 실행 경계는 통과했다. 같은 조건의 Small/Base+ paired example도 생성해 두 모델의 shape·dtype·timeline 일치를 확인했다. `.pt` cache는 166,882,485 bytes이므로 Git에는 checksum만 남기고 RunPod network volume에 보존한다. 상세 보고서는 [`reports/runtime/2026-09-20_small_base_runtime_inventory/`](../../reports/runtime/2026-09-20_small_base_runtime_inventory/)에 있다.
+이 결과로 단일 객체·첫 frame prompt의 실행 경계는 통과했다. 같은 조건의 Small/Base+ paired example도 생성해 두 모델의 shape·dtype·timeline 일치를 확인했다. `.pt` cache는 166,882,485 bytes이므로 Git에는 checksum만 남기고 RunPod network volume에 보존한다. 상세 보고서는 [`reports/tasks/02_state_io/runs/2026-09-20_runtime_inventory/`](../../reports/tasks/02_state_io/runs/2026-09-20_runtime_inventory/)에 있다.
 
 2026-09-21 v1.1 최소 history로 다시 검증하는 과정에서 최신 CPU-offloaded
 `maskmem_features`를 export 완료 전에 읽는 race condition을 발견했다. Export
 경계에 CUDA 동기화를 추가한 뒤 주입 직전 11개 record의 세 read-state 필드와
 후속 61개 frame의 logits가 모두 exact가 됐다. 원인·실패 결과·수정 후 증거는
-[`reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/`](../../reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/)에 있다.
+[`reports/tasks/06_runtime/runs/2026-09-21_base_plus_self_injection_after_sync/`](../../reports/tasks/06_runtime/runs/2026-09-21_base_plus_self_injection_after_sync/)에 있다.
 
 2026-09-21 추가 gate에서 DAVIS `bike-packing`의 두 객체를 frame 0과 10에 각각 등록하고 switch 20에서 Base+ state를 복원했다. 이후 48 frames가 mean MSE `0`, max error `0`, binary IoU `1.0`이었으며 injection 중 과거 backbone 호출은 `0`이었다. DAVIS `india`의 부재·재등장 구간에서도 object 3, switch 35 이후 45 frames가 같은 exact 기준을 통과했다.
 
-같은 날 Small→Base+ Direct Copy는 11개 history record를 replay 없이 정상 주입했지만, DAVIS `walking` switch 10 이후 61 frames에서 Base+-native 대비 mean binary IoU `0.0`이었다. spatial-memory cosine `0.0211`, object-pointer cosine `-0.0220`으로 표현 의미가 정렬되지 않았다. 이는 한 사례의 pilot이며 전체 성능 결론은 아니지만 cross-model injector의 기계적 동작과 learned/calibrated translation 필요성 검증을 분리해 보여 준다. 원본 증거는 [`reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/`](../../reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/)에 있다.
+같은 날 Small→Base+ Direct Copy는 11개 history record를 replay 없이 정상 주입했지만, DAVIS `walking` switch 10 이후 61 frames에서 Base+-native 대비 mean binary IoU `0.0`이었다. spatial-memory cosine `0.0211`, object-pointer cosine `-0.0220`으로 표현 의미가 정렬되지 않았다. 이는 한 사례의 pilot이며 전체 성능 결론은 아니지만 cross-model injector의 기계적 동작과 learned/calibrated translation 필요성 검증을 분리해 보여 준다. 원본 증거는 [`reports/tasks/06_runtime/runs/2026-09-21_edge_case_and_direct_injection/`](../../reports/tasks/06_runtime/runs/2026-09-21_edge_case_and_direct_injection/)에 있다.
 
-2026-09-23에는 전환 이후 correction, 전환 이전 correction replay, switch 10→20 반복 handoff를 추가 검증했다. 비교 구간의 모든 frame에서 MSE `0`, max error `0`, binary IoU `1.0`이었고 두 injection의 과거 backbone call은 모두 `0`이었다. 반복 handoff에서 injected record에 진단용 `object_score_logits`가 없으면 재-export가 실패하는 결함을 발견했다. exporter의 필수 continuation field를 `maskmem_features`와 `obj_ptr`로 바로잡고, 누락된 presence diagnostic은 `missing_presence_records` metadata에 기록하도록 수정했다. score를 handoff payload나 Target history에 다시 넣지는 않았으므로 v1.1 계약은 유지된다. 원본 증거는 [`reports/runtime/2026-09-23_task06_correction_and_repeated_switch/`](../../reports/runtime/2026-09-23_task06_correction_and_repeated_switch/)에 있다.
+2026-09-23에는 전환 이후 correction, 전환 이전 correction replay, switch 10→20 반복 handoff를 추가 검증했다. 비교 구간의 모든 frame에서 MSE `0`, max error `0`, binary IoU `1.0`이었고 두 injection의 과거 backbone call은 모두 `0`이었다. 반복 handoff에서 injected record에 진단용 `object_score_logits`가 없으면 재-export가 실패하는 결함을 발견했다. exporter의 필수 continuation field를 `maskmem_features`와 `obj_ptr`로 바로잡고, 누락된 presence diagnostic은 `missing_presence_records` metadata에 기록하도록 수정했다. score를 handoff payload나 Target history에 다시 넣지는 않았으므로 v1.1 계약은 유지된다. 원본 증거는 [`reports/tasks/06_runtime/runs/2026-09-23_correction_and_repeated_switch/`](../../reports/tasks/06_runtime/runs/2026-09-23_correction_and_repeated_switch/)에 있다.
 
 task 02는 실제 Small/Base+ inventory, paired dump, 필드 정책, fail-closed validator와 State Assembly Map을 기준으로 동결됐으며, 이를 소비하는 task 06 runtime 구현도 위 검증으로 완료됐다.
 
@@ -123,10 +123,10 @@ task 02는 실제 Small/Base+ inventory, paired dump, 필드 정책, fail-closed
 - paired cache: `166,882,485 bytes`, SHA-256 `5e9bca17217d522335acf80a454834cf2beab22d4dd8f6204fcd221d2bf1a5f0`
 - validator: schema, switch frame, object/frame/slot/conditioning/validity 불일치를 fail closed; 영상 길이·크기·checksum 검사는 CanonicalState 밖 dataset/cache assertion으로만 사용
 - 시각 계약: [`State Assembly Map`](../architecture/cmmt-state-assembly-map.html)
-- runtime inventory: [`reports/runtime/2026-09-20_small_base_runtime_inventory/`](../../reports/runtime/2026-09-20_small_base_runtime_inventory/)
-- v1.1 minimal-history strict round-trip: [`reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/`](../../reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/)
-- task 06 edge cases and Direct Copy pilot: [`reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/`](../../reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/)
-- task 06 correction and repeated switch closure: [`reports/runtime/2026-09-23_task06_correction_and_repeated_switch/`](../../reports/runtime/2026-09-23_task06_correction_and_repeated_switch/)
+- runtime inventory: [`reports/tasks/02_state_io/runs/2026-09-20_runtime_inventory/`](../../reports/tasks/02_state_io/runs/2026-09-20_runtime_inventory/)
+- v1.1 minimal-history strict round-trip: [`reports/tasks/06_runtime/runs/2026-09-21_base_plus_self_injection_after_sync/`](../../reports/tasks/06_runtime/runs/2026-09-21_base_plus_self_injection_after_sync/)
+- task 06 edge cases and Direct Copy pilot: [`reports/tasks/06_runtime/runs/2026-09-21_edge_case_and_direct_injection/`](../../reports/tasks/06_runtime/runs/2026-09-21_edge_case_and_direct_injection/)
+- task 06 correction and repeated switch closure: [`reports/tasks/06_runtime/runs/2026-09-23_correction_and_repeated_switch/`](../../reports/tasks/06_runtime/runs/2026-09-23_correction_and_repeated_switch/)
 
 이 계약 이후 새 field, dtype, shape, copy/translate/regenerate 정책을 바꾸면 계약 버전을 올리고 다음을 함께 갱신한다: validator test, Map, example dump, checksum, 영향받는 paired-state shard 목록. Task 06의 edge-case 실패가 현재 계약의 누락을 드러낸 경우에도 조용히 덮어쓰지 않고 v1.1 이상의 변경 기록을 남긴다.
 

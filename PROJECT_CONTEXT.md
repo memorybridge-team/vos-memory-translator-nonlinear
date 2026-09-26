@@ -1,6 +1,6 @@
 # 프로젝트 문맥: SAM 2.1 Small → Base+ nonlinear state handoff
 
-> 확인된 코드·기존 실험과 현재 계획을 구분한 시작 문서. 기준일: 2026-09-21 KST.
+> 확인된 코드·기존 실험과 현재 계획을 구분한 시작 문서. 기준일: 2026-09-24 KST.
 
 ## 1. 연구 질문
 
@@ -11,7 +11,7 @@
 ## 2. 확정 범위
 
 - Model: 공식 SAM 2.1 Small → Base+ 한 방향. 같은 revision의 코드와 각각의 checkpoint를 사용한다.
-- Dataset: DAVIS 2017로 구현과 초기 검증, MOSEv2로 복잡한 장면·재등장, LVOS v2로 장기 추적을 평가한다. 세 데이터셋은 논문 범위에 포함된다.
+- Dataset role: MOSEv2/LVOS v2 train-fit·dev로 translator를 학습·선택하고 official validation을 sealed in-domain final로 사용한다. VOST val/test는 primary external zero-shot으로 사용한다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외한다.
 - Method: nonlinear. 첫 모델은 component-wise residual MLP. 필요성을 검증하며 gated MLP와 slot/context attention을 비교한다. 새로운 Linear/Ridge 학습은 범위가 아니다.
 - Baseline: Source-only, Base+-native/Full Replay, Direct Copy, Moment-Matched Copy, 객체별 Original-Prompt, Last-Visible Source Mask, Original+Last-Visible, Original-Prompt(s)+Replay-4/8/16, Nonlinear Translator. Last-Mask와 original anchor 없는 Recent-Window Replay-k는 최종 비교군에서 제외한다. Empty-reset proxy는 구현 진단군으로만 유지한다.
 - 기간: [대한전자공학회 2026 추계학술대회](https://conf.theieie.org/2026f/pages/outlines.vm)의 논문 제출일은 2026-10-19로 확인했다. 정확한 마감 시각·시간대와 업로드 형식은 제출 화면에서 재확인한다. 일정은 필요한 데이터셋·사례·반복 횟수를 줄이는 상한이 아니다. 추가 GPU·작업 자원과 재개 가능한 실행으로 규모를 유지한다.
@@ -31,7 +31,7 @@
 
 ## 5. 실험 규칙
 
-- 영상 단위로 train/validation/test를 분리한다. 모델 선택에 test 결과를 쓰지 않는다.
+- MOSEv2/LVOS v2 train을 영상 단위 fit/dev로 분리하고 official validation은 config freeze 전까지 열지 않는다. VOST 결과를 모델 선택에 쓰지 않는다.
 - 모든 비교군은 switch 이전에 등록된 동일 객체 집합과 실제 prompt timeline을 쓴다. 미래 GT로 handoff 입력을 고르지 않는다.
 - Original-Prompt는 객체별 최초 지정 frame을 뜻한다. Last-Visible은 source 예측에서 객체별 마지막 비어 있지 않은 mask와 해당 RGB를 쓴다.
 - Source-only는 수학적 하한, Base+-native는 수학적 상한이 아니다.
@@ -41,7 +41,7 @@
 
 ## 6. 현재 위치와 다음 단계
 
-새 저장소 구성 및 범위 고정 → Base+ checkpoint와 same-checkpoint export→inject 검증 → 고정 baseline → nonlinear 모델 비교 → DAVIS/MOSEv2/LVOS v2 평가 → 4주 논문 작성. 자세한 일정과 성공 판정은 [실험 계획](docs/experimental_plan.md)을 따른다.
+새 저장소 구성 및 범위 고정 → Base+ checkpoint와 same-checkpoint export→inject 검증 → Task 03 v1.1/VOST onboarding → MOSE/LVOS paired-state·baseline·nonlinear 학습 → sealed in-domain 평가 → VOST external 평가 → 논문 작성. 자세한 일정과 성공 판정은 [실험 계획](docs/experimental_plan.md)을 따른다.
 
 GitHub repository를 새로 만들었다는 사실만으로 실험이 이전됐다는 뜻은 아니다. 기존 GPU cache는 pair와 checkpoint가 일치하는지 확인한 뒤 사용하고 Base+-native state는 새로 생성한다.
 
@@ -106,8 +106,8 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[확인]** DAVIS `walking`, object 1, switch frame 10에서 Base+→Base+ state export→inject를 실행했다. 이후 61개 frame의 native/injected 결과가 mean binary IoU `1.0`, mean MSE `0.0`, max absolute error `0.0`였고 injection 동안 과거 backbone call은 `0`이었다. wall time은 `132.53 s`, peak CUDA memory는 `974,874,624 bytes`였다. 단일 객체·첫 frame prompt 조건의 self-injection gate는 통과했다.
 - **[제한]** 이 결과는 단일 객체·첫 frame prompt에서 state assembly 구현의 정확성을 입증하지만 Small→Base+ translator의 성공 증거는 아니다. Small/Base+ runtime inventory와 paired dump는 task 02 계약 근거다. multi-object, late prompt, absence/reappearance, prompt correction 및 복수 영상/switch 검증은 task 06 완료 조건이다.
 - **[결정, 2026-09-20]** Project task 경계를 `01=왜·범위·판정 기준`, `02=무엇을 옮길지에 관한 state I/O 계약`, `06=어떻게 추출·조립·주입하고 continuation을 검증할지`로 고정했다. Base+ 필요성을 묻는 hard-event gate는 01에서 정의하지만 실제 pilot/evaluation 실행은 후속 실험 task가 담당한다.
-- **[산출물]** 원본 JSON·상태·로그와 해석은 `reports/runtime/2026-09-20_base_plus_self_injection/`에 보존했다.
-- **[확인]** 동일 DAVIS case에서 실제 Small/Base+ canonical state를 각각 수집하고 paired cache를 생성했다. 두 모델 모두 spatial `[1,1,11,64,64,64]` bfloat16, pointer `[1,1,11,256]` float32, presence `[1,1,11,1]` float32와 동일한 discrete timeline을 보였다. 166,882,485-byte paired cache의 SHA-256은 `5e9bca17217d522335acf80a454834cf2beab22d4dd8f6204fcd221d2bf1a5f0`이며 원본은 RunPod volume, lightweight inventory는 `reports/runtime/2026-09-20_small_base_runtime_inventory/`에 둔다. 이 결과로 단일 paired example gate는 통과했지만 여러 case와 interaction 조건의 반복 검증은 남아 있다.
+- **[산출물]** 원본 JSON·상태·로그와 해석은 `reports/tasks/06_runtime/runs/2026-09-20_base_plus_self_injection/`에 보존했다.
+- **[확인]** 동일 DAVIS case에서 실제 Small/Base+ canonical state를 각각 수집하고 paired cache를 생성했다. 두 모델 모두 spatial `[1,1,11,64,64,64]` bfloat16, pointer `[1,1,11,256]` float32, presence `[1,1,11,1]` float32와 동일한 discrete timeline을 보였다. 166,882,485-byte paired cache의 SHA-256은 `5e9bca17217d522335acf80a454834cf2beab22d4dd8f6204fcd221d2bf1a5f0`이며 원본은 RunPod volume, lightweight inventory는 `reports/tasks/02_state_io/runs/2026-09-20_runtime_inventory/`에 둔다. 이 결과로 단일 paired example gate는 통과했지만 여러 case와 interaction 조건의 반복 검증은 남아 있다.
 - **[Notion]** 전달된 Documents database의 `모델API&실험` 그룹에 `CMMT 연구 실행 허브 — Project #2` 페이지를 만들고 Project·repository·PR·assembly map 링크, 01/02 Done gate, evidence 기록 규칙, 최신 self-injection 결과를 기록했다. Notion connector가 연결된 KNSW workspace에서는 이 guest workspace page를 `NOT_FOUND`로 반환해, 로그인된 Notion UI를 통해 작성 권한과 최종 내용을 검증했다.
 
 ## 16. 2026-09-20 Task 01·02 동결과 Notion 자동 기록 권한
@@ -130,7 +130,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[구현]** Pinned SAM 2가 최신 memory를 `non_blocking=True`로 GPU→CPU offload하므로, `canonicalize_sam2_inference_state`가 export 전에 producer CUDA device를 동기화하도록 수정했다. 이 race-condition fix에는 CPU 회귀 test와 실제 checkpoint history parity 진단 도구를 추가했다.
 - **[확인]** 수정 뒤 DAVIS `walking`, object 1, switch 10의 11개 history record에서 `maskmem_features`, Target-generated `maskmem_pos_enc`, `obj_ptr`가 모두 bit-exact였다. 이후 61 frames의 Base+ native/injected logits도 mean MSE `0`, max error `0`, binary IoU `1.0`, injection 중 과거 backbone call `0`으로 strict gate를 통과했다.
 - **[해석]** 이 결과는 v1.1 최소 read-state가 단일 객체·첫 frame prompt no-replay continuation에 충분하다는 구현 증거다. Small→Base+ 번역 성능 증거는 아니며, Task 06은 다객체·late prompt·absence/reappearance·correction·cross-model target injection이 남아 `In Progress`다.
-- **[산출물]** `reports/runtime/2026-09-21_v1_1_base_plus_self_injection_after_sync/`에 원인 분석, 재현 명령, report JSON과 history diagnostic을 보존한다.
+- **[산출물]** `reports/tasks/06_runtime/runs/2026-09-21_base_plus_self_injection_after_sync/`에 원인 분석, 재현 명령, report JSON과 history diagnostic을 보존한다.
 
 ## 18. 2026-09-21 — Task 06 edge-case와 cross-model Direct Copy gate
 
@@ -139,7 +139,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[확인]** DAVIS `india`의 object 3, switch 35 부재·재등장 사례에서도 후속 45 frames가 mean MSE `0`, max error `0`, mean binary IoU `1.0`, injection 중 과거 backbone call `0`이었다.
 - **[Pilot]** DAVIS `walking`, object 1, switch 10에서 Small→Base+ Direct Copy는 11 history records를 replay 없이 기계적으로 주입했지만 Base+-native 대비 후속 61 frames의 mean binary IoU가 `0.0`이었다. Spatial-memory cosine은 `0.0211`, object-pointer cosine은 `-0.0220`이었다. 한 case 결과이므로 전체 일반화 결론은 아니지만, 동일 shape의 직접 복사만으로 표현 의미가 정렬되지 않으며 Moment-Matched/Nonlinear Translator 비교가 필요하다는 근거다.
 - **[상태]** Task 06은 다객체·late prompt·부재/재등장·cross-model target injection gate까지 통과 또는 실행 증거를 확보했다. Prompt correction과 여러 sequence/switch 반복 검증이 남아 `In Progress`다.
-- **[산출물]** `reports/runtime/2026-09-21_task06_edge_case_and_direct_injection/`에 세 원본 JSON과 해석을 보존한다.
+- **[산출물]** `reports/tasks/06_runtime/runs/2026-09-21_edge_case_and_direct_injection/`에 세 원본 JSON과 해석을 보존한다.
 
 ## 19. 2026-09-21 — 연구용 최소 handoff payload와 동일 영상 전제
 
@@ -197,7 +197,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[전환 전 correction]** switch 20, correction 10은 prompt anchor 0부터 frame 20까지 21 frames를 Target으로 replay했다. frame 21–71의 51개 결과가 native와 exact였다.
 - **[반복 handoff]** switch 10→20의 두 injection 모두 backbone call `0`이었고, 첫 전환 뒤 61 frames와 두 번째 전환 뒤 51 frames가 모두 exact였다.
 - **[결함 발견·수정]** v1.1 injected history는 진단용 `object_score_logits`를 의도적으로 제외하지만 exporter가 재-export 때 이를 필수로 요구했다. continuation 필수 field를 `maskmem_features`·`obj_ptr`로 바로잡고, 누락 진단 record는 `missing_presence_records` metadata에 기록했다. score는 payload나 Target history에 다시 넣지 않았으므로 v1.1 계약은 바뀌지 않는다.
-- **[검증]** 수정 후 RunPod 전체 test `57 passed`. 원본은 `reports/runtime/2026-09-23_task06_correction_and_repeated_switch/`에 보존한다.
+- **[검증]** 수정 후 RunPod 전체 test `57 passed`. 원본은 `reports/tasks/06_runtime/runs/2026-09-23_correction_and_repeated_switch/`에 보존한다.
 - **[상태]** 단일/다객체·late prompt·부재/재등장, 전환 전후 correction, 반복 handoff, Small→Base+ target injection 실행까지 확보해 Task 06을 `Done`으로 판정한다. Direct Copy의 실패는 translator 성능 결론이 아니라 Task 08 baseline pilot 증거다. 다음 단계는 Task 07 paired-state 수집이다.
 
 ## 26. 2026-09-22 — Task 03 DAVIS validation manifest 고정
@@ -205,3 +205,72 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[확인]** DAVIS 2017 trainval 480p validation split에서 seed 7, regular quantile switch와 GT 기반 diagnostic event tag 정책으로 deterministic evaluation manifest를 생성했다.
 - **[결과]** `manifests/davis2017_val_v1.json`은 30 sequences, 249 video/object/switch cases이며 file SHA-256은 `5b036f173d74e6939c3096fa03e0af64f3dfba8bdaff21a43e1db8f5c1ada2f5`다. JSON에는 원본 pixel이나 dataset root가 포함되지 않는다.
 - **[해석]** GT는 case selection·difficulty tagging에만 쓰며 model input, handoff payload, translator 학습은 보지 않는다. MOSEv2/LVOS v2의 official split·loader·metric 검증은 Task 03에 남아 있다.
+
+## 28. 2026-09-24 — Benchmark protocol v1.1 확정
+
+- **[결정]** 데이터 운영을 translator fit, in-domain development, sealed in-domain final,
+  external frozen benchmark의 네 역할로 분리한다.
+- **[결정]** 주 translator는 MOSEv2/LVOS v2 train-fit으로 학습하고 각 train의
+  video-disjoint dev에서만 구조·loss·epoch·threshold·replay-k·checkpoint를 선택한다.
+- **[결정]** MOSEv2 official valid와 LVOS v2 official val은 config freeze 뒤 여는
+  sealed in-domain final이다.
+- **[결정]** VOST val/test는 primary translator-level cross-dataset zero-shot benchmark다.
+  DAVIS val은 `walking`, `bike-packing`, `india`의 Task 06 개발 노출 때문에
+  `engineering-seen external`로 표시한다.
+- **[금지]** DAVIS/VOST는 gradient, train statistics, Moment-Matched target moments,
+  early stopping, threshold 또는 후보 선택에 사용하지 않는다. 첫-frame GT prompt와
+  metric용 GT만 표준 VOS 평가로 허용한다.
+- **[결과 구조]** `MOSE-only`, `LVOS-only`, `MOSE+LVOS` 학습 행과 MOSE/LVOS/DAVIS/VOST
+  평가 열을 보고한다. VOST-train fine-tuning은 별도 adaptation upper-bound ablation이다.
+- **[상태]** Task 03 v1.0 완료 증거는 보존한다. VOST license/download/checksum,
+  25/50/75% switch manifest, loader와 공식 `J/J_last`, external access ledger가 남아 있어
+  protocol v1.1의 Project 상태는 다시 `In Progress`다.
+
+## 29. 2026-09-24 — 팀원용 진행 현황 정보 구조와 Project 동기화
+
+- **[결정]** GitHub Project는 상세 연구 문서의 저장소가 아니라 상태·담당·순서·blocker와 canonical evidence 링크를 모으는 관제판으로 사용한다.
+- **[읽기 경로]** 새 팀원은 `README → docs/research_progress_summary.md → Project의 In Progress 카드 → 연결 Issue → PR·reports` 순서로 현재 상태를 파악한다.
+- **[정보 위치]** 안정된 연구 개요는 README, 검증된 snapshot은 research progress summary, task 범위·완료 조건·논의는 Issue, 변경 검토는 PR, 실행 명령·정량 결과·한계는 `reports/`에 둔다.
+- **[Project 반영]** Task 07·08·09·10·11·13의 설명을 protocol v1.1에 맞게 수정했다. MOSE/LVOS fit·dev만 학습/선택에 사용하고, official validation은 config freeze 뒤 sealed final, VOST는 primary external zero-shot, DAVIS는 engineering-seen external로 제한한다.
+- **[상태]** Task 03은 VOST manifest·loader·공식 `J/J_last`·access ledger가 남아 `In Progress`; Task 07 이후는 `Todo`를 유지한다.
+- **[업데이트 2026-09-24]** VOST 공식 Data page·S3 archive·CC BY-NC-SA 4.0 이용조건과 TRI-ML 평가 코드 위치를 확인해 access ledger를 만들었다. archive 다운로드·SHA-256·inventory·25/50/75% manifest·실제 `J/J_last` 실행은 아직 남아 있다.
+- **[진행 2026-09-24]** 공식 VOST archive의 `Content-Length=54,012,104,924` bytes를 확인하고 RunPod `/workspace/datasets/VOST/VOST.zip`에 `wget --continue` 다운로드를 시작했다. 완료 전 checksum·inventory·loader gate는 미완료로 유지한다.
+- **[진행 2026-09-25]** VOST archive SHA-256 `fb17075ab3afab0fe30f264d8adce2e29ce6249a73cd44d2a9cf4936cc8de978`를 계산했다. ZIP 목록에서 153,136개 파일과 train/val/test 572/70/71 sequence를 확인했으며, 압축 해제 후 실제 annotation·frame inventory와 loader 검증이 남아 있다.
+- **[진행 2026-09-25]** VOST 압축 해제를 `/workspace/datasets/VOST/extracted`에서 완료했다. 1차 inventory는 Annotations 67,751개, JPEGImages 67,751개, JPEGImages_10fps 15,607개, Videos 642개이며, annotation/frame 대응·25/50/75% switch manifest·prompt loader·공식 `J/J_last` smoke가 남아 있다. Task 03은 이 gate들이 끝날 때까지 `In Progress`다.
+- **[검증 2026-09-25]** VOST inventory에서 train 59,930쌍과 val 7,820쌍의 frame/annotation stem 대응이 모두 통과(`failure_count=0`)했다. 배포본의 test는 71개 sequence 이름 목록만 있고 로컬 frame/annotation이 없어 공식 서버용으로 분리한다. 다음 gate는 val 기준 switch manifest·prompt loader·공식 `J/J_last` smoke다.
+- **[산출물 2026-09-25]** VOST val 70 sequence에 25/50/75% temporal quantile을 적용한 210-case switch manifest를 생성했다. content SHA-256은 `47bab054c87281e7b904831ea8891b81d22f1d8683786f1d5cf84a4f1ba85cbf`다. 이는 prompt/예측 loader와 공식 `J/J_last` 실행 전의 metadata gate이며 Task 03은 아직 `In Progress`다.
+- **[검증 2026-09-25]** TRI-ML/VOST official evaluator commit `fe274574`를 GT-copy·512px smoke에서 실행해 `J-Mean=1.000`, `J_last-Mean=1.000`을 확인했다. `J_last`가 공식 코드의 실제 후반 구간 지표 이름이다. 원본 해상도 119-frame smoke는 약 60GB에서 `SIGKILL`돼, 최종 평가는 sequence 단위 메모리 상한·CSV 병합 방식으로 운영한다. CMMT PNG export smoke는 남아 있다.
+- **[완료 2026-09-25]** VOST val `9671_split_cups`를 numeric symlink staging으로 SAM 2.1 Small에 실제 입력해 state export(frames 0–20)를 만들고, 42개의 prediction PNG를 official VOST frame stem layout으로 export했다. GT와 prediction PNG stem은 42/42로 exact match다. Task 03 v1.1의 VOST data·manifest·loader·evaluator contract gate는 완료됐으며, full baseline/translator scores는 Task 08/09/13으로 넘긴다.
+
+## 30. 2026-09-24 — Task 중심 보고서 구조 확정
+
+- **[결정]** 연구 보고서는 category-first가 아니라 Project Board와 직접 대응하는
+  `reports/tasks/NN_short_name/` 구조를 기준으로 관리한다.
+- **[구조]** Task `README.md`는 현재 상태·핵심 결과·남은 gate의 인덱스이고,
+  `runs/YYYY-MM-DD_slug/`는 실행 명령·원본 수치·JSON·실패를 보존한다. 중간 동결본은
+  `milestones/`, Done 전 통합 결과는 `FINAL_REPORT.md`에 둔다.
+- **[완료]** Task 02와 06의 최종 통합본을 만들고 기존 runtime·benchmark 증거를
+  Task 02·03·06 디렉터리로 이동했다. 중복을 피하기 위해 이전 category-first 호환 경로는
+  제거하고 `reports/tasks/`만 공식 경로로 사용한다.
+- **[완료 절차]** 날짜별 증거 → `FINAL_REPORT.md` → Issue 완료 기준별 링크 → PR
+  test/review·main 병합 → Issue checklist → Project Done 순서로 닫는다.
+- **[읽기 경로]** `README → research_progress_summary → Project → canonical Issue →
+  Task 보고서 → PR → 날짜별 run` 순서로 안내한다.
+
+## 31. 2026-09-24 — RunPod Runtime 중간 변경 감사와 정리
+
+- **[원인]** RunPod checkout은 `226790d`에 머문 채 Task 06 완료 과정의 중간 코드가 미커밋 상태로 남아 있었다. GitHub `main`은 이미 PR #8 병합 commit `01889b3`까지 전진해 있었으므로, Board의 Done과 RunPod working tree가 어긋난 것은 GitHub 완료 누락이 아니라 오래된 checkout 문제였다.
+- **[판정]** 중간 코드는 `object_score_logits`를 다시 필수로 요구하고 영상 크기·prompt/tracking metadata를 handoff state에 포함해 현재 최소 계약을 되돌렸다. 최신 `main`에는 correction·repeated handoff와 이 회귀를 막는 테스트가 이미 포함되어 있어 별도 병합 가치가 없었다.
+- **[처리]** 변경을 임시 snapshot commit `a6ec48c`으로 보존한 뒤 RunPod `main`을 `01889b3`으로 fast-forward했다. 독립 가상환경 `/workspace/.venvs/cmmt-runtime-audit`에서 전체 테스트 `57 passed`를 확인하고 임시 branch를 삭제했다.
+- **[현재 상태]** RunPod `/workspace/vos-memory-translator-nonlinear`은 clean `main`이며, Task 03 PR과 후속 실험을 기존 중간 코드와 섞지 않고 진행할 수 있다.
+
+## 32. 2026-09-25 — DAVIS 활성 범위 제외와 Task 03 종료 유보
+
+- **[결정]** DAVIS 2017은 SAM 2 학습 데이터 노출 및 Task 06 engineering 개발 노출이
+  결합되어 현재 translator 연구의 학습·평가·표·주장 범위에서 제외한다. 기존 DAVIS runtime
+  smoke와 pilot은 구현 통로를 검증한 역사적 증거로만 보존하며, 새 결론에 사용하지 않는다.
+- **[결정]** 활성 데이터 역할은 MOSEv2/LVOS v2 train-fit·video-disjoint dev,
+  MOSEv2 official valid·LVOS v2 official val sealed final, VOST external zero-shot이다.
+- **[상태]** VOST archive·manifest·loader·official evaluator contract는 완료했으나,
+  사용자가 추가 검증 데이터셋을 요청했으므로 Task 03은 `In Progress`로 유지한다. 그 데이터셋의
+  이름·연구 역할·사용 가능한 GT/공식 evaluator는 아직 미확정이다.

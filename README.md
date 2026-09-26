@@ -3,7 +3,9 @@
 이 저장소는 비디오를 처리하던 SAM 2.1 Small의 객체별 메모리를 nonlinear translator로 변환해, SAM 2.1 Base+가 과거 영상을 전부 다시 처리하지 않고 다음 프레임부터 분할을 이어갈 수 있는지 연구합니다.
 
 **모델:** SAM 2.1 Small → Base+
-**데이터셋:** DAVIS 2017, MOSEv2, LVOS v2  
+**학습·in-domain 평가:** MOSEv2, LVOS v2
+
+**external 평가:** VOST(primary external zero-shot)
 **기간:** 2026-09-18부터 약 4주. 실제 투고 마감일은 확정 후 기록합니다.  
 **제안 방법:** 객체별 spatial memory와 object pointer를 변환하는 nonlinear translator. Presence, frame ID, positional encoding과 객체 ID는 별도의 상태 계약에 따라 처리합니다.
 
@@ -13,15 +15,26 @@
 
 이 저장소는 이전 프로젝트에서 검증한 상태 추출·주입, DAVIS 평가, 기존 baseline runner, MLP 학습 코드를 **새 Git 이력으로 선별 이관한 시작점**입니다. 이전 Tiny→Large 실험은 [과거 결과](reports/legacy/)로 보존했습니다. Small/Base+ runtime I/O inventory와 Base+ same-checkpoint round-trip은 완료됐고, Small→Base+ 전체 baseline 비교와 nonlinear 학습 결과는 아직 생성되지 않았습니다.
 
+### 팀원이 현재 연구 상태를 읽는 순서
+
+1. [현재 연구 진행 요약](docs/research_progress_summary.md)에서 확정된 연구 질문, 완료 결과, 미완료 gate와 다음 작업을 먼저 읽습니다.
+2. [Project #2 Tasks](https://github.com/orgs/memorybridge-team/projects/2/views/1)에서 현재 `In Progress` task, 담당자, 순서와 blocker를 확인합니다.
+3. 해당 카드가 연결한 canonical Issue에서 범위·완료 조건·결정 이유를 확인합니다.
+4. [`reports/` Task 인덱스](reports/README.md)에서 Task별 현재 보고서와 최종 통합본을 읽습니다.
+5. 연결된 PR과 날짜별 `runs/`에서 실제 diff, 실행 명령, 원본 수치와 한계를 검토합니다.
+6. 구현을 재현하거나 이어서 작업할 때만 [State I/O 계약](docs/design/small_base_state_io_contract.md), [Benchmark protocol](docs/design/03_benchmark_protocol.md), [협업 파이프라인](docs/github_task_workflow.md) 원문을 읽습니다.
+
+Project Board는 상세 연구 문서를 복제해 보관하는 곳이 아니라 **상태·담당·완료 기준·근거 링크를 찾는 관제판**입니다. 안정된 현재 상태는 이 README와 진행 요약에, task별 논의는 Issue에, 검토 가능한 변경과 실행 증거는 PR·보고서에 둡니다.
+
 ### 연구·협업 진행판
 
 | 단계 | 보드 상태 | 지금의 완료 조건 |
 |---|---|---|
 | 연구 범위·성공 기준 고정 | `Done` — [Issue #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1) | [Baseline·성공·중단 기준](docs/design/01_scope_baselines_success_stop.md) 동결 완료 |
-| Small/Base+ State I/O 계약 | `Done` — [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2) | [I/O 계약 v1.1](docs/design/small_base_state_io_contract.md), runtime inventory, paired dump, Map 동결 완료 |
-| dataset·난이도·baseline·metric 동결 | `Done` — [Issue #4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4) | [Benchmark protocol v1.0](docs/design/03_benchmark_protocol.md); 세 데이터셋 train/validation manifest·video split·실제 loader·metric 명칭 동결 완료 |
-| 상태 추출·self-injection·target injection | `Done` — KIMKYUDO | 단일/다객체·late prompt·재등장·전환 전후 correction·반복 handoff exact; Small→Base+ injection 실행 완료 |
-| paired Small/Base+ state 수집 | `Todo` | video-level split, checksum manifest, compact state pair |
+| Small/Base+ State I/O 계약 | `Done` — [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2) | [I/O 계약 v1.1](docs/design/small_base_state_io_contract.md), [Task 02 최종 보고서](reports/tasks/02_state_io/FINAL_REPORT.md) |
+| dataset·난이도·baseline·metric 동결 | `In Progress` — [Issue #4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4) | VOST manifest·loader·`J/J_last` contract 검증 완료; 추가 검증 데이터셋 계약 반영 대기 |
+| 상태 추출·self-injection·target injection | `Done` — [Issue #5](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/5) | [Task 06 최종 보고서](reports/tasks/06_runtime/FINAL_REPORT.md); correction·반복 handoff까지 exact |
+| paired Small/Base+ state 수집 | `Todo` | MOSEv2/LVOS v2 fit/dev만 사용한 video-level split, checksum manifest, compact state pair |
 | 공통 evaluator·baseline | `Todo` | 같은 manifest에서 강한 재인코딩·replay·native 비교 결과 |
 | nonlinear 후보 학습·비교 | `Todo` | MLP/gated MLP/slot-context 후보의 downstream·비용 비교 |
 
@@ -55,6 +68,8 @@ Small이 switch 시점 t까지 처리 → 객체별 source state 추출
 
 성공 기준은 state tensor가 비슷한지만이 아닙니다. 전환 후 객체 분할 J&F, 부재 중 오검출, 재등장 후 복구, 전환 지연과 전달량을 함께 봅니다.
 
+실제 데이터 운영은 `translator fit → in-domain development → sealed in-domain final → external frozen benchmark`의 네 역할로 분리합니다. 주 translator는 MOSEv2/LVOS v2 train-fit에서 학습하고 같은 train의 video-disjoint dev에서만 선택합니다. 공식 validation은 final configuration 동결 후 열며, VOST를 유일한 primary external cross-dataset zero-shot benchmark로 사용합니다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외합니다. Task 03은 추가 검증 데이터셋의 역할과 계약을 반영할 때까지 열린 상태로 유지합니다.
+
 ## 계획과 비교군
 
 [4주 실험 계획](docs/experimental_plan.md)에 각 주의 산출물·중단 기준·평가 규칙이 있습니다. [GitHub 연구 업무 파이프라인](docs/github_task_workflow.md)은 Issue→Project→commit/PR→증거 검증→Done 순서를 정의하고, [Project #2 감사 기록](docs/project_board_audit_2026-09-19.md)은 `01 Scope → 20 Submission` 연구 뼈대와 카드별 완료 기준을 남깁니다. Issue와 PR은 이 20단계를 수행하는 추적·검토 수단이며 별도 연구 단계로 세지 않습니다. [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)는 새 작업자가 검증된 연구 문맥을 빠르게 파악하는 요약본입니다.
@@ -75,7 +90,9 @@ Nonlinear 후보는 component-wise residual MLP, gated MLP, slot/context attenti
 | `docs/github_task_workflow.md` | Issue·Project·commit/PR·완료 증거 운영 순서 |
 | `docs/project_board_audit_2026-09-19.md` | Project #2의 01→20 task 감사·수정 기록 |
 | `docs/design/small_base_state_io_contract.md` | Small/Base+ memory tensor와 translator 입력·복사·재생성 정책 |
-| `docs/design/03_benchmark_protocol.md` | 세 dataset, difficulty taxonomy, baseline 입력, metric·통계·누수 방지 계약 |
+| `docs/design/03_benchmark_protocol.md` | fit/dev·sealed in-domain·external zero-shot 역할, difficulty taxonomy, baseline 입력, metric·통계·누수 방지 계약 |
+| `reports/README.md` | Task별 현재 보고서·최종 통합본·날짜별 실행 증거 인덱스 |
+| `reports/tasks/` | Project Task 번호와 직접 대응하는 연구 보고서와 재현 증거 |
 | `src/vos_memory_inspector/mose.py` | MOSEv2 validation first-frame-only manifest builder |
 | `src/vos_memory_inspector/lvos.py` | LVOS v2 공식 split metadata 기반 manifest builder |
 | `manifests/mosev2_valid_v1.json` | MOSEv2 validation 고정 switch/object manifest; 원본 데이터는 포함하지 않음 |
@@ -95,6 +112,6 @@ python -m pip install -e ".[dev]"
 python -m pytest -q
 ```
 
-GPU Pod에서는 `bash scripts/runpod_bootstrap.sh "$PWD"`가 공식 SAM 2 및 Small/Base+ checkpoint를 준비합니다. 이어서 `bash scripts/runpod_preflight.sh "$PWD"`로 CUDA, Network Volume 여유 공간, revision과 SHA-256을 확인합니다. 첫 Base+ self-injection 실행과 종료 확인 방법은 [RunPod L4 운영 문서](docs/runpod_l4_operations.md)를 따릅니다. DAVIS/MOSEv2/LVOS v2 원본, checkpoint, 개인 SSH 키, raw state cache는 Git에 넣지 않습니다. 각 데이터셋의 이용 조건과 저장 경로를 확인한 후 수집합니다.
+GPU Pod에서는 `bash scripts/runpod_bootstrap.sh "$PWD"`가 공식 SAM 2 및 Small/Base+ checkpoint를 준비합니다. 이어서 `bash scripts/runpod_preflight.sh "$PWD"`로 CUDA, Network Volume 여유 공간, revision과 SHA-256을 확인합니다. 첫 Base+ self-injection 실행과 종료 확인 방법은 [RunPod L4 운영 문서](docs/runpod_l4_operations.md)를 따릅니다. MOSEv2/LVOS v2/VOST 원본, checkpoint, 개인 SSH 키, raw state cache는 Git에 넣지 않습니다. 각 데이터셋의 이용 조건과 저장 경로를 확인한 후 수집합니다.
 
-현재 `prepare_paired_state_dataset.py`와 일부 baseline script는 DAVIS 전용입니다. MOSEv2/LVOS v2 로더와 새로운 객체별 anchor baseline은 계획에 포함됐지만 아직 구현되지 않았습니다. 과거 Tiny→Large 명령을 재활용할 때 source를 Small로 바꾸더라도 checkpoint·config·cache metadata를 함께 검증해야 합니다.
+현재 `prepare_paired_state_dataset.py`와 일부 baseline script의 DAVIS 전용 경로는 역사적 자료로만 남아 있으며 새 연구 실행에는 사용하지 않습니다. Task 03에서 MOSEv2/LVOS v2 manifest loader와 VOST loader/evaluator contract를 검증했다. paired-state 수집기와 모든 anchor baseline을 두 학습 데이터셋에 연결하는 작업은 Task 07·08에 남아 있습니다.
