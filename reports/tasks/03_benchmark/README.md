@@ -1,6 +1,6 @@
 # Task 03 — Benchmark protocol
 
-> 상태: **In Progress** — VOST onboarding core gate 완료, 추가 검증 데이터셋 반영 대기
+> 상태: **In Progress** — VOST onboarding core gate 완료, PUMaVOS·M³-VOS onboarding 대기
 > Canonical Issue: [#4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4)
 > 현재 PR: [#9](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/pull/9)
 
@@ -9,7 +9,7 @@
 MOSEv2·LVOS v2의 v1.0 manifest, video-level split과 loader 검증은 2026-09-23 완료했다.
 2026-09-24에 in-domain과 external zero-shot을 분리하면서 VOST onboarding gate를 추가했고
 2026-09-25에 archive·manifest·loader·evaluator contract 검증까지 완료했다. 다만 사용자의
-추가 검증 데이터셋 반영 요청으로 Task는 열린 상태를 유지한다. DAVIS v1.0 자료는 역사적
+PUMaVOS와 M³-VOS external stress 반영 요청으로 Task는 열린 상태를 유지한다. DAVIS v1.0 자료는 역사적
 milestone으로만 보존하며 현재 연구 범위에는 포함하지 않는다.
 
 ## 현재 데이터 역할
@@ -19,7 +19,7 @@ milestone으로만 보존하며 현재 연구 범위에는 포함하지 않는�
 | Translator fit | MOSEv2/LVOS v2 train-fit |
 | In-domain development | 두 train의 video-disjoint dev |
 | Sealed in-domain final | MOSEv2 official valid, LVOS v2 official val |
-| External frozen benchmark | VOST primary external zero-shot |
+| External frozen benchmark | VOST primary external zero-shot, PUMaVOS partial/unusual-mask stress, M³-VOS material phase-transition stress |
 
 ## 완료된 milestone과 실행 기록
 
@@ -55,6 +55,28 @@ annotation/frame 대응 inventory는 train 59,930쌍, val 7,820쌍에서 `failur
 - [x] VOST prompt loader와 공식 `J`/`J_last` evaluator 검증 (actual VOST SAM 2 export + evaluator contract smoke)
 - [x] external benchmark access ledger와 config-freeze commit 기록
 
-VOST onboarding core gate는 모두 통과했다. 하지만 추가 검증 데이터셋의 역할·manifest·loader·metric
-계약이 아직 미정이므로 Task 03은 `In Progress`를 유지한다. 전체 baseline 및 translator score 실행은
+VOST onboarding core gate는 모두 통과했다. 추가 검증 데이터셋은 PUMaVOS 공식 공개 archive 전체를 split 없는
+secondary external zero-shot으로 확정했다. 아래 onboarding
+gate가 남아 있으므로 Task 03은 `In Progress`를 유지한다. 전체 baseline 및 translator score 실행은
 Task 08·09·13에서 수행한다.
+
+## PUMaVOS 남은 gate
+
+- [ ] 공식 download source·CC BY 4.0 license·archive checksum 기록
+- [ ] 공식 archive의 dense frame/mask·object ID inventory 검증; 논문/project page의 24 videos·21,187 frames와 GitHub README의 23 videos 표기 불일치 해소
+- [ ] 객체별 first-nonempty GT mask만 conditioning으로 쓰는 loader와 temporal switch manifest 생성
+- [ ] local J/F/J&F 및 CMMT switch-relative evaluator contract smoke
+
+## M³-VOS 남은 gate
+
+- [ ] 공식 source·media 이용조건·download 경로와 access ledger 기록
+- [ ] archive SHA-256, 479-video/205,181-frame 주장과 실제 video/object/frame inventory 대조
+- [ ] official full/core split 및 배포본 split 이름 확정
+- [ ] void label을 제외하는 first-prompt loader와 fixed switch manifest 검증
+- [ ] 공식 `J/J_tr/J_cc` evaluator GT-copy·shard merge contract smoke
+- [ ] boundary `F/J&F` integrity gate: export/reload, native-resolution, resize round-trip,
+  1-pixel dilation/erosion 민감도와 phase/object-size strata 기록
+
+M³-VOS의 논문 본문 주지표는 공식 `J/J_tr/J_cc`로 고정한다. `F/J&F`는 결과를 본 뒤
+선택적으로 삭제하지 않으며, 위 integrity gate를 통과한 경우에만 비공식 부록 지표로 보고한다.
+- [ ] 전체 archive per-video 결과·video-clustered bootstrap CI 출력 형식 검증

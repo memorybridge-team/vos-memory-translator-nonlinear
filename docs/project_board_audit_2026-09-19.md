@@ -12,15 +12,15 @@ Tasks 기본 보기는 제목 오름차순으로 저장했다. 따라서 보드�
 
 | # | Task | 핵심 완료 기준 |
 |---:|---|---|
-| 01 | Scope 고정 | Small→Base+, MOSE/LVOS in-domain과 VOST external 역할, nonlinear 범위, baseline, 성공·실패 기준과 target-native 필요성 판정 규칙을 동결. DAVIS는 현재 연구 범위에서 제외. hard-event 실험 실행은 후속 pilot/evaluation task |
+| 01 | Scope 고정 | Small→Base+, MOSE/LVOS in-domain과 VOST/PUMaVOS/M³-VOS external 역할, nonlinear 범위, baseline, 성공·실패 기준과 target-native 필요성 판정 규칙을 동결. DAVIS는 현재 연구 범위에서 제외. hard-event 실험 실행은 후속 pilot/evaluation task |
 | 02 | Small/Base+ memory I/O 계약 | component별 shape·dtype·의미·정렬·복사/번역/재생성 정책, 예시 dump, runtime inventory와 State Assembly Map 동결 |
 | 03 | 데이터·난이도·baseline·metric 고정 | switch manifest, 누수 금지, video-clustered CI, 실패·제외 규칙 |
 | 04 | 논문 질문·기여·개요 | 반증 가능한 RQ, claim–evidence 대응, 과장 없는 novelty 범위 |
 | 05 | 멘토 검토 agenda | 결과·실패·결정 질문·후속 action 링크를 회의마다 누적 |
 | 06 | memory export/self-injection/target injection | export·materialize·inject 구현, Base+ same-checkpoint 연속 실행 일치, Small→Base+ target injection, 다객체·late prompt·부재/재등장·prompt correction·복수 영상/switch, field trace와 hash |
-| 07 | paired-state 수집 | video-level split, checksum manifest, resumable shard, storage capacity 보고 |
+| 07 | paired-state 수집 | MOSE/LVOS fit/dev의 future-GT-free `(b_T,a_T)` pair, video-level split, checksum manifest, resumable shard, storage capacity 보고 |
 | 08 | evaluator·필수 baseline 구현 | 동일 manifest·공식 evaluator·미래 GT 금지·결과 일치 test |
-| 09 | nonlinear 후보 구현·비교 | residual/gated/slot-context 후보, 공통 compute budget, ablation |
+| 09 | nonlinear 후보 구현·비교 | residual/gated/slot-context 후보, state-only primary, GT-free distillation·supervised rollout ablation, dev-only selection |
 | 10 | single-video overfit·pilot | overfit 통과 수치, held-out smoke, deterministic reload |
 | 11 | 전체 학습·반복 실험 | seed·checkpoint 선택·중단/재개·실패 run 보존 |
 | 12 | 후보·프로토콜 중간 검토 | go/no-go rubric, 결정 근거, 남은 실행 matrix |
@@ -51,18 +51,20 @@ Tasks 기본 보기는 제목 오름차순으로 저장했다. 따라서 보드�
 
 - 01은 baseline·공정성 규칙·성공·중단 기준을 `docs/design/01_scope_baselines_success_stop.md` v1.0으로 동결해 Done 기준을 충족했다.
 - 02는 정적 contract·validator·실제 Small/Base+ runtime inventory·paired dump·State Assembly Map을 v1.0으로 동결해 Done 기준을 충족했다.
-- 03 v1.0의 DAVIS·MOSEv2·LVOS v2 기록은 역사적 milestone으로 보존한다. 현재 활성 protocol은 MOSEv2·LVOS v2 in-domain과 VOST external만 사용하며, 추가 검증 데이터셋 계약을 반영할 때까지 Task 03은 In Progress다.
+- 03 v1.0의 DAVIS·MOSEv2·LVOS v2 기록은 역사적 milestone으로 보존한다. 현재 활성 protocol은 MOSEv2·LVOS v2 in-domain, VOST primary external, PUMaVOS·M³-VOS complementary external을 사용하며 두 onboarding 완료 전까지 Task 03은 In Progress다.
 - 06은 단일/다객체·late prompt·부재/재등장, 전환 전후 correction, 반복 handoff의 Base+ same-checkpoint gate와 Small→Base+ Direct Copy target injection을 검증해 Done 기준을 충족했다.
 - 2026-09-24 protocol v1.1에서 in-domain과 external zero-shot을 분리하고 VOST를 추가했으므로 03을 다시 `In Progress`로 연다. 기존 v1.0 결과는 취소하지 않는다.
-- 다음 순서는 03 v1.1 VOST onboarding → 07 paired-state 수집 → 08 evaluator/baseline → 09~11 nonlinear 학습이다.
+- 다음 순서는 03 PUMaVOS·M³-VOS onboarding → 07 paired-state 수집 → 08 evaluator/baseline → 09~11 nonlinear 학습이다.
 
 ## 2026-09-24 protocol v1.1 보드 수정
 
-- **03 Benchmark:** 네 데이터 역할, VOST license/download/checksum, manifest·loader·`J/J_last`, external access ledger를 완료 조건에 추가한다.
-- **07 Paired state:** MOSEv2/LVOS v2 fit/dev만 training shard에 넣는다. DAVIS/VOST는 training paired-state source에서 제외한다.
-- **08 Baselines:** Moment-Matched 통계는 fit shard로만 계산하고 VOST `J/J_last`, in-domain/external 결과 분리를 구현한다.
-- **09–11 Training:** 모든 architecture/loss/checkpoint 선택은 MOSEv2/LVOS v2 dev에서 끝내고 config freeze 후 official validation과 external benchmark를 연다.
-- **13 Evaluation:** MOSE/LVOS sealed in-domain과 VOST external을 다른 표로 보고한다. DAVIS 결과는 현재 연구의 표·주장에 포함하지 않는다.
+- **03 Benchmark:** fit/dev·sealed final·external 역할, VOST license/download/checksum, manifest·loader·`J/J_last`, external access ledger를 완료 조건에 추가한다.
+- **03 Benchmark:** PUMaVOS 공식 archive download/checksum·dense inventory·23/24 출처 표기 불일치 해소·first-nonempty prompt·fixed manifest·J/F/J&F contract를 추가한다.
+- **03 Benchmark:** M³-VOS access/checksum·full/core inventory·void-aware prompt loader·`J/J_tr/J_cc` contract와 boundary F integrity gate를 추가한다.
+- **07 Paired state:** MOSEv2/LVOS v2 fit/dev만 training shard에 넣고 future dataset GT를 primary pair loss에 쓰지 않는다. DAVIS/VOST/PUMaVOS/M³-VOS는 training paired-state source에서 제외한다.
+- **08 Baselines:** Moment-Matched 통계는 fit shard로만 계산하고 VOST `J/J_last`, PUMaVOS local J/F/J&F, M³-VOS `J/J_tr/J_cc`와 조건부 보조 F/J&F, in-domain/external 결과 분리를 구현한다.
+- **09–11 Training:** state-only를 primary로 하고 GT-free distillation·supervised rollout을 ablation으로 분리한다. 모든 architecture/loss/checkpoint 선택은 MOSEv2/LVOS v2 dev에서 끝내고 config freeze 후 official validation과 external benchmark를 연다.
+- **13 Evaluation:** LVOS local detailed final, MOSE Codabench sealed final, VOST primary external, PUMaVOS partial/unusual-mask stress, M³-VOS material phase-transition stress를 다른 표로 보고한다. DAVIS 결과는 현재 연구의 표·주장에 포함하지 않는다.
 
 Project의 01→20 뼈대와 번호는 바꾸지 않는다. 이번 결정은 새 task를 추가하는 것이 아니라
 03·07·08·09–11·13의 데이터 노출 계약과 완료 기준을 강화한 것이다.
