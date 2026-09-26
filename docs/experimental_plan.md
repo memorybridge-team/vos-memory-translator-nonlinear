@@ -78,12 +78,12 @@ GT mask를 switch 시점에 새로 주지 않는다. Last-Visible 선택은 sour
 
 - MOSEv2 valid와 LVOS v2 val을 **in-domain held-out** 표로 보고한다.
 - VOST val/test를 primary **external cross-dataset zero-shot**으로 보고하고 공식 `J`, `J_last`를 사용한다.
-- PUMaVOS 전체 24개를 secondary external zero-shot stress test로 보고하고, first-nonempty prompt 외 미래 GT는 채점에만 사용한다.
+- PUMaVOS 공식 공개 archive 전체를 secondary external zero-shot stress test로 보고하고, first-nonempty prompt 외 미래 GT는 채점에만 사용한다.
 - VOST switch는 미래 GT 사건을 쓰지 않고 25/50/75% temporal quantile(primary 50%)로 고정한다.
 - VOST-train adaptation을 수행하면 zero-shot 표와 분리한 upper-bound ablation으로만 보고한다.
 - Source-only와 Base+-native 차이를 확인한 뒤 translator의 정확도–전환 지연–전송량 관계를 강한 mask/prompt/replay 비교군과 함께 제시한다.
 - 영상별 표본 수, 실패 사례, video-clustered confidence interval, 한계를 보고한다. 다객체 ID switch는 판정 규칙을 구현한 경우에만 주장한다.
-- PUMaVOS는 공식 split이 없고 영상이 24개뿐이므로 다른 데이터셋과 평균하지 않고 per-video 결과와 clustered CI를 별도 표에 둔다.
+- PUMaVOS는 공식 split이 없고 소규모 benchmark이므로 다른 데이터셋과 평균하지 않고 per-video 결과와 clustered CI를 별도 표에 둔다. 논문/project page의 24개와 GitHub README의 23개 표기 차이는 공식 archive inventory로 확정한다.
 - 실험 수가 늘어도 영상 단위 독립성과 표본 수를 보존한다. 복수 seed, hard-event의 충분한 사례, 데이터셋별 전체 평가를 계획에 포함하고 필요하면 더 실행한다.
 - 실험 설정·원자료 경로·코드 revision·논문 표/그림의 숫자가 대응하는지 감사한다.
 

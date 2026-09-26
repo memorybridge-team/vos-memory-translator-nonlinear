@@ -11,7 +11,7 @@ Translator는 **MOSEv2·LVOS v2 train의 video-disjoint fit/dev**에서만 학�
 설정과 checkpoint를 완전히 동결한 뒤 **LVOS v2 validation은 공개 GT로 상세 평가**,
 **MOSEv2 validation은 Codabench의 숨은 GT로 공식 aggregate 평가**,
 **VOST validation은 primary translator-level external zero-shot 평가**,
-**PUMaVOS 전체 24개 영상은 secondary external zero-shot stress test**에 사용한다.
+**PUMaVOS 공식 공개 archive 전체는 secondary external zero-shot stress test**에 사용한다.
 
 MOSEv2 validation에서는 숨은 후속 GT가 필요한 CMMT 자체 switch/recovery/identity 수치를
 로컬 결과처럼 주장하지 않는다. 대신 GT가 필요 없는 latency·VRAM·handoff bytes·replay량은
@@ -85,7 +85,7 @@ normalization/statistics, early stopping, threshold, 구조·loss·checkpoint �
 | VOST train | 전체 GT 공개 | main 학습·선택에는 미사용 | 선택 사항: freeze 후 supplementary zero-shot stress test 또는 별도 adaptation upper-bound |
 | VOST validation | 전체 GT 공개 | primary external zero-shot | 공식 J/J_last와 CMMT 세부 지표 |
 | VOST test | 현재 공개 archive에는 sequence 이름만 있고 영상·GT 없음 | 공식 영상·prompt·server가 실제 제공될 때만 optional sealed test | 공식 서버가 제공하는 지표 |
-| PUMaVOS 전체 | 24 videos, 21,187 frames의 dense GT 공개; 공식 train/val/test 구분 없음 | secondary external zero-shot stress test | 사전 고정 first-nonempty-mask protocol의 J/F/J&F, switch·recovery·system 지표 |
+| PUMaVOS 공식 공개 archive 전체 | 논문·project page 기준 24 videos, 21,187 dense frames; 공식 train/val/test 구분 없음 | secondary external zero-shot stress test | 사전 고정 first-nonempty-mask protocol의 J/F/J&F, switch·recovery·system 지표 |
 
 공식 근거:
 
@@ -93,6 +93,11 @@ normalization/statistics, early stopping, threshold, 구조·loss·checkpoint �
 - LVOS v2: <https://lingyihongfd.github.io/lvos.github.io/dataset.html>
 - VOST: <https://www.vostdataset.org/>, <https://github.com/TRI-ML/VOST/tree/main/evaluation>
 - PUMaVOS: <https://github.com/mbzuai-metaverse/XMem2>, <https://arxiv.org/abs/2307.15958>
+
+PUMaVOS 수량에는 공식 자료 간 불일치가 있다. 논문과 project page는 24 videos·21,187
+frames라고 하지만 현재 GitHub README의 overview 문장은 23 videos라고 쓴다. 따라서 실제 연구에서
+사용할 수량은 다운로드한 공식 archive의 sequence/frame/object inventory와 checksum으로 확정하고,
+누락·중복 또는 배포판 차이가 있으면 보고서에 남긴다.
 
 ## 4. 확정 실행 순서
 
@@ -266,6 +271,8 @@ secondary external zero-shot stress test로 사용한다.
   원래 frame offset을 manifest에 기록한다.
 - 공식 split이 없으므로 내부 dev subset을 만들거나 PUMaVOS 결과로 threshold·checkpoint를
   바꾸지 않는다.
+- 논문/project page의 24개와 GitHub README의 23개 표기 차이는 archive inventory gate에서
+  해소하며, 다운로드 전에 특정 수량을 실험 완료 수량으로 주장하지 않는다.
 - J/F/J&F, switch +1/+5/+20, shock, recovery, false positive, latency·VRAM·bytes를 보고한다.
 - 영상 수가 24개로 작으므로 per-video 결과와 video-clustered bootstrap confidence interval을
   함께 보고하고, VOST나 in-domain 점수와 단순 평균하지 않는다.
@@ -329,7 +336,7 @@ MOSEv2 Codabench 제출 비용·횟수가 제한되면 dev와 LVOS validation에
   - local switch/recovery/identity claim 금지
   - LVOS val의 local detailed final 역할 명시
   - VOST val의 primary external zero-shot 역할과 optional VOST-train stress test 명시
-  - PUMaVOS 전체 24개 영상의 secondary external zero-shot·first-nonempty prompt 계약 명시
+  - PUMaVOS 공식 공개 archive 전체의 secondary external zero-shot·first-nonempty prompt 계약 명시
 - `docs/experimental_plan.md`
   - train-fit → train-dev → freeze → LVOS local final → MOSE Codabench → VOST/PUMaVOS zero-shot 순서 반영
 - `docs/research_progress_summary.md`, repository `README.md`
@@ -380,7 +387,7 @@ split 없는 secondary external zero-shot stress test다. Primary Translator는 
 - VOST train+validation 642개 supplementary zero-shot을 실제 주 결과에 넣을지는 계산 예산과
   논문 지면을 보고 freeze 전에 결정한다. VOST validation 70개 공식 결과는 필수다.
 - Identity break는 판정 구현과 검증이 끝난 데이터셋에서만 보고한다.
-- PUMaVOS는 공식 split이 없으므로 전체 24개를 단일 frozen external benchmark로 사용하며,
+- PUMaVOS는 공식 split이 없으므로 공식 공개 archive 전체를 단일 frozen external benchmark로 사용하며,
   loader·object-ID·first-nonempty prompt·metric contract 검증이 Task 03의 남은 gate다.
 
 이 미확정 항목은 최종 결과를 본 뒤 유리하게 고르지 않고, 해당 데이터를 실행하기 전에

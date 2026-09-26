@@ -30,7 +30,7 @@
 | MOSEv2 | 2025 공개본, train 3,666 / val 433 / test 614 videos | 주 fit/dev 및 sealed in-domain final; 복잡 장면·재등장·distractor | 공식 train의 video-disjoint 80/20 fit/dev만 학습·선택에 쓴다. 공식 valid는 checkpoint 동결 후 최종 평가에만 사용한다. 311 compatibility set은 주 결과에 섞지 않는다. |
 | LVOS v2 | 2024 공개본(v2), train 420 / val 140 / test 160 videos | 주 fit/dev 및 sealed in-domain final; 장기 부재·재등장 | 공식 train의 video-disjoint 80/20 fit/dev만 학습·선택에 쓴다. 공식 val은 checkpoint 동결 후 최종 평가에만 사용한다. |
 | VOST | 713 videos; train 572 / val 70 / test 71, 51 transformation types, 5 FPS | 주 external cross-dataset zero-shot; 극단적 appearance/identity transformation | main translator는 VOST train/val을 전혀 보지 않는다. val은 config 동결 후 한 번 평가하고, 가능하면 official test server를 최종 외부 평가로 사용한다. VOST-train fine-tuning은 별도 adaptation upper-bound ablation이다. |
-| PUMaVOS | 24 videos, 21,187 dense frames, 30 FPS; 공식 split 없음 | 보조 external zero-shot stress; partial/unusual masks, object parts, fast motion, occlusion | 전체 24개를 config 동결 후 한 번 평가한다. 내부 dev split이나 학습·통계 추정에 쓰지 않는다. 객체별 first-nonempty GT mask 한 장만 prompt로 사용한다. |
+| PUMaVOS | 논문/project page 기준 24 videos, 21,187 dense frames, 30 FPS; 공식 split 없음 | 보조 external zero-shot stress; partial/unusual masks, object parts, fast motion, occlusion | 공식 공개 archive 전체를 config 동결 후 한 번 평가한다. 내부 dev split이나 학습·통계 추정에 쓰지 않는다. 객체별 first-nonempty GT mask 한 장만 prompt로 사용한다. |
 
 ### 2.1 VOST split별 실행 계약
 
@@ -44,6 +44,10 @@
 - LVOS v2: <https://arxiv.org/abs/2404.19326>, <https://github.com/LingyiHongfd/LVOS>
 - VOST: <https://arxiv.org/abs/2212.06200>, <https://www.vostdataset.org/>, <https://github.com/TRI-ML/VOST/tree/main/evaluation>
 - PUMaVOS: <https://arxiv.org/abs/2307.15958>, <https://github.com/mbzuai-metaverse/XMem2>
+
+PUMaVOS 논문과 project page는 24 videos·21,187 frames를 보고하지만 현재 GitHub README의
+overview 문장은 23 videos라고 적는다. 다운로드한 공식 archive의 sequence/frame/object inventory와
+checksum을 실제 protocol 수량의 기준으로 삼고, 이 출처 불일치를 Task 03 보고서에 명시한다.
 
 GitHub 저장소의 코드 license와 dataset 자체의 이용조건을 같은 것으로 간주하지 않는다.
 다운로드 전 각 배포 페이지의 dataset terms를 별도 기록하고, 원본 RGB/GT/checkpoint는
@@ -199,7 +203,7 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
   temporal quantile로 고정하며 primary switch는 50%다.
 - **PUMaVOS:** 공식 train/val/test 분할이나 단일 evaluator가 없으므로 first-nonempty-mask
   semi-supervised protocol을 고정하고 local J/F/J&F와 CMMT switch-relative 지표를 계산한다.
-  24개 영상별 결과와 video-clustered bootstrap CI를 함께 보고한다.
+  공식 공개 archive의 영상별 결과와 video-clustered bootstrap CI를 함께 보고한다.
 
 출처는 MOSEv2 공식 [README](https://github.com/henghuiding/MOSE-api)와 LVOS 공식 [evaluation toolkit](https://github.com/LingyiHongfd/lvos-evaluation)이다.
 
@@ -240,7 +244,7 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - [x] VOST prompt loader와 공식 `J/J_last` evaluator를 실제 데이터로 검증한다. (actual SAM 2
   state-export 및 official-layout PNG export; evaluator GT-copy contract smoke)
 - [x] 외부 benchmark access ledger를 만들고 config freeze commit을 기록한다.
-- [ ] PUMaVOS download/checksum, 24-video dense annotation inventory, object-ID와 first-nonempty
+- [ ] PUMaVOS download/checksum, 공식 archive의 dense annotation inventory와 23/24 표기 불일치 해소, object-ID와 first-nonempty
   prompt loader, fixed switch manifest, local J/F/J&F evaluator contract를 검증한다.
 
 v1.0의 세 데이터셋 gate는 2026-09-23 모두 충족했다. 2026-09-24에 평가 역할을

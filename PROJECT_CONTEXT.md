@@ -11,7 +11,7 @@
 ## 2. 확정 범위
 
 - Model: 공식 SAM 2.1 Small → Base+ 한 방향. 같은 revision의 코드와 각각의 checkpoint를 사용한다.
-- Dataset role: MOSEv2/LVOS v2 train-fit의 paired state로 translator를 학습하고 video-disjoint dev에서 dense-GT downstream 성능으로 선택한다. LVOS v2 validation은 local detailed final, MOSEv2 validation은 Codabench sealed final, VOST val/test는 primary external zero-shot, PUMaVOS 전체 24개는 secondary external stress로 사용한다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외한다.
+- Dataset role: MOSEv2/LVOS v2 train-fit의 paired state로 translator를 학습하고 video-disjoint dev에서 dense-GT downstream 성능으로 선택한다. LVOS v2 validation은 local detailed final, MOSEv2 validation은 Codabench sealed final, VOST val/test는 primary external zero-shot, PUMaVOS 공식 공개 archive 전체는 secondary external stress로 사용한다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외한다.
 - Method: nonlinear. 첫 모델은 component-wise residual MLP. 필요성을 검증하며 gated MLP와 slot/context attention을 비교한다. 새로운 Linear/Ridge 학습은 범위가 아니다.
 - Baseline: Source-only, Base+-native/Full Replay, Direct Copy, Moment-Matched Copy, 객체별 Original-Prompt, Last-Visible Source Mask, Original+Last-Visible, Original-Prompt(s)+Replay-4/8/16, Nonlinear Translator. Last-Mask와 original anchor 없는 Recent-Window Replay-k는 최종 비교군에서 제외한다. Empty-reset proxy는 구현 진단군으로만 유지한다.
 - 기간: [대한전자공학회 2026 추계학술대회](https://conf.theieie.org/2026f/pages/outlines.vm)의 논문 제출일은 2026-10-19로 확인했다. 정확한 마감 시각·시간대와 업로드 형식은 제출 화면에서 재확인한다. 일정은 필요한 데이터셋·사례·반복 횟수를 줄이는 상한이 아니다. 추가 GPU·작업 자원과 재개 가능한 실행으로 규모를 유지한다.
@@ -307,11 +307,14 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[결정]** Primary nonlinear Translator는 state-only로 학습한다. Target-native future
   logit distillation은 GT-free ablation, dataset GT supervised rollout은 train-fit GT만 쓰는
   별도 ablation으로 보고한다. Primary paired-state switch는 GT 비의존 temporal rule을 쓴다.
-- **[결정]** PUMaVOS는 24 videos·21,187 dense frames·30 FPS이며 공식 train/val/test split이
-  없으므로 validation split이라 부르지 않는다. 전체 24개를 config freeze 뒤 한 번 실행하는
+- **[결정]** PUMaVOS는 논문·project page 기준 24 videos·21,187 dense frames·30 FPS이며 공식 train/val/test split이
+  없으므로 validation split이라 부르지 않는다. 공식 공개 archive 전체를 config freeze 뒤 한 번 실행하는
   secondary external zero-shot stress test로 사용한다. 객체별 first-nonempty GT mask 한 장만
   prompt로 쓰고 미래 GT는 평가에만 사용한다.
 - **[상태]** VOST는 primary external을 유지한다. PUMaVOS download/checksum·inventory·loader·
   fixed manifest·J/F/J&F contract가 Task 03의 새 남은 gate이며, 완료 전 Done으로 옮기지 않는다.
+- **[출처 불일치]** 현재 XMem2 GitHub README overview에는 PUMaVOS를 23 videos라고 쓴 문장이
+  있어 논문·project page의 24 videos와 충돌한다. 다운로드한 공식 archive의 sequence/frame/object
+  inventory와 checksum으로 실제 평가 수량을 확정하고, 차이를 Task 03 보고서에 기록한다.
 - **[보류]** RunPod `/workspace/CMMT`의 DAVIS 원본·과거 산출물 13개 경로는 사용자의 지시에
   따라 삭제하지 않고 그대로 보존한다.

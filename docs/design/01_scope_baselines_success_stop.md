@@ -32,7 +32,7 @@ Small이 frame `t`까지 축적한 객체별 memory/state를 nonlinear translato
 - 학습·선택은 MOSEv2/LVOS v2 train의 video-disjoint fit/dev에서만 수행한다.
 - MOSEv2/LVOS v2 official validation은 final configuration을 동결하기 전까지 열지 않는다.
 - VOST는 gradient, 통계 추정, architecture/loss/checkpoint/threshold/replay-k 선택에 쓰지
-  않는다. VOST val/test는 primary external zero-shot, PUMaVOS 전체 24개는 secondary
+  않는다. VOST val/test는 primary external zero-shot, PUMaVOS 공식 공개 archive 전체는 secondary
   external stress로 표시한다. DAVIS는 현재 연구의
   학습·평가·주장 범위에서 제외한다.
 

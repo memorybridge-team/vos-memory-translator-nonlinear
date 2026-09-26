@@ -55,7 +55,7 @@ annotation/frame 대응 inventory는 train 59,930쌍, val 7,820쌍에서 `failur
 - [x] VOST prompt loader와 공식 `J`/`J_last` evaluator 검증 (actual VOST SAM 2 export + evaluator contract smoke)
 - [x] external benchmark access ledger와 config-freeze commit 기록
 
-VOST onboarding core gate는 모두 통과했다. 추가 검증 데이터셋은 PUMaVOS 전체 24개를 split 없는
+VOST onboarding core gate는 모두 통과했다. 추가 검증 데이터셋은 PUMaVOS 공식 공개 archive 전체를 split 없는
 secondary external zero-shot으로 확정했다. 아래 onboarding
 gate가 남아 있으므로 Task 03은 `In Progress`를 유지한다. 전체 baseline 및 translator score 실행은
 Task 08·09·13에서 수행한다.
@@ -63,7 +63,7 @@ Task 08·09·13에서 수행한다.
 ## PUMaVOS 남은 gate
 
 - [ ] 공식 download source·CC BY 4.0 license·archive checksum 기록
-- [ ] 24 videos·21,187 dense frame/mask inventory와 object ID 검증
+- [ ] 공식 archive의 dense frame/mask·object ID inventory 검증; 논문/project page의 24 videos·21,187 frames와 GitHub README의 23 videos 표기 불일치 해소
 - [ ] 객체별 first-nonempty GT mask만 conditioning으로 쓰는 loader와 temporal switch manifest 생성
 - [ ] local J/F/J&F 및 CMMT switch-relative evaluator contract smoke
-- [ ] 24-video per-video 결과·video-clustered bootstrap CI 출력 형식 검증
+- [ ] 전체 archive per-video 결과·video-clustered bootstrap CI 출력 형식 검증

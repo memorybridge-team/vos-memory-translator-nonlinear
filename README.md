@@ -68,7 +68,7 @@ Small이 switch 시점 t까지 처리 → 객체별 source state 추출
 
 성공 기준은 state tensor가 비슷한지만이 아닙니다. 전환 후 객체 분할 J&F, 부재 중 오검출, 재등장 후 복구, 전환 지연과 전달량을 함께 봅니다.
 
-실제 데이터 운영은 `translator fit → in-domain development → sealed in-domain final → external frozen benchmark`의 네 역할로 분리합니다. 주 translator는 MOSEv2/LVOS v2 train-fit의 `(Small state, Base+ native state)` 쌍으로 학습하며 future frame GT를 primary loss에 사용하지 않습니다. 같은 train의 video-disjoint dev에서만 dense GT downstream 성능으로 구조와 checkpoint를 선택합니다. 설정 동결 뒤 LVOS v2 validation은 local detailed final, MOSEv2 validation은 Codabench sealed final, VOST는 primary external zero-shot, PUMaVOS 전체 24개는 secondary external stress로 사용합니다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외합니다.
+실제 데이터 운영은 `translator fit → in-domain development → sealed in-domain final → external frozen benchmark`의 네 역할로 분리합니다. 주 translator는 MOSEv2/LVOS v2 train-fit의 `(Small state, Base+ native state)` 쌍으로 학습하며 future frame GT를 primary loss에 사용하지 않습니다. 같은 train의 video-disjoint dev에서만 dense GT downstream 성능으로 구조와 checkpoint를 선택합니다. 설정 동결 뒤 LVOS v2 validation은 local detailed final, MOSEv2 validation은 Codabench sealed final, VOST는 primary external zero-shot, PUMaVOS 공식 공개 archive 전체는 secondary external stress로 사용합니다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외합니다.
 
 ## 계획과 비교군
 
