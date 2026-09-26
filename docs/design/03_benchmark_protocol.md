@@ -1,6 +1,6 @@
 # Task 03 — Benchmark protocol v1.1
 
-> 상태: **IN PROGRESS** — v1.0과 v1.1 VOST onboarding gate는 완료했으나, 추가 검증 데이터셋의 역할·manifest·loader·metric 계약을 동결하기 전에는 Task를 닫지 않는다.
+> 상태: **IN PROGRESS** — v1.0과 v1.1 VOST onboarding gate는 완료했으나, PUMaVOS의 download/checksum·manifest·loader·metric 계약을 검증하고 동결하기 전에는 Task를 닫지 않는다.
 > 범위: SAM 2.1 Small → Base+ nonlinear state handoff  
 > 목적: 결과를 보기 전에 dataset role, case taxonomy, baseline 입력, metric과 통계 단위를 고정한다.
 > 변경일: 2026-09-24 — in-domain held-out와 external cross-dataset zero-shot을 분리했다.
@@ -30,6 +30,7 @@
 | MOSEv2 | 2025 공개본, train 3,666 / val 433 / test 614 videos | 주 fit/dev 및 sealed in-domain final; 복잡 장면·재등장·distractor | 공식 train의 video-disjoint 80/20 fit/dev만 학습·선택에 쓴다. 공식 valid는 checkpoint 동결 후 최종 평가에만 사용한다. 311 compatibility set은 주 결과에 섞지 않는다. |
 | LVOS v2 | 2024 공개본(v2), train 420 / val 140 / test 160 videos | 주 fit/dev 및 sealed in-domain final; 장기 부재·재등장 | 공식 train의 video-disjoint 80/20 fit/dev만 학습·선택에 쓴다. 공식 val은 checkpoint 동결 후 최종 평가에만 사용한다. |
 | VOST | 713 videos; train 572 / val 70 / test 71, 51 transformation types, 5 FPS | 주 external cross-dataset zero-shot; 극단적 appearance/identity transformation | main translator는 VOST train/val을 전혀 보지 않는다. val은 config 동결 후 한 번 평가하고, 가능하면 official test server를 최종 외부 평가로 사용한다. VOST-train fine-tuning은 별도 adaptation upper-bound ablation이다. |
+| PUMaVOS | 24 videos, 21,187 dense frames, 30 FPS; 공식 split 없음 | 보조 external zero-shot stress; partial/unusual masks, object parts, fast motion, occlusion | 전체 24개를 config 동결 후 한 번 평가한다. 내부 dev split이나 학습·통계 추정에 쓰지 않는다. 객체별 first-nonempty GT mask 한 장만 prompt로 사용한다. |
 
 ### 2.1 VOST split별 실행 계약
 
@@ -42,6 +43,7 @@
 - MOSEv2: <https://arxiv.org/abs/2508.05630>, <https://github.com/henghuiding/MOSE-api>
 - LVOS v2: <https://arxiv.org/abs/2404.19326>, <https://github.com/LingyiHongfd/LVOS>
 - VOST: <https://arxiv.org/abs/2212.06200>, <https://www.vostdataset.org/>, <https://github.com/TRI-ML/VOST/tree/main/evaluation>
+- PUMaVOS: <https://arxiv.org/abs/2307.15958>, <https://github.com/mbzuai-metaverse/XMem2>
 
 GitHub 저장소의 코드 license와 dataset 자체의 이용조건을 같은 것으로 간주하지 않는다.
 다운로드 전 각 배포 페이지의 dataset terms를 별도 기록하고, 원본 RGB/GT/checkpoint는
@@ -51,12 +53,12 @@ Git에 넣지 않는다. 실제 사용 snapshot에는 download source, archive/f
 고정 이용조건은 다음과 같다. MOSEv2는 CC BY-NC-SA 4.0 및 비상업 연구 용도, LVOS annotation은 CC BY 4.0이고 원본
 영상 데이터는 비상업 연구 용도다. LVOS evaluation toolkit의 BSD-3-Clause는
 평가 코드의 license이며 dataset license로 확장하지 않는다. VOST는
-CC BY-NC-SA 4.0이다.
+CC BY-NC-SA 4.0이고 PUMaVOS는 CC BY 4.0이다.
 
 ### 2.2 Zero-shot의 정확한 의미와 금지 사항
 
 본 연구에서 zero-shot은 **frozen SAM 2 backbone의 pretraining provenance 전체가 아니라,
-translator-level cross-dataset zero-shot transfer**를 뜻한다. VOST에서는 다음을
+translator-level cross-dataset zero-shot transfer**를 뜻한다. VOST와 PUMaVOS에서는 다음을
 금지한다.
 
 - gradient, early stopping, architecture/loss/checkpoint 선택
@@ -73,11 +75,24 @@ exploratory result로 구분한다.
 주 결과는 두 영역으로 나눈다.
 
 - **In-domain held-out:** MOSEv2 valid, LVOS v2 val
-- **External cross-dataset zero-shot:** VOST val/test
+- **External cross-dataset zero-shot:** VOST val/test(primary), PUMaVOS 전체(secondary stress)
 
 학습 노출 matrix의 행은 `MOSE-only`, `LVOS-only`, `MOSE+LVOS`이고, 열은
-MOSE valid, LVOS val, VOST val이다. `MOSE+LVOS+VOST-train`은 필요한 경우에만
+MOSE valid, LVOS val, VOST val, PUMaVOS이다. `MOSE+LVOS+VOST-train`은 필요한 경우에만
 별도 adaptation upper-bound 행으로 보고하며 zero-shot 행과 평균내지 않는다.
+
+### 2.4 Paired-state fit과 dense GT의 경계
+
+Primary Translator fit의 supervision은 동일 prefix에서 얻은 `(b_T, a_T)` state pair다.
+여기서 `a_T`는 dataset의 frame별 GT가 아니라 frozen Base+가 같은 RGB·prompt timeline을
+직접 처리해 만든 native state다. 따라서 future dense GT는 primary state-only loss에 넣지 않는다.
+
+- 최소 입력은 RGB sequence, 객체를 등록할 first-nonempty prompt, object ID와 고정 switch다.
+- non-conditioning frame memory는 각 모델 자신의 예측을 따라 생성한다. 미래 GT mask로 history를 교정하지 않는다.
+- primary training switch는 temporal quantile처럼 GT 비의존 규칙으로 정한다.
+- dense GT는 MOSE/LVOS train-dev에서 구조·loss·checkpoint를 downstream J&F로 선택할 때부터 사용한다.
+- future GT supervised rollout은 별도 ablation이며 primary state-only 결과와 분리한다.
+- Target-native future logit distillation은 dataset future GT 없이 가능한 별도 ablation이다.
 
 ## 3. 공통 case manifest
 
@@ -182,6 +197,9 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
   보고한다. VOST는 경계가 모호하고 motion blur가 큰 특성을 반영해 `F`를 공식 지표처럼
   주장하지 않는다. CMMT switch는 미래 GT 사건에 맞추지 않고 영상 길이의 25/50/75%
   temporal quantile로 고정하며 primary switch는 50%다.
+- **PUMaVOS:** 공식 train/val/test 분할이나 단일 evaluator가 없으므로 first-nonempty-mask
+  semi-supervised protocol을 고정하고 local J/F/J&F와 CMMT switch-relative 지표를 계산한다.
+  24개 영상별 결과와 video-clustered bootstrap CI를 함께 보고한다.
 
 출처는 MOSEv2 공식 [README](https://github.com/henghuiding/MOSE-api)와 LVOS 공식 [evaluation toolkit](https://github.com/LingyiHongfd/lvos-evaluation)이다.
 
@@ -222,8 +240,11 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - [x] VOST prompt loader와 공식 `J/J_last` evaluator를 실제 데이터로 검증한다. (actual SAM 2
   state-export 및 official-layout PNG export; evaluator GT-copy contract smoke)
 - [x] 외부 benchmark access ledger를 만들고 config freeze commit을 기록한다.
+- [ ] PUMaVOS download/checksum, 24-video dense annotation inventory, object-ID와 first-nonempty
+  prompt loader, fixed switch manifest, local J/F/J&F evaluator contract를 검증한다.
 
 v1.0의 세 데이터셋 gate는 2026-09-23 모두 충족했다. 2026-09-24에 평가 역할을
-강화하면서 VOST onboarding gate를 추가했고 2026-09-25에 완료했다. 이후 결과를 본 뒤
+강화하면서 VOST onboarding gate를 추가했고 2026-09-25에 완료했다. PUMaVOS onboarding은
+새 남은 gate이며 완료 전 Task 03을 닫지 않는다. 이후 결과를 본 뒤
 taxonomy, k 값, metric 또는 split을 유리하게 바꾸려면 날짜·이유·영향받는 run을 decision
 log에 남긴다.

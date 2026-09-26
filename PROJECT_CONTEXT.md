@@ -11,7 +11,7 @@
 ## 2. 확정 범위
 
 - Model: 공식 SAM 2.1 Small → Base+ 한 방향. 같은 revision의 코드와 각각의 checkpoint를 사용한다.
-- Dataset role: MOSEv2/LVOS v2 train-fit·dev로 translator를 학습·선택하고 official validation을 sealed in-domain final로 사용한다. VOST val/test는 primary external zero-shot으로 사용한다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외한다.
+- Dataset role: MOSEv2/LVOS v2 train-fit의 paired state로 translator를 학습하고 video-disjoint dev에서 dense-GT downstream 성능으로 선택한다. LVOS v2 validation은 local detailed final, MOSEv2 validation은 Codabench sealed final, VOST val/test는 primary external zero-shot, PUMaVOS 전체 24개는 secondary external stress로 사용한다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외한다.
 - Method: nonlinear. 첫 모델은 component-wise residual MLP. 필요성을 검증하며 gated MLP와 slot/context attention을 비교한다. 새로운 Linear/Ridge 학습은 범위가 아니다.
 - Baseline: Source-only, Base+-native/Full Replay, Direct Copy, Moment-Matched Copy, 객체별 Original-Prompt, Last-Visible Source Mask, Original+Last-Visible, Original-Prompt(s)+Replay-4/8/16, Nonlinear Translator. Last-Mask와 original anchor 없는 Recent-Window Replay-k는 최종 비교군에서 제외한다. Empty-reset proxy는 구현 진단군으로만 유지한다.
 - 기간: [대한전자공학회 2026 추계학술대회](https://conf.theieie.org/2026f/pages/outlines.vm)의 논문 제출일은 2026-10-19로 확인했다. 정확한 마감 시각·시간대와 업로드 형식은 제출 화면에서 재확인한다. 일정은 필요한 데이터셋·사례·반복 횟수를 줄이는 상한이 아니다. 추가 GPU·작업 자원과 재개 가능한 실행으로 규모를 유지한다.
@@ -31,7 +31,7 @@
 
 ## 5. 실험 규칙
 
-- MOSEv2/LVOS v2 train을 영상 단위 fit/dev로 분리하고 official validation은 config freeze 전까지 열지 않는다. VOST 결과를 모델 선택에 쓰지 않는다.
+- MOSEv2/LVOS v2 train을 영상 단위 fit/dev로 분리한다. Primary fit에는 future dataset GT를 쓰지 않고 `(b_T,a_T)` state pair를 사용한다. Official validation과 VOST/PUMaVOS는 config freeze 전까지 열지 않으며 모델 선택에 쓰지 않는다.
 - 모든 비교군은 switch 이전에 등록된 동일 객체 집합과 실제 prompt timeline을 쓴다. 미래 GT로 handoff 입력을 고르지 않는다.
 - Original-Prompt는 객체별 최초 지정 frame을 뜻한다. Last-Visible은 source 예측에서 객체별 마지막 비어 있지 않은 mask와 해당 RGB를 쓴다.
 - Source-only는 수학적 하한, Base+-native는 수학적 상한이 아니다.
@@ -41,7 +41,7 @@
 
 ## 6. 현재 위치와 다음 단계
 
-새 저장소 구성 및 범위 고정 → Base+ checkpoint와 same-checkpoint export→inject 검증 → Task 03 v1.1/VOST onboarding → MOSE/LVOS paired-state·baseline·nonlinear 학습 → sealed in-domain 평가 → VOST external 평가 → 논문 작성. 자세한 일정과 성공 판정은 [실험 계획](docs/experimental_plan.md)을 따른다.
+새 저장소 구성 및 범위 고정 → Base+ checkpoint와 same-checkpoint export→inject 검증 → Task 03 VOST/PUMaVOS onboarding → MOSE/LVOS future-GT-free paired-state·baseline·nonlinear 학습 → sealed in-domain 평가 → VOST/PUMaVOS external 평가 → 논문 작성. 자세한 일정과 성공 판정은 [실험 계획](docs/experimental_plan.md)을 따른다.
 
 GitHub repository를 새로 만들었다는 사실만으로 실험이 이전됐다는 뜻은 아니다. 기존 GPU cache는 pair와 checkpoint가 일치하는지 확인한 뒤 사용하고 Base+-native state는 새로 생성한다.
 
@@ -274,3 +274,44 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[상태]** VOST archive·manifest·loader·official evaluator contract는 완료했으나,
   사용자가 추가 검증 데이터셋을 요청했으므로 Task 03은 `In Progress`로 유지한다. 그 데이터셋의
   이름·연구 역할·사용 가능한 GT/공식 evaluator는 아직 미확정이다.
+
+## 33. 2026-09-25 — Translator train/dev/final 평가 역할 정정
+
+- **[결정]** MOSEv2·LVOS v2 train의 video-disjoint fit/dev에서만 Translator를
+  학습·선택하고, 코드·config·checkpoint·manifest·evaluator를 동결한 뒤 final/external
+  평가를 실행한다.
+- **[정정]** MOSEv2 official validation은 첫-frame GT만 공개되고 후속 GT는 숨겨져 있으므로
+  local detailed final이 아니다. Frozen prediction을 Codabench에 제출해 서버가 반환한 공식
+  aggregate만 최종 표에 사용한다. Local GT 기반 switch J&F·recovery·identity 수치는
+  주장하지 않으며, latency·VRAM·replay·bytes처럼 GT가 필요 없는 지표만 추가할 수 있다.
+- **[결정]** LVOS v2 validation은 공개 전체 GT로 official J/F/J&F와 CMMT switch/recovery
+  세부 지표를 계산하는 local in-domain final이다. VOST validation은 freeze 뒤 한 번 실행하는
+  primary translator-level external zero-shot이며 공식 `J/J_last`와 CMMT 세부 지표를 보고한다.
+- **[선택 사항]** VOST train은 main fit/dev에 넣지 않는다. Freeze 뒤 공개 train+validation
+  642개를 supplementary zero-shot stress test로 평가할 수 있으나, 기존 연구와 직접 비교하는
+  공식 숫자는 validation 70개를 별도로 보고한다. VOST-train fine-tuning은 adaptation
+  upper-bound로 분리한다.
+- **[문서]** 독립적인 결정·후속 동기화 지침은
+  `docs/design/03_translator_train_dev_final_evaluation_decision.md`에 기록했다. 기존 protocol,
+  실행 계획, Task 03/07/08/09/13 Issue·Project 설명은 이 결정 문서를 기준으로 별도 PR에서
+  동기화해야 하며, 이 기록만으로 외부 보드나 기존 문서가 수정됐다고 간주하지 않는다.
+
+## 34. 2026-09-26 — State-only fit과 PUMaVOS external stress 확정
+
+- **[판단]** Cross-Model KV Cache Transfer 논문처럼 paired internal state만으로 mapper를
+  맞추는 접근은 CMMT에도 적용 가능하다. 동일 prefix의 Small state `b_T`와 frozen Base+
+  native state `a_T`가 supervision이므로 future dataset GT는 primary state-only fit에 필수가 아니다.
+- **[차이]** KV 논문은 `k`를 네 downstream benchmark 평균으로 선택하고 그 지표도 결과에
+  포함했으므로 엄격한 train/validation/test 분리 사례는 아니다. CMMT는 더 엄격하게
+  future-GT-free fit, video-disjoint dense-GT dev selection, sealed/external final로 분리한다.
+- **[결정]** Primary nonlinear Translator는 state-only로 학습한다. Target-native future
+  logit distillation은 GT-free ablation, dataset GT supervised rollout은 train-fit GT만 쓰는
+  별도 ablation으로 보고한다. Primary paired-state switch는 GT 비의존 temporal rule을 쓴다.
+- **[결정]** PUMaVOS는 24 videos·21,187 dense frames·30 FPS이며 공식 train/val/test split이
+  없으므로 validation split이라 부르지 않는다. 전체 24개를 config freeze 뒤 한 번 실행하는
+  secondary external zero-shot stress test로 사용한다. 객체별 first-nonempty GT mask 한 장만
+  prompt로 쓰고 미래 GT는 평가에만 사용한다.
+- **[상태]** VOST는 primary external을 유지한다. PUMaVOS download/checksum·inventory·loader·
+  fixed manifest·J/F/J&F contract가 Task 03의 새 남은 gate이며, 완료 전 Done으로 옮기지 않는다.
+- **[보류]** RunPod `/workspace/CMMT`의 DAVIS 원본·과거 산출물 13개 경로는 사용자의 지시에
+  따라 삭제하지 않고 그대로 보존한다.

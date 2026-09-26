@@ -5,7 +5,7 @@
 ## 한눈에 보기
 
 - 완료: Task 01 연구 범위, Task 02 State I/O, Task 06 runtime export·assembly·injection
-- 진행 중: Task 03 benchmark protocol — VOST core contract 검증 완료, 추가 검증 데이터셋 반영 대기
+- 진행 중: Task 03 benchmark protocol — VOST core contract 검증 완료, PUMaVOS onboarding 대기
 - 다음: Task 03 최종 동결 → Task 07 paired-state 수집 → Task 08 baselines → Task 09–11 nonlinear 학습·동결 → final/external 평가
 - 현재 결과 해석: runtime은 exact하게 동작하지만, Small→Base+ nonlinear translator의 성능은 아직 검증하지 않음
 
@@ -53,10 +53,11 @@
   - [Base+ self-injection 원본 실행](../reports/tasks/06_runtime/runs/2026-09-20_base_plus_self_injection/README.md)
   - [Task 06 edge case·Direct Copy 원본 실행](../reports/tasks/06_runtime/runs/2026-09-21_edge_case_and_direct_injection/README.md)
 
-# 4. 벤치마크·데이터셋 — 추가 검증 데이터셋 반영 중
+# 4. 벤치마크·데이터셋 — PUMaVOS onboarding 진행 중
 
 - 작업:
   - MOSEv2·LVOS v2 train/validation manifest와 loader, VOST external manifest와 loader 검증
+  - PUMaVOS를 split 없는 secondary external zero-shot stress test로 추가
   - MOSEv2/LVOS v2 train을 video-disjoint fit/dev로 분리
   - in-domain held-out와 external cross-dataset zero-shot 역할 분리
 - 결과:
@@ -64,9 +65,9 @@
   - LVOS v2 validation: 140개 영상, 714개 case
   - MOSEv2/LVOS v2 loader 전수 검증 및 VOST train/val frame·annotation inventory `failure_count=0`
   - MOSEv2/LVOS v2를 fit/dev 및 sealed in-domain final로 사용
-  - VOST를 유일한 primary external zero-shot으로 고정하고 DAVIS는 연구 범위에서 제외
+  - VOST를 primary external zero-shot, PUMaVOS를 secondary external stress로 고정하고 DAVIS는 연구 범위에서 제외
   - VOST archive checksum·manifest·SAM 2 loader·official `J/J_last` contract 검증 완료
-  - 추가 검증 데이터셋의 역할·manifest·loader·metric 계약을 반영한 뒤 Task 03을 최종 종료
+  - PUMaVOS download/checksum·manifest·loader·metric contract를 검증한 뒤 Task 03을 최종 종료
 - 증빙 링크:
   - [Benchmark protocol](design/03_benchmark_protocol.md)
   - [Manifest 설명](../manifests/README.md)
@@ -89,7 +90,7 @@
 ## 다음 단계
 
 1. Task 03 v1.1 VOST archive·checksum·manifest·loader·공식 `J/J_last` contract 검증을 완료했다.
-2. MOSEv2/LVOS v2 fit/dev에서만 Small/Base+ paired state를 수집한다.
+2. MOSEv2/LVOS v2 fit/dev에서 future dataset GT 없이 Small/Base+ paired state를 수집한다.
 3. 같은 evaluator에서 baseline을 구현하고 fit 통계와 dev model selection을 검증한다.
 4. nonlinear 후보를 학습·선정한 뒤 config를 동결한다.
-5. MOSE/LVOS sealed in-domain final과 VOST external evaluation을 순서대로 실행한다.
+5. LVOS local final, MOSE Codabench sealed final, VOST primary와 PUMaVOS secondary external evaluation을 순서대로 실행한다.

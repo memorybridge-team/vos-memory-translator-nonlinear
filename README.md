@@ -5,7 +5,7 @@
 **모델:** SAM 2.1 Small → Base+
 **학습·in-domain 평가:** MOSEv2, LVOS v2
 
-**external 평가:** VOST(primary external zero-shot)
+**external 평가:** VOST(primary external zero-shot), PUMaVOS(secondary external stress)
 **기간:** 2026-09-18부터 약 4주. 실제 투고 마감일은 확정 후 기록합니다.  
 **제안 방법:** 객체별 spatial memory와 object pointer를 변환하는 nonlinear translator. Presence, frame ID, positional encoding과 객체 ID는 별도의 상태 계약에 따라 처리합니다.
 
@@ -32,9 +32,9 @@ Project Board는 상세 연구 문서를 복제해 보관하는 곳이 아니라
 |---|---|---|
 | 연구 범위·성공 기준 고정 | `Done` — [Issue #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1) | [Baseline·성공·중단 기준](docs/design/01_scope_baselines_success_stop.md) 동결 완료 |
 | Small/Base+ State I/O 계약 | `Done` — [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2) | [I/O 계약 v1.1](docs/design/small_base_state_io_contract.md), [Task 02 최종 보고서](reports/tasks/02_state_io/FINAL_REPORT.md) |
-| dataset·난이도·baseline·metric 동결 | `In Progress` — [Issue #4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4) | VOST manifest·loader·`J/J_last` contract 검증 완료; 추가 검증 데이터셋 계약 반영 대기 |
+| dataset·난이도·baseline·metric 동결 | `In Progress` — [Issue #4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4) | VOST gate 완료; PUMaVOS download·manifest·loader·metric contract 검증 대기 |
 | 상태 추출·self-injection·target injection | `Done` — [Issue #5](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/5) | [Task 06 최종 보고서](reports/tasks/06_runtime/FINAL_REPORT.md); correction·반복 handoff까지 exact |
-| paired Small/Base+ state 수집 | `Todo` | MOSEv2/LVOS v2 fit/dev만 사용한 video-level split, checksum manifest, compact state pair |
+| paired Small/Base+ state 수집 | `Todo` | MOSEv2/LVOS v2 fit/dev에서 future GT 없는 state-only pair, video-level split, checksum manifest, compact shard |
 | 공통 evaluator·baseline | `Todo` | 같은 manifest에서 강한 재인코딩·replay·native 비교 결과 |
 | nonlinear 후보 학습·비교 | `Todo` | MLP/gated MLP/slot-context 후보의 downstream·비용 비교 |
 
@@ -68,7 +68,7 @@ Small이 switch 시점 t까지 처리 → 객체별 source state 추출
 
 성공 기준은 state tensor가 비슷한지만이 아닙니다. 전환 후 객체 분할 J&F, 부재 중 오검출, 재등장 후 복구, 전환 지연과 전달량을 함께 봅니다.
 
-실제 데이터 운영은 `translator fit → in-domain development → sealed in-domain final → external frozen benchmark`의 네 역할로 분리합니다. 주 translator는 MOSEv2/LVOS v2 train-fit에서 학습하고 같은 train의 video-disjoint dev에서만 선택합니다. 공식 validation은 final configuration 동결 후 열며, VOST를 유일한 primary external cross-dataset zero-shot benchmark로 사용합니다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외합니다. Task 03은 추가 검증 데이터셋의 역할과 계약을 반영할 때까지 열린 상태로 유지합니다.
+실제 데이터 운영은 `translator fit → in-domain development → sealed in-domain final → external frozen benchmark`의 네 역할로 분리합니다. 주 translator는 MOSEv2/LVOS v2 train-fit의 `(Small state, Base+ native state)` 쌍으로 학습하며 future frame GT를 primary loss에 사용하지 않습니다. 같은 train의 video-disjoint dev에서만 dense GT downstream 성능으로 구조와 checkpoint를 선택합니다. 설정 동결 뒤 LVOS v2 validation은 local detailed final, MOSEv2 validation은 Codabench sealed final, VOST는 primary external zero-shot, PUMaVOS 전체 24개는 secondary external stress로 사용합니다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외합니다.
 
 ## 계획과 비교군
 
@@ -87,6 +87,7 @@ Nonlinear 후보는 component-wise residual MLP, gated MLP, slot/context attenti
 | `tests/` | 상태 구조와 기존 기능 회귀 검사 |
 | `configs/` | 재현용 설정과 manifest 정책 |
 | `docs/experimental_plan.md` | 현재 유효한 4주 연구 계획 |
+| `docs/design/03_translator_train_dev_final_evaluation_decision.md` | future-GT-free state fit, dense-GT dev, sealed/external final 평가 역할 결정 |
 | `docs/github_task_workflow.md` | Issue·Project·commit/PR·완료 증거 운영 순서 |
 | `docs/project_board_audit_2026-09-19.md` | Project #2의 01→20 task 감사·수정 기록 |
 | `docs/design/small_base_state_io_contract.md` | Small/Base+ memory tensor와 translator 입력·복사·재생성 정책 |
@@ -112,6 +113,6 @@ python -m pip install -e ".[dev]"
 python -m pytest -q
 ```
 
-GPU Pod에서는 `bash scripts/runpod_bootstrap.sh "$PWD"`가 공식 SAM 2 및 Small/Base+ checkpoint를 준비합니다. 이어서 `bash scripts/runpod_preflight.sh "$PWD"`로 CUDA, Network Volume 여유 공간, revision과 SHA-256을 확인합니다. 첫 Base+ self-injection 실행과 종료 확인 방법은 [RunPod L4 운영 문서](docs/runpod_l4_operations.md)를 따릅니다. MOSEv2/LVOS v2/VOST 원본, checkpoint, 개인 SSH 키, raw state cache는 Git에 넣지 않습니다. 각 데이터셋의 이용 조건과 저장 경로를 확인한 후 수집합니다.
+GPU Pod에서는 `bash scripts/runpod_bootstrap.sh "$PWD"`가 공식 SAM 2 및 Small/Base+ checkpoint를 준비합니다. 이어서 `bash scripts/runpod_preflight.sh "$PWD"`로 CUDA, Network Volume 여유 공간, revision과 SHA-256을 확인합니다. 첫 Base+ self-injection 실행과 종료 확인 방법은 [RunPod L4 운영 문서](docs/runpod_l4_operations.md)를 따릅니다. MOSEv2/LVOS v2/VOST/PUMaVOS 원본, checkpoint, 개인 SSH 키, raw state cache는 Git에 넣지 않습니다. 각 데이터셋의 이용 조건과 저장 경로를 확인한 후 수집합니다.
 
 현재 `prepare_paired_state_dataset.py`와 일부 baseline script의 DAVIS 전용 경로는 역사적 자료로만 남아 있으며 새 연구 실행에는 사용하지 않습니다. Task 03에서 MOSEv2/LVOS v2 manifest loader와 VOST loader/evaluator contract를 검증했다. paired-state 수집기와 모든 anchor baseline을 두 학습 데이터셋에 연결하는 작업은 Task 07·08에 남아 있습니다.
