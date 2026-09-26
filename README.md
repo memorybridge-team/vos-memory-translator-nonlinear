@@ -55,9 +55,9 @@ Project Board는 상세 연구 문서를 복제해 보관하는 곳이 아니라
 브랜치 범위와 같은 동사를 사용하고, Issue·실행 명령·결과 보고서를 연결한다. 연구 Task 번호가
 중요한 경우 `feature/task-번호-범위`처럼 번호를 보존한다.
 
-현재 PR #10의 작업 브랜치는 문서·프로토콜 변경이지만 기존 Task 03 PR 연결을 보존하기 위해
-`feature/task-03-external-zero-shot-protocol-v1-3`로 운영한다. 다음 문서 전용 작업부터는
-`docs/task-번호-범위`를 우선 사용한다.
+현재 PR #10은 이미 생성된 Task 03 PR과의 연결을 보존하기 위해
+`task/03-external-zero-shot-protocol-v1-3`에서 계속 운영한다. 다음 새 작업부터는 위 규칙을
+적용하며, 다음 문서 전용 작업은 `docs/task-번호-범위`를 우선 사용한다.
 
 기존 `feature/task-06-continuation-injection`은 이전 작업의 역사적 branch로 보존합니다. 현재 최소 handoff 계약 전체를 검증하는 변경은 `codex/minimal-handoff-contract`처럼 범위가 넓은 branch로 분리했으며, 앞으로 새 작업은 위 의미 기반 이름을 우선합니다.
 

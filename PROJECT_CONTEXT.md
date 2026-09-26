@@ -353,7 +353,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[결정]** 이후 브랜치는 `feature/task-번호-범위`, `docs/task-번호-범위`,
   `experiment/범위`, `fix/범위`, `chore/범위` 중 작업 유형에 맞는 접두어를 사용한다.
   이름은 소문자 ASCII·하이픈만 사용하고 한 브랜치에 한 작업만 담는다.
-- **[처리]** 기존 로컬 작업 브랜치 `task/03-external-zero-shot-protocol-v1-3`은
-  `feature/task-03-external-zero-shot-protocol-v1-3`로 변경하고 원격에 같은 이름으로
-  게시했다. 기존 PR #10의 원격 head를 저장소 권한 없이 rename할 수 없어 기존 원격
-  브랜치와 PR 연결은 보존했다. PR #10은 새 브랜치와 동일한 3개 commit을 포함한다.
+- **[정정]** 기존 PR #10의 원격 head를 저장소 권한 없이 rename할 수 없으므로
+  `task/03-external-zero-shot-protocol-v1-3`을 PR의 canonical 작업 브랜치로 유지한다.
+  임시로 만든 `feature/task-03-external-zero-shot-protocol-v1-3`은 삭제하고, 다음 새
+  작업부터 `feature/`, `docs/`, `experiment/`, `fix/`, `chore/` 규칙을 적용한다.
