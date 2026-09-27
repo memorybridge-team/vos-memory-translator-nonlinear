@@ -410,3 +410,16 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **결정** CMMT는 official-output 재현과 void-aware output을 혼동하지 않는다.
   GT-copy·shard merge 결과에서 두 규칙의 차이를 먼저 기록하고, 본문에는 dataset-native
   official protocol을 우선하며 void-aware 수치는 integrity/engineering 보조 결과로 분리한다.
+
+## 41. 2026-09-27 — PUMaVOS archive 검증과 inventory 도구
+
+- **확인** PUMaVOS official `PUBLIC_PUMaVOS.zip`의 content range는
+  `3,008,102,259` bytes이고 SHA-256은
+  `ccd062636b0422055d1da7344411726b4fd1d74d490e68b50618c34ca9a087a4`다.
+  `unzip -t` 전수 검사는 42,425 entry에서 오류 없이 통과했다.
+- **구현** split 없는 PUMaVOS의 archive 실제 `JPEGImages`/`Annotations` directory를
+  source of truth로 삼는 `scripts/validate_pumavos_inventory.py`를 추가했다. exact stem
+  pairing, sequence/frame/annotation count, missing RGB/mask를 보고한다. synthetic smoke는
+  통과했고 full pytest는 이 local Python에 pytest가 없어 아직 실행하지 못했다.
+- **상태** RunPod 압축 해제 후 full inventory·first-nonempty prompt·switch manifest·local
+  J/F/J&F contract smoke가 남아 있다. M³‑VOS download와는 압축 해제를 겹치지 않는다.

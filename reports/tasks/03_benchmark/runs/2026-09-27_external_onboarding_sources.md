@@ -25,6 +25,13 @@ PUMaVOS는 공식 repository 설명과 논문·project page 사이에 video 수 
   `200 OK`로 접근되지만 `Content-Length`와 archive byte size를 제공하지 않아, 실제
   크기·checksum은 다운로드 또는 Drive UI에서 파일 크기를 확인해야 한다. 따라서 이번
   단계에서는 다운로드를 시작하지 않았다.
+- 이후 1-byte range request로 official archive의 정확한 content range
+  `0-0/3,008,102,259` bytes를 확인하고 RunPod에 다운로드했다. 다운로드본 SHA-256은
+  `ccd062636b0422055d1da7344411726b4fd1d74d490e68b50618c34ca9a087a4`이며,
+  `unzip -t`는 42,425 archive entries에 대해 오류 없음으로 통과했다. Archive central
+  directory는 `JPEGImages`와 `Annotations`에 각각 21,212개 entry(디렉터리 entry 포함)를
+  기록한다. 압축 해제 후 실제 file/sequence 수와 paired-stem validator 결과가 최종
+  protocol 수량이다.
 - M³‑VOS project page는 Hugging Face data card를 공식 데이터 링크로 노출한다. 카드의
   현재 viewer는 `test` split 530행의 `video_id`, `obj_id`, phase-transition metadata와
   첫 frame 경로를 보여주지만, 이 화면만으로 479개 video media와 dense mask archive가
