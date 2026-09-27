@@ -458,3 +458,6 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **후속 상태** 동일 날짜에 single-worker resumable download로 다시 시작했고, 기존
   annotation 파일을 보존한 채 HTTP 429 없이 진행 중임을 log로 확인했다. 완료 뒤에만
   archive/file checksum과 actual inventory를 동결한다.
+- **rate-limit 탐색** 2 workers는 약 1,500 files를 받은 뒤 다시 HTTP 429가 발생했다.
+  자동 재시도는 종료하고 cooldown 뒤 1 worker로 되돌렸다. 현재 공개·무인증 endpoint에서
+  1 worker가 확인된 최대 안정 병렬도다.
