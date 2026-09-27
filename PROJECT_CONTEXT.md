@@ -461,3 +461,7 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **rate-limit 탐색** 2 workers는 약 1,500 files를 받은 뒤 다시 HTTP 429가 발생했다.
   자동 재시도는 종료하고 cooldown 뒤 1 worker로 되돌렸다. 현재 공개·무인증 endpoint에서
   1 worker가 확인된 최대 안정 병렬도다.
+- **인증 재개** 사용자가 RunPod에서 Hugging Face Read token으로 `hf auth login`을 완료했고,
+  `hf auth whoami`로 인증을 확인했다. 기존 파일을 유지한 채 4-worker resumable download를
+  재개했으며 초기 관찰에서 HTTP 429 없이 annotation 파일이 증가했다. token 값은 저장소·보고서·
+  대화에 기록하지 않는다.
