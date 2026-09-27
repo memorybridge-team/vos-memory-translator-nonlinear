@@ -62,6 +62,8 @@ Task 08·09·13에서 수행한다.
 
 ## PUMaVOS 남은 gate
 
+공식 source와 storage 보존 원칙은 [2026-09-27 onboarding 기록](runs/2026-09-27_external_onboarding_sources.md)에 둔다.
+
 - [ ] 공식 download source·CC BY 4.0 license·archive checksum 기록
 - [ ] 공식 archive의 dense frame/mask·object ID inventory 검증; 논문/project page의 24 videos·21,187 frames와 GitHub README의 23 videos 표기 불일치 해소
 - [ ] 객체별 first-nonempty GT mask만 conditioning으로 쓰는 loader와 temporal switch manifest 생성
