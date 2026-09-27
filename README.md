@@ -73,3 +73,70 @@ cd vos-memory-translator-nonlinear
 python -m pip install -e ".[dev]"
 python -m pytest -q
 ```
+
+공식 DAVIS F(boundary) 계산에는 `eval` extra(`opencv-python-headless`, `scikit-image`, 버전 고정)가 필요하다. 없으면 J만 계산하고 F는 `null`과 사유를 남긴다.
+
+The official DAVIS F (boundary) score needs the pinned `eval` extra (`opencv-python-headless`, `scikit-image`). Without it, only J is computed and F is `null` with a reason.
+
+```bash
+python -m pip install -e ".[dev,eval]"
+```
+
+## Spatial-context translator
+
+`transformer_translator`는 memory frame을 하나씩 따로 변환한다. attention은 한 frame 안의 16×16 = 256 token에만 걸리고, frame·record·object 사이에는 걸리지 않는다. 출력은 `M + α⊙Δ`이고 α가 0으로 시작하므로 학습 전에는 `T(M) = M`이다. object pointer는 별도 residual MLP로 변환한다. `PRESETS`에는 비교군(Direct, Moment Match, Linear, Residual MLP), 2×2(`linear_local`, `base`, `no_context`, `base_mlp`), ablation이 들어 있다.
+
+`transformer_translator` translates each memory frame on its own. Attention runs only among the 16×16 = 256 tokens of one frame, never across frames, records or objects. The output is `M + α⊙Δ` with α starting at zero, so an untrained translator is exactly the identity. The object pointer has a separate residual MLP. `PRESETS` holds the ladder (Direct, Moment Match, Linear, Residual MLP), the 2×2 (`linear_local`, `base`, `no_context`, `base_mlp`) and the ablations.
+
+```python
+from vos_memory_inspector import build_translator
+from vos_memory_inspector.transformer_translator import SAM21_MEMORY_SPEC
+
+translator = build_translator("base", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC)
+
+# Handoff: CanonicalState -> CanonicalState. Only valid records are translated;
+# padding keeps the source. Output dtypes follow the source (bf16 spatial, fp32 pointer).
+translated = translator.translate(source_state)
+
+# Training: [B,O,K,64,64,64], [B,O,K,256], validity [B,O,K] -> fp32 tensors with gradients.
+spatial_hat, pointer_hat = translator.translate_tensors(spatial, pointer, validity)
+
+# Checkpoint: plain dict of CPU tensors, loadable with torch.load(..., weights_only=True).
+payload = translator.to_payload()
+
+# Moment Match takes fit-split pairs only.
+moment = build_translator("moment_match", source_spec, target_spec, fit_pairs=fit_pairs)
+```
+
+`build_translator`로 만든 Linear·Residual MLP도 같은 `translate_tensors`와 source-dtype 출력을 쓴다. 클래스를 직접 만들면 호환성을 위해 fp32 출력이 기본이다. context 모델에는 위치 샘플링 학습(`spatial_samples_per_pair`)을 쓸 수 없고, 요청하면 오류가 난다.
+
+Linear and Residual MLP built with `build_translator` share `translate_tensors` and source-dtype output. Constructing the classes directly keeps the legacy fp32 output. Context models cannot be trained with position sampling (`spatial_samples_per_pair`); requesting it raises an error.
+
+```bash
+# Dummy-forward summary: shapes, parameters, MACs, FLOPs, identity at init.
+python -m vos_memory_inspector.transformer_translator --preset base --batch 1 --objects 2 --records 3 --invalid 1
+
+# Cost table for every preset under the fixed latency protocol.
+python -m vos_memory_inspector.translator_benchmark --presets all --device cuda \
+  --output cost.json --markdown cost.md
+```
+
+기본 latency는 valid gather → dtype 변환 → translator → output cast → scatter 전체를 eager로 잰 값이다(warmup 50, 300회, median·p90, 호출마다 CUDA synchronize). CUDA Graph 값은 optimized latency로 따로 보고한다. 로컬 GPU 값은 개발용 참고치다. dev case 입력으로 재려면 `benchmark_translator(translator, states=[...])`를 쓴다.
+
+The primary latency is the eager end-to-end path valid gather → dtype conversion → translator → output cast → scatter (warmup 50, 300 calls, median and p90, CUDA synchronize around every call). CUDA-graph replay is reported separately as optimized latency. Local GPU numbers are development references. Use `benchmark_translator(translator, states=[...])` to measure dev-case inputs.
+
+```python
+from vos_memory_inspector.vos_metrics import evaluate_case_pngs
+
+report = evaluate_case_pngs(
+    "outputs/<video>_obj1",           # predicted PNGs: 00011.png or frame_00011.png
+    "<dataset>/Annotations/<video>",  # DAVIS-format indexed label maps (255 = void)
+    object_id=1,
+    switch_frame=10,
+)
+report["post_switch"]["J_and_F"], report["checkpoints"]["+5"], report["reappearance"]
+```
+
+이 점수는 case의 전환 이후 annotated frame만 대상으로 하므로 "post-switch J&F (official metric functions)"라고 부르고 공식 benchmark 점수와 구분한다. F는 davis2017-evaluation의 `metrics.py`(commit `ac7c43f`, BSD 3-Clause)를 수정 없이 vendoring한 파일로 계산한다.
+
+These scores cover the post-switch annotated frames of a case only, so they are called "post-switch J&F (official metric functions)", not benchmark scores. F uses davis2017-evaluation `metrics.py` (commit `ac7c43f`, BSD 3-Clause), vendored unmodified.
