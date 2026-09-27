@@ -15,6 +15,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+# Official DAVIS J/F functions (vendored davis2017/metrics.py @ ac7c43f) need cv2 and skimage.
+eval = [
+  "opencv-python-headless==4.11.0.86",
+  "scikit-image==0.25.2; python_version < '3.11'",
+  "scikit-image==0.26.0; python_version >= '3.11'",
+]
 
 [project.scripts]
 cmmt-synthetic-experiment = "vos_memory_inspector.cli:synthetic_experiment_main"
@@ -31,6 +37,9 @@ sam2-ridge-handoff-smoke = "vos_memory_inspector.cli:ridge_handoff_main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"vos_memory_inspector._vendor" = ["LICENSE.davis2017-evaluation"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
