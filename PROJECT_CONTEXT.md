@@ -455,3 +455,6 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **영향** M³‑VOS의 checksum·full/core inventory·void-aware loader와 evaluator smoke는
   아직 미완료다. PUMaVOS onboarding은 독립적으로 계속하며, 이 외부 접근 문제만으로
   Task 03을 Done으로 바꾸지 않는다.
+- **후속 상태** 동일 날짜에 single-worker resumable download로 다시 시작했고, 기존
+  annotation 파일을 보존한 채 HTTP 429 없이 진행 중임을 log로 확인했다. 완료 뒤에만
+  archive/file checksum과 actual inventory를 동결한다.
