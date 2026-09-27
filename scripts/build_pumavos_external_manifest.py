@@ -29,8 +29,13 @@ def _frame_paths(directory: Path, suffix: str) -> dict[str, Path]:
 
 def _non_background_labels(mask_path: Path) -> set[int]:
     with Image.open(mask_path) as image:
-        # PUMaVOS masks are indexed instance-label PNGs. Background is 0.
-        return {int(value) for value in image.getdata() if int(value) != 0}
+        # PUMaVOS masks are indexed instance-label PNGs.  ``getcolors`` lets
+        # Pillow compute the indexed-value histogram in native code; iterating
+        # every pixel in Python is prohibitively slow for the full archive.
+        colors = image.getcolors(maxcolors=65_536)
+        if colors is None:
+            raise ValueError(f"too many label values for indexed mask: {mask_path}")
+        return {int(value) for _count, value in colors if int(value) != 0}
 
 
 def _content_sha256(document: dict[str, Any]) -> str:
