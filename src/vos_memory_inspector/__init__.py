@@ -9,22 +9,41 @@ from typing import Any
 
 __all__ = [
     "CanonicalState",
+    "ComponentAblationTranslator",
     "DirectCopyTranslator",
+    "LightweightSpatialMemoryTranslator",
     "LinearStateTranslator",
+    "MomentMatchedCopyTranslator",
+    "PRESETS",
     "ResidualMLPStateTranslator",
+    "ResidualPointerTranslator",
     "RidgeStateTranslator",
+    "SpatialTransformerConfig",
     "StateSpec",
     "SUPPORTED_SAM2_COMMIT",
+    "TransformerStateTranslator",
+    "build_translator",
 ]
 
 
 _EXPORTS = {
     "CanonicalState": (".state_schema", "CanonicalState"),
     "StateSpec": (".state_schema", "StateSpec"),
+    "ComponentAblationTranslator": (".translators", "ComponentAblationTranslator"),
     "DirectCopyTranslator": (".translators", "DirectCopyTranslator"),
     "LinearStateTranslator": (".translators", "LinearStateTranslator"),
+    "MomentMatchedCopyTranslator": (".translators", "MomentMatchedCopyTranslator"),
     "ResidualMLPStateTranslator": (".translators", "ResidualMLPStateTranslator"),
     "RidgeStateTranslator": (".translators", "RidgeStateTranslator"),
+    "LightweightSpatialMemoryTranslator": (
+        ".transformer_translator",
+        "LightweightSpatialMemoryTranslator",
+    ),
+    "PRESETS": (".transformer_translator", "PRESETS"),
+    "ResidualPointerTranslator": (".transformer_translator", "ResidualPointerTranslator"),
+    "SpatialTransformerConfig": (".transformer_translator", "SpatialTransformerConfig"),
+    "TransformerStateTranslator": (".transformer_translator", "TransformerStateTranslator"),
+    "build_translator": (".transformer_translator", "build_translator"),
     "SUPPORTED_SAM2_COMMIT": (".upstream", "SUPPORTED_SAM2_COMMIT"),
 }
 

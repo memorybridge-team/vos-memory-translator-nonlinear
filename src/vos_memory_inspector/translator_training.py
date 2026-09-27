@@ -40,6 +40,8 @@ def fit_gradient_translator(
         raise ValueError("at least one paired state is required")
     if spatial_samples_per_pair is not None and spatial_samples_per_pair < 1:
         raise ValueError("spatial_samples_per_pair must be positive")
+    if spatial_samples_per_pair is not None:
+        _require_position_sampling(translator)
     translator.to(device)
     optimizer = torch.optim.Adam(translator.parameters(), lr=learning_rate)
     generator = torch.Generator(device="cpu").manual_seed(torch.initial_seed())
@@ -68,6 +70,15 @@ def fit_gradient_translator(
     return history
 
 
+def _require_position_sampling(translator: _LearnedStateTranslator) -> None:
+    if not getattr(translator, "supports_position_sampling", True):
+        raise ValueError(
+            f"{type(translator).__name__} reads spatial context across a frame, so "
+            "spatial_samples_per_pair (independent position sampling) cannot train "
+            "it; train on whole frames with translate_tensors instead"
+        )
+
+
 def _sampled_state_mse_loss(
     translator: _LearnedStateTranslator,
     source: CanonicalState,
@@ -78,6 +89,7 @@ def _sampled_state_mse_loss(
 ) -> torch.Tensor:
     """Estimate component-balanced state loss without materializing full MLP output."""
 
+    _require_position_sampling(translator)
     valid = _pair_guard(source, target)
     source_spatial = _resample_spatial(
         source.spatial_memory,
