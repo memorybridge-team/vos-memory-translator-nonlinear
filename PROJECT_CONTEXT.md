@@ -385,3 +385,13 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
   확인한 뒤 500GB 운영 한도와 staged deletion 정책을 적용해 다운로드 여부를 결정한다.
 - **근거** [XMem2 공식 README](https://github.com/mbzuai-metaverse/XMem2)의 PUMaVOS
   Download 섹션과 `reports/tasks/03_benchmark/runs/2026-09-27_external_onboarding_sources.md`.
+
+## 39. 2026-09-27 — M³‑VOS 공식 데이터 경로 대조
+
+- **확인** M³‑VOS project page는 [Hugging Face data card](https://huggingface.co/datasets/Lijiaxin0111/M3_VOS)와 공식 evaluation 저장소를 연결한다.
+- **판정** Hugging Face viewer에서 확인되는 것은 `test` split 530개 object-level metadata 행과
+  첫 frame 경로다. 이는 479개 영상의 JPEG·dense mask media archive가 RunPod에 확보됐다는
+  증거가 아니므로, metadata만으로 M³‑VOS onboarding을 완료 처리하지 않는다.
+- **다음 gate** 공식 evaluation 문서의 `JPEGImages/Annotations/Videos/ImageSets/meta`
+  구조를 실제 배포본과 대조하고, archive checksum·video/object/frame inventory를
+  확인한 뒤에만 다운로드·평가를 결정한다.

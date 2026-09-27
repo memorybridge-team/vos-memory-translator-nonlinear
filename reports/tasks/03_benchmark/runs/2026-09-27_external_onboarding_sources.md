@@ -7,7 +7,7 @@
 | Dataset | 공식 source | 현재 상태 |
 |---|---|---|
 | PUMaVOS | [XMem2 repository](https://github.com/mbzuai-metaverse/XMem2), [official archive](https://drive.google.com/file/d/1VAClrxhWWiu9Y39QtcoUhp2YBN7R_ZCD/view?usp=sharing), [separate sequences/masks folder](https://drive.google.com/drive/folders/1Q7gSCCgemUyweu-7-Yb9G_W55Muq5-bC) | 파일 ID 확인(2026-09-27); 다운로드 전 archive 크기·checksum 확인 필요 |
-| M³-VOS | [Project page](https://zixuan-chen.github.io/M-cube-VOS.github.io/), [official evaluation instructions](https://github.com/zixuan-chen/M3VOS_Experiment/blob/main/docs/EVALUATION.md) | Google Drive archive 링크 확인; 크기·checksum·inventory 미확정 |
+| M³-VOS | [Project page](https://zixuan-chen.github.io/M-cube-VOS.github.io/), [Hugging Face data card](https://huggingface.co/datasets/Lijiaxin0111/M3_VOS), [official evaluation instructions](https://github.com/zixuan-chen/M3VOS_Experiment/blob/main/docs/EVALUATION.md) | project page·evaluation 구조 확인; media archive 크기·checksum·inventory 미확정 |
 
 PUMaVOS는 공식 repository 설명과 논문·project page 사이에 video 수 표기 차이가 있으므로,
 다운로드 후 archive inventory를 최종 기준으로 삼는다. M³-VOS는 evaluation 문서가
@@ -25,6 +25,12 @@ PUMaVOS는 공식 repository 설명과 논문·project page 사이에 video 수 
   `200 OK`로 접근되지만 `Content-Length`와 archive byte size를 제공하지 않아, 실제
   크기·checksum은 다운로드 또는 Drive UI에서 파일 크기를 확인해야 한다. 따라서 이번
   단계에서는 다운로드를 시작하지 않았다.
+- M³‑VOS project page는 Hugging Face data card를 공식 데이터 링크로 노출한다. 카드의
+  현재 viewer는 `test` split 530행의 `video_id`, `obj_id`, phase-transition metadata와
+  첫 frame 경로를 보여주지만, 이 화면만으로 479개 video media와 dense mask archive가
+  모두 내려받아졌다고 판단할 수 없다. 공식 evaluation 문서가 요구하는
+  `JPEGImages/Annotations/Videos/ImageSets/meta` 구조와 실제 media 배포본을 별도로
+  확인한다.
 
 ## 보존·삭제 정책
 
