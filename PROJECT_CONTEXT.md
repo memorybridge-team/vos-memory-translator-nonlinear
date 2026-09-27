@@ -395,3 +395,18 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **다음 gate** 공식 evaluation 문서의 `JPEGImages/Annotations/Videos/ImageSets/meta`
   구조를 실제 배포본과 대조하고, archive checksum·video/object/frame inventory를
   확인한 뒤에만 다운로드·평가를 결정한다.
+
+## 40. 2026-09-27 — M³‑VOS download와 evaluator integrity 준비
+
+- **확인** 공식 Hugging Face repository의 pinned commit
+  `5deb15b2baeaaa294ca168b789537729f7fb53a5`와 published storage
+  `56,663,215,406` bytes를 확인했다. RunPod에 `/workspace/CMMT/data/M3VOS`로
+  4-worker resumable download를 시작했다. 실제 archive/file checksum 및 inventory는
+  완료 후 확정한다.
+- **확인** official evaluator HEAD `8cf8f9b3cb069d8476ef6c3c0b8f11b8337c3b56`는
+  `J`, 마지막 25% `J_last`, connected-component matching `J_cc`를 산출한다.
+  `Dataset.get_all_masks()`가 255 label을 void로 분리하지만 현재 evaluation call은
+  void argument를 전달하지 않는다.
+- **결정** CMMT는 official-output 재현과 void-aware output을 혼동하지 않는다.
+  GT-copy·shard merge 결과에서 두 규칙의 차이를 먼저 기록하고, 본문에는 dataset-native
+  official protocol을 우선하며 void-aware 수치는 integrity/engineering 보조 결과로 분리한다.

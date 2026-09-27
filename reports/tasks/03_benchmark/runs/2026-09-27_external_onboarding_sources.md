@@ -31,6 +31,17 @@ PUMaVOS는 공식 repository 설명과 논문·project page 사이에 video 수 
   모두 내려받아졌다고 판단할 수 없다. 공식 evaluation 문서가 요구하는
   `JPEGImages/Annotations/Videos/ImageSets/meta` 구조와 실제 media 배포본을 별도로
   확인한다.
+- Hugging Face repository API가 공개한 M³‑VOS `usedStorage`는 `56,663,215,406` bytes
+  (약 56.7 GB, decimal)이며 commit은
+  `5deb15b2baeaaa294ca168b789537729f7fb53a5`다. 이 크기는 500GB volume의 staged
+  onboarding 범위에는 들어가지만, PUMaVOS와 full paired-state를 동시에 보존할 여유를
+  보장하지 않는다.
+- 공식 evaluator repository HEAD `8cf8f9b3cb069d8476ef6c3c0b8f11b8337c3b56`를
+  읽어 `J`, 마지막 25%의 `J_last`(CMMT 문서의 `J_tr` 대응), connected-component
+  matching `J_cc`를 계산함을 확인했다. `Dataset.get_all_masks()`는 label `255`를
+  void로 분리하지만, 현재 `Evaluation.evaluate()`의 호출은 void mask 인자에 `None`을
+  넘긴다. 따라서 CMMT의 void-aware 구현은 공식 결과와 GT-copy에서 대조하고 차이가
+  있으면 양쪽 규칙을 분리 기록하는 integrity gate가 필요하다.
 
 ## 보존·삭제 정책
 
