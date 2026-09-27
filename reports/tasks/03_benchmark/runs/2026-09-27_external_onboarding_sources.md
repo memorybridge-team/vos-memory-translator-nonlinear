@@ -38,6 +38,12 @@ PUMaVOS는 공식 repository 설명과 논문·project page 사이에 video 수 
   이후 manifest는 실제 official archive 기준의 24 sequences를 사용하며, XMem2 README의
   23-video overview는 historical documentation discrepancy로 기록한다. 결과 JSON은
   RunPod `/workspace/CMMT/reports/task03/pumavos_inventory.json`에 보관했다.
+- PUMaVOS metric contract smoke는 local evaluator checkout의
+  `davis2017/metrics.py` (SHA-256
+  `a71bfb6d2da563ebf50251bda9876cf0b4b6193842543b0a3a286190529e26be`)로 수행했다.
+  `billie_hair`, object `1`의 GT-copy 첫 5 frames는 각 frame에서 `J=1.0`, `F=1.0`,
+  `J&F=1.0`이었다. 이것은 label/frame/evaluator compatibility 검사일 뿐 CMMT model
+  성능 결과가 아니다.
 - M³‑VOS project page는 Hugging Face data card를 공식 데이터 링크로 노출한다. 카드의
   현재 viewer는 `test` split 530행의 `video_id`, `obj_id`, phase-transition metadata와
   첫 frame 경로를 보여주지만, 이 화면만으로 479개 video media와 dense mask archive가

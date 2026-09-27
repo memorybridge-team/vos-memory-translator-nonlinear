@@ -113,6 +113,28 @@ cmmt-lvos-build-manifest \
 아직 dataset snapshot, checksum, manifest, loader 및 official evaluator 검증이 완료되지 않았다.
 완료 전까지 Task 03 protocol v1.1은 `In Progress`다.
 
+## PUMaVOS external stress v1
+
+- File: `pumavos_external_v1.json`
+- Role: config freeze 뒤 한 번 실행하는 secondary external zero-shot stress benchmark
+- Official split: 없음. 공개 archive 전체를 split으로 가장하지 않는다.
+- Verified archive: `PUBLIC_PUMaVOS.zip`, `3,008,102,259` bytes,
+  SHA-256 `ccd062636b0422055d1da7344411726b4fd1d74d490e68b50618c34ca9a087a4`
+- Extracted inventory: 24 sequences, RGB 21,187 frames, GT annotations 21,187,
+  paired-stem `failure_count=0`
+- Cases: 78 (객체별 actual first-nonempty GT prompt, 25/50/75% frame-index switch)
+- Manifest content SHA-256: `97857509580c74c517814dd0cd5ec6e53ebc36991305dc88d7ffdf10a47f3d64`
+
+이 manifest는 prompt frame의 GT 한 장만 표준 VOS 입력으로 사용하며, switch 이후의 GT는
+평가에만 사용한다. model fitting, normalization, threshold, replay-k, early stopping 또는
+architecture/loss 선택에는 PUMaVOS의 label-derived 정보를 사용하지 않는다.
+
+```bash
+python scripts/build_pumavos_external_manifest.py \
+  /path/to/PUBLIC_PUMaVOS \
+  --output manifests/pumavos_external_v1.json
+```
+
 ## LVOS v2 train v1
 
 - File: `lvosv2_train_v1.json`

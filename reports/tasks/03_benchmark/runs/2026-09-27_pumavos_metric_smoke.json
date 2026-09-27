@@ -1,0 +1,40 @@
+{
+  "schema_version": "cmmt.pumavos_metric_smoke.v1",
+  "scope": "GT-copy evaluator contract only; not a model result",
+  "metric_source": "davisvideochallenge/davis2017-evaluation local checkout",
+  "metrics_py_sha256": "a71bfb6d2da563ebf50251bda9876cf0b4b6193842543b0a3a286190529e26be",
+  "sequence": "billie_hair",
+  "object_id": 1,
+  "rows": [
+    {
+      "frame": "frame_000000",
+      "J": 1.0,
+      "F": 1.0,
+      "J_and_F": 1.0
+    },
+    {
+      "frame": "frame_000001",
+      "J": 1.0,
+      "F": 1.0,
+      "J_and_F": 1.0
+    },
+    {
+      "frame": "frame_000002",
+      "J": 1.0,
+      "F": 1.0,
+      "J_and_F": 1.0
+    },
+    {
+      "frame": "frame_000003",
+      "J": 1.0,
+      "F": 1.0,
+      "J_and_F": 1.0
+    },
+    {
+      "frame": "frame_000004",
+      "J": 1.0,
+      "F": 1.0,
+      "J_and_F": 1.0
+    }
+  ]
+}

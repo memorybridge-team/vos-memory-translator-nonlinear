@@ -1,0 +1,964 @@
+{
+  "schema_version": "cmmt.pumavos_external_manifest.v1",
+  "dataset": "PUMaVOS",
+  "official_split": null,
+  "role": "external_zero_shot_secondary_stress",
+  "root_contract": "JPEGImages/<sequence>/*.jpg paired with Annotations/<sequence>/*.png",
+  "prompt_policy": "one first-nonempty GT mask per object; later GT is evaluation-only",
+  "switch_policy": "fixed frame-index quantiles 25/50/75%, strictly after prompt",
+  "sequences": [
+    {
+      "sequence": "billie_hair",
+      "frame_count": 847,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "billie_shoes",
+      "frame_count": 1009,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "caps",
+      "frame_count": 843,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "chair",
+      "frame_count": 411,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "couple_1_face",
+      "frame_count": 870,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "dog_tail",
+      "frame_count": 849,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "eye_area",
+      "frame_count": 537,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "full_face_1",
+      "frame_count": 943,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "full_face_2",
+      "frame_count": 1800,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "guitar",
+      "frame_count": 924,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "half_face_1",
+      "frame_count": 755,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "half_face_2",
+      "frame_count": 1800,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "ice_cream",
+      "frame_count": 960,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "long_scene_scale",
+      "frame_count": 943,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "nails",
+      "frame_count": 983,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "pants_workout",
+      "frame_count": 561,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "pimples",
+      "frame_count": 541,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "queen_car",
+      "frame_count": 849,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "shirt",
+      "frame_count": 918,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "skz",
+      "frame_count": 687,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "smile",
+      "frame_count": 932,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "sweater_demo",
+      "frame_count": 603,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "tattoo",
+      "frame_count": 671,
+      "object_ids": [
+        1
+      ]
+    },
+    {
+      "sequence": "vlog",
+      "frame_count": 951,
+      "object_ids": [
+        1,
+        2,
+        3
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "pumavos:billie_hair:obj1:q25",
+      "sequence": "billie_hair",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000212",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:billie_hair:obj1:q50",
+      "sequence": "billie_hair",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000423",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:billie_hair:obj1:q75",
+      "sequence": "billie_hair",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000634",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:billie_shoes:obj1:q25",
+      "sequence": "billie_shoes",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000252",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:billie_shoes:obj1:q50",
+      "sequence": "billie_shoes",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000504",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:billie_shoes:obj1:q75",
+      "sequence": "billie_shoes",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000756",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:caps:obj1:q25",
+      "sequence": "caps",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000210",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:caps:obj1:q50",
+      "sequence": "caps",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000421",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:caps:obj1:q75",
+      "sequence": "caps",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000632",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:chair:obj1:q25",
+      "sequence": "chair",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000102",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:chair:obj1:q50",
+      "sequence": "chair",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000205",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:chair:obj1:q75",
+      "sequence": "chair",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000308",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:couple_1_face:obj1:q25",
+      "sequence": "couple_1_face",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000217",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:couple_1_face:obj1:q50",
+      "sequence": "couple_1_face",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000434",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:couple_1_face:obj1:q75",
+      "sequence": "couple_1_face",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000652",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:dog_tail:obj1:q25",
+      "sequence": "dog_tail",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000212",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:dog_tail:obj1:q50",
+      "sequence": "dog_tail",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000424",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:dog_tail:obj1:q75",
+      "sequence": "dog_tail",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000636",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:eye_area:obj1:q25",
+      "sequence": "eye_area",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000134",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:eye_area:obj1:q50",
+      "sequence": "eye_area",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000268",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:eye_area:obj1:q75",
+      "sequence": "eye_area",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000402",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:full_face_1:obj1:q25",
+      "sequence": "full_face_1",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000236",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:full_face_1:obj1:q50",
+      "sequence": "full_face_1",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000471",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:full_face_1:obj1:q75",
+      "sequence": "full_face_1",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000706",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:full_face_2:obj1:q25",
+      "sequence": "full_face_2",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000450",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:full_face_2:obj1:q50",
+      "sequence": "full_face_2",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000900",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:full_face_2:obj1:q75",
+      "sequence": "full_face_2",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_001349",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:guitar:obj1:q25",
+      "sequence": "guitar",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000231",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:guitar:obj1:q50",
+      "sequence": "guitar",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000462",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:guitar:obj1:q75",
+      "sequence": "guitar",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000692",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:half_face_1:obj1:q25",
+      "sequence": "half_face_1",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000188",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:half_face_1:obj1:q50",
+      "sequence": "half_face_1",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000377",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:half_face_1:obj1:q75",
+      "sequence": "half_face_1",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000566",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:half_face_2:obj1:q25",
+      "sequence": "half_face_2",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000450",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:half_face_2:obj1:q50",
+      "sequence": "half_face_2",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000900",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:half_face_2:obj1:q75",
+      "sequence": "half_face_2",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_001349",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:ice_cream:obj1:q25",
+      "sequence": "ice_cream",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000240",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:ice_cream:obj1:q50",
+      "sequence": "ice_cream",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000480",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:ice_cream:obj1:q75",
+      "sequence": "ice_cream",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000719",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:long_scene_scale:obj1:q25",
+      "sequence": "long_scene_scale",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000236",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:long_scene_scale:obj1:q50",
+      "sequence": "long_scene_scale",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000471",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:long_scene_scale:obj1:q75",
+      "sequence": "long_scene_scale",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000706",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:nails:obj1:q25",
+      "sequence": "nails",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000246",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:nails:obj1:q50",
+      "sequence": "nails",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000491",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:nails:obj1:q75",
+      "sequence": "nails",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000736",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:pants_workout:obj1:q25",
+      "sequence": "pants_workout",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000140",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:pants_workout:obj1:q50",
+      "sequence": "pants_workout",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000280",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:pants_workout:obj1:q75",
+      "sequence": "pants_workout",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000420",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:pimples:obj1:q25",
+      "sequence": "pimples",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000135",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:pimples:obj1:q50",
+      "sequence": "pimples",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000270",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:pimples:obj1:q75",
+      "sequence": "pimples",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000405",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:queen_car:obj1:q25",
+      "sequence": "queen_car",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000212",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:queen_car:obj1:q50",
+      "sequence": "queen_car",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000424",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:queen_car:obj1:q75",
+      "sequence": "queen_car",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000636",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:shirt:obj1:q25",
+      "sequence": "shirt",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000229",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:shirt:obj1:q50",
+      "sequence": "shirt",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000458",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:shirt:obj1:q75",
+      "sequence": "shirt",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000688",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:skz:obj1:q25",
+      "sequence": "skz",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000172",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:skz:obj1:q50",
+      "sequence": "skz",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000343",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:skz:obj1:q75",
+      "sequence": "skz",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000514",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:smile:obj1:q25",
+      "sequence": "smile",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000233",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:smile:obj1:q50",
+      "sequence": "smile",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000466",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:smile:obj1:q75",
+      "sequence": "smile",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000698",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:sweater_demo:obj1:q25",
+      "sequence": "sweater_demo",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000150",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:sweater_demo:obj1:q50",
+      "sequence": "sweater_demo",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000301",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:sweater_demo:obj1:q75",
+      "sequence": "sweater_demo",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000452",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:tattoo:obj1:q25",
+      "sequence": "tattoo",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000168",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:tattoo:obj1:q50",
+      "sequence": "tattoo",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000335",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:tattoo:obj1:q75",
+      "sequence": "tattoo",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000502",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:vlog:obj1:q25",
+      "sequence": "vlog",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000238",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:vlog:obj1:q50",
+      "sequence": "vlog",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000475",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:vlog:obj1:q75",
+      "sequence": "vlog",
+      "object_id": 1,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000712",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:vlog:obj2:q25",
+      "sequence": "vlog",
+      "object_id": 2,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000238",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:vlog:obj2:q50",
+      "sequence": "vlog",
+      "object_id": 2,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000475",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:vlog:obj2:q75",
+      "sequence": "vlog",
+      "object_id": 2,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000712",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:vlog:obj3:q25",
+      "sequence": "vlog",
+      "object_id": 3,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000238",
+      "switch_quantile": 0.25,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:vlog:obj3:q50",
+      "sequence": "vlog",
+      "object_id": 3,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000475",
+      "switch_quantile": 0.5,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    },
+    {
+      "case_id": "pumavos:vlog:obj3:q75",
+      "sequence": "vlog",
+      "object_id": 3,
+      "prompt_frame": "frame_000000",
+      "switch_frame": "frame_000712",
+      "switch_quantile": 0.75,
+      "input_policy": "first_nonempty_gt_prompt_only",
+      "future_gt_policy": "evaluation_only"
+    }
+  ],
+  "content_sha256": "97857509580c74c517814dd0cd5ec6e53ebc36991305dc88d7ffdf10a47f3d64"
+}

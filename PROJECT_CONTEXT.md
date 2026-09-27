@@ -439,9 +439,12 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
   1:1 대응한다.
 - **판정** 논문·project page의 24-video 설명과 일치하며, XMem2 README overview의
   23-video 문구는 배포본 기준 수량으로 쓰지 않는다. archive checksum과 extracted
-  inventory가 검증됐으므로 원본 zip은 삭제 가능한 상태다. 그러나 Task 03은
-  first-nonempty prompt/switch manifest와 local metric contract, M³‑VOS onboarding이
-  남아 있어 계속 `In Progress`다.
+  inventory가 검증돼 원본 zip은 삭제했고 extracted root만 유지한다. 객체별 actual
+  first-nonempty GT prompt와 25/50/75% switch를 적용한 external manifest는 78 cases,
+  content SHA-256 `97857509580c74c517814dd0cd5ec6e53ebc36991305dc88d7ffdf10a47f3d64`로
+  동결했다. local DAVIS J/F evaluator GT-copy smoke(`billie_hair`, object 1, first
+  5 frames)는 J=F=J&F=1.0으로 통과했다. Task 03은 M³‑VOS onboarding이 남아 계속
+  `In Progress`다.
 
 ## 43. 2026-09-27 — M³‑VOS 공개 접근 일시 차단 기록
 
