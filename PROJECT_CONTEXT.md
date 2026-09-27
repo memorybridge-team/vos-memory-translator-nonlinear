@@ -375,3 +375,13 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
   영상의 state를 장기 보존하면 수십~수백 GB가 추가될 수 있다. 따라서 500GB는
   shard·중간 cache를 순차 삭제하는 조건에서만 borderline이며, 전체 paired-state와
   반복 결과를 동시에 보존하려면 1TB가 안전하다.
+
+## 38. 2026-09-27 — PUMaVOS 공식 archive 경로 확인
+
+- **확인** XMem2 공식 README의 PUMaVOS `.zip` 링크를 따라가 `PUBLIC_PUMaVOS.zip`
+  Google Drive 파일 ID `1VAClrxhWWiu9Y39QtcoUhp2YBN7R_ZCD`와 별도 sequences/masks
+  폴더 ID `1Q7gSCCgemUyweu-7-Yb9G_W55Muq5-bC`를 확인했다.
+- **상태** 아직 RunPod에 다운로드하지 않았다. archive 크기·SHA-256·압축 구조를 먼저
+  확인한 뒤 500GB 운영 한도와 staged deletion 정책을 적용해 다운로드 여부를 결정한다.
+- **근거** [XMem2 공식 README](https://github.com/mbzuai-metaverse/XMem2)의 PUMaVOS
+  Download 섹션과 `reports/tasks/03_benchmark/runs/2026-09-27_external_onboarding_sources.md`.

@@ -6,13 +6,21 @@
 
 | Dataset | 공식 source | 현재 상태 |
 |---|---|---|
-| PUMaVOS | [XMem2 repository](https://github.com/mbzuai-metaverse/XMem2), PUMaVOS Google Drive/Mirror | 다운로드 전 archive 크기·checksum 확인 필요 |
+| PUMaVOS | [XMem2 repository](https://github.com/mbzuai-metaverse/XMem2), [official archive](https://drive.google.com/file/d/1VAClrxhWWiu9Y39QtcoUhp2YBN7R_ZCD/view?usp=sharing), [separate sequences/masks folder](https://drive.google.com/drive/folders/1Q7gSCCgemUyweu-7-Yb9G_W55Muq5-bC) | 파일 ID 확인(2026-09-27); 다운로드 전 archive 크기·checksum 확인 필요 |
 | M³-VOS | [Project page](https://zixuan-chen.github.io/M-cube-VOS.github.io/), [official evaluation instructions](https://github.com/zixuan-chen/M3VOS_Experiment/blob/main/docs/EVALUATION.md) | Google Drive archive 링크 확인; 크기·checksum·inventory 미확정 |
 
 PUMaVOS는 공식 repository 설명과 논문·project page 사이에 video 수 표기 차이가 있으므로,
 다운로드 후 archive inventory를 최종 기준으로 삼는다. M³-VOS는 evaluation 문서가
 `JPEGImages`, `Annotations`, `Videos`, `ImageSets/val.txt`, `meta` 구조를 요구하므로
 이 구조와 실제 배포본을 대조한다.
+
+## 접근 경로 검증 기록
+
+- PUMaVOS 공식 XMem2 README의 `.zip` 링크는 `PUBLIC_PUMaVOS.zip` 파일 ID
+  `1VAClrxhWWiu9Y39QtcoUhp2YBN7R_ZCD`로 확인했다(2026-09-27, 웹 페이지 접근 확인).
+- 동일 README의 별도 sequences/masks 폴더 ID는
+  `1Q7gSCCgemUyweu-7-Yb9G_W55Muq5-bC`다. 두 링크 모두 공개 접근 경로지만, 현재
+  RunPod storage에 내려받지는 않았으며 파일 크기와 SHA-256은 다운로드 후 기록한다.
 
 ## 보존·삭제 정책
 
