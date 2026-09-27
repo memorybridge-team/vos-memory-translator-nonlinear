@@ -1,6 +1,6 @@
 # Task 03 — Benchmark protocol
 
-> 상태: **In Progress** — VOST onboarding core gate 완료, PUMaVOS·M³-VOS onboarding 대기
+> 상태: **In Progress** — VOST·PUMaVOS onboarding core gate 완료, M³-VOS 공개 접근 복구 대기
 > Canonical Issue: [#4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4)
 > 현재 PR: [#9](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/pull/9)
 
@@ -60,14 +60,18 @@ secondary external zero-shot으로 확정했다. 아래 onboarding
 gate가 남아 있으므로 Task 03은 `In Progress`를 유지한다. 전체 baseline 및 translator score 실행은
 Task 08·09·13에서 수행한다.
 
-## PUMaVOS 남은 gate
+## PUMaVOS onboarding core gate — 완료
 
 공식 source와 storage 보존 원칙은 [2026-09-27 onboarding 기록](runs/2026-09-27_external_onboarding_sources.md)에 둔다.
 
-- [ ] 공식 download source·CC BY 4.0 license·archive checksum 기록
-- [ ] 공식 archive의 dense frame/mask·object ID inventory 검증; 논문/project page의 24 videos·21,187 frames와 GitHub README의 23 videos 표기 불일치 해소
-- [ ] 객체별 first-nonempty GT mask만 conditioning으로 쓰는 loader와 temporal switch manifest 생성
-- [ ] local J/F/J&F 및 CMMT switch-relative evaluator contract smoke
+- [x] 공식 download source·CC BY 4.0 license·archive checksum 기록
+- [x] 공식 archive의 dense frame/mask·object ID inventory 검증: 24 videos, 21,187 RGB/GT pairs, `failure_count=0`; README의 23-video 표기는 배포본 기준에 사용하지 않음
+- [x] 객체별 first-nonempty GT mask만 conditioning으로 쓰는 78-case temporal switch manifest 동결
+- [x] local J/F/J&F GT-copy evaluator contract smoke
+
+증거는 [2026-09-27 onboarding 기록](runs/2026-09-27_external_onboarding_sources.md),
+[`pumavos_external_v1.json`](../../../manifests/pumavos_external_v1.json),
+[metric smoke JSON](runs/2026-09-27_pumavos_metric_smoke.json)에 둔다.
 
 ## M³-VOS 남은 gate
 

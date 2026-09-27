@@ -251,8 +251,8 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - [x] VOST prompt loader와 공식 `J/J_last` evaluator를 실제 데이터로 검증한다. (actual SAM 2
   state-export 및 official-layout PNG export; evaluator GT-copy contract smoke)
 - [x] 외부 benchmark access ledger를 만들고 config freeze commit을 기록한다.
-- [ ] PUMaVOS download/checksum, 공식 archive의 dense annotation inventory와 23/24 표기 불일치 해소, object-ID와 first-nonempty
-  prompt loader, fixed switch manifest, local J/F/J&F evaluator contract를 검증한다.
+- [x] PUMaVOS download/checksum, 공식 archive의 dense annotation inventory와 23/24 표기 불일치 해소, object-ID와 first-nonempty
+  prompt loader, fixed switch manifest, local J/F/J&F evaluator contract를 동결했다 (24 sequences, 21,187 paired frames, 78 cases).
 - [ ] M³-VOS access/licensing ledger, archive checksum·479-video/205,181-frame inventory,
   official full/core split, void-aware first-prompt loader, fixed switch manifest를 검증한다.
 - [ ] M³-VOS 공식 `J/J_tr/J_cc` evaluator의 GT-copy·shard merge contract와 boundary F/J&F
