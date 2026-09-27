@@ -22,6 +22,7 @@ __all__ = [
     "StateSpec",
     "SUPPORTED_SAM2_COMMIT",
     "TransformerStateTranslator",
+    "benchmark_translator",
     "build_translator",
 ]
 
@@ -44,6 +45,7 @@ _EXPORTS = {
     "SpatialTransformerConfig": (".transformer_translator", "SpatialTransformerConfig"),
     "TransformerStateTranslator": (".transformer_translator", "TransformerStateTranslator"),
     "build_translator": (".transformer_translator", "build_translator"),
+    "benchmark_translator": (".translator_benchmark", "benchmark_translator"),
     "SUPPORTED_SAM2_COMMIT": (".upstream", "SUPPORTED_SAM2_COMMIT"),
 }
 
