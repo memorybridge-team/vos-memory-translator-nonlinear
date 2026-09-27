@@ -357,3 +357,21 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
   `task/03-external-zero-shot-protocol-v1-3`을 PR의 canonical 작업 브랜치로 유지한다.
   임시로 만든 `feature/task-03-external-zero-shot-protocol-v1-3`은 삭제하고, 다음 새
   작업부터 `feature/`, `docs/`, `experiment/`, `fix/`, `chore/` 규칙을 적용한다.
+
+## 37. 2026-09-27 — RunPod 데이터 보존·정리
+
+- **[확인]** RunPod `/workspace`에서 VOST archive는 압축 해제된 상태였고, VOST의
+  `test` split 목록은 존재하지만 실제 JPEG/annotation 파일은 `0`바이트였다.
+- **[삭제]** 압축 해제본이 이미 검증된 VOST zip, MOSEv2 valid tarball, LVOS v2
+  train/valid zip을 삭제했다. DAVIS 원본과 DAVIS paired-state·과거 nonlinear 산출물도
+  현재 연구 범위 제외 결정에 따라 삭제했다. SAM 2 코드와 DAVIS 관련 테스트 코드는
+  재현성 때문에 보존했다.
+- **[보존]** MOSEv2·LVOS v2의 압축 해제본, VOST extracted archive(train/val 포함),
+  현재 checkpoint·manifest·보고서·코드와 non-DAVIS 결과는 보존했다. VOST train은
+  현재 primary 평가에는 쓰지 않지만 optional adaptation upper-bound 가능성을 위해
+  당분간 보존한다.
+- **[용량 판단]** 정리 후 확인된 주요 데이터는 MOSEv2 약 148GB, LVOS v2 약 45GB,
+  VOST extracted 약 53GB다. Dataset 원본과 paired-state는 1:1 복제가 아니지만, 모든
+  영상의 state를 장기 보존하면 수십~수백 GB가 추가될 수 있다. 따라서 500GB는
+  shard·중간 cache를 순차 삭제하는 조건에서만 borderline이며, 전체 paired-state와
+  반복 결과를 동시에 보존하려면 1TB가 안전하다.
