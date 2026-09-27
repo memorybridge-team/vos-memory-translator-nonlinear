@@ -381,8 +381,11 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **확인** XMem2 공식 README의 PUMaVOS `.zip` 링크를 따라가 `PUBLIC_PUMaVOS.zip`
   Google Drive 파일 ID `1VAClrxhWWiu9Y39QtcoUhp2YBN7R_ZCD`와 별도 sequences/masks
   폴더 ID `1Q7gSCCgemUyweu-7-Yb9G_W55Muq5-bC`를 확인했다.
-- **상태** 아직 RunPod에 다운로드하지 않았다. archive 크기·SHA-256·압축 구조를 먼저
-  확인한 뒤 500GB 운영 한도와 staged deletion 정책을 적용해 다운로드 여부를 결정한다.
+- **후속 확인** 같은 날 공식 archive를 RunPod에 내려받아 content range
+  `3,008,102,259` bytes, SHA-256
+  `ccd062636b0422055d1da7344411726b4fd1d74d490e68b50618c34ca9a087a4`,
+  `unzip -t` 42,425 entries 무오류를 확인했다. 실제 extraction inventory는 §41의
+  별도 gate로 남긴다.
 - **근거** [XMem2 공식 README](https://github.com/mbzuai-metaverse/XMem2)의 PUMaVOS
   Download 섹션과 `reports/tasks/03_benchmark/runs/2026-09-27_external_onboarding_sources.md`.
 
@@ -401,8 +404,12 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **확인** 공식 Hugging Face repository의 pinned commit
   `5deb15b2baeaaa294ca168b789537729f7fb53a5`와 published storage
   `56,663,215,406` bytes를 확인했다. RunPod에 `/workspace/CMMT/data/M3VOS`로
-  4-worker resumable download를 시작했다. 실제 archive/file checksum 및 inventory는
-  완료 후 확정한다.
+  4-worker resumable download를 시작해 annotation 파일 1,873개를 확보했다. 이후
+  worker 수를 16으로 올린 재개 요청은 Hugging Face 공개 API의 HTTP 429 rate limit으로
+  중단됐다. 이미 내려받은 파일은 보존했고, 무의미한 재시도는 하지 않는다. project
+  page에서 연결된 기존 Google Drive folder도 2026-09-27에 `404 Not Found`여서 대체
+  공식 경로로 사용할 수 없었다. 실제 archive/file checksum 및 inventory는 접근
+  복구 후에만 확정한다.
 - **확인** official evaluator HEAD `8cf8f9b3cb069d8476ef6c3c0b8f11b8337c3b56`는
   `J`, 마지막 25% `J_last`, connected-component matching `J_cc`를 산출한다.
   `Dataset.get_all_masks()`가 255 label을 void로 분리하지만 현재 evaluation call은
@@ -423,3 +430,25 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
   통과했고 full pytest는 이 local Python에 pytest가 없어 아직 실행하지 못했다.
 - **상태** RunPod 압축 해제 후 full inventory·first-nonempty prompt·switch manifest·local
   J/F/J&F contract smoke가 남아 있다. M³‑VOS download와는 압축 해제를 겹치지 않는다.
+
+## 42. 2026-09-27 — PUMaVOS extracted inventory 동결
+
+- **검증** RunPod extracted official archive에 `validate_pumavos_inventory.py`를 전수
+  실행해 24 sequences, RGB 21,187 frames, annotation 21,187 frames,
+  `failure_count=0`을 확인했다. 모든 sequence에서 RGB `.jpg`와 GT `.png`의 exact stem이
+  1:1 대응한다.
+- **판정** 논문·project page의 24-video 설명과 일치하며, XMem2 README overview의
+  23-video 문구는 배포본 기준 수량으로 쓰지 않는다. archive checksum과 extracted
+  inventory가 검증됐으므로 원본 zip은 삭제 가능한 상태다. 그러나 Task 03은
+  first-nonempty prompt/switch manifest와 local metric contract, M³‑VOS onboarding이
+  남아 있어 계속 `In Progress`다.
+
+## 43. 2026-09-27 — M³‑VOS 공개 접근 일시 차단 기록
+
+- **사실** M³‑VOS의 저자 공개 Hugging Face dataset은 파일 단위 resume을 허용하지만,
+  공개 IP에서 병렬 수를 높인 요청은 HTTP 429로 거절됐다. 인증 token을 우회하거나
+  계정 정보를 요청하지 않는다. rate limit이 풀린 뒤 낮은 병렬도(기존 4 workers)로
+  재개하거나, 저자가 접근 가능한 공식 mirror를 제공할 때만 이어 간다.
+- **영향** M³‑VOS의 checksum·full/core inventory·void-aware loader와 evaluator smoke는
+  아직 미완료다. PUMaVOS onboarding은 독립적으로 계속하며, 이 외부 접근 문제만으로
+  Task 03을 Done으로 바꾸지 않는다.

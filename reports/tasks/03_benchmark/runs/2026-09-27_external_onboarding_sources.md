@@ -32,6 +32,12 @@ PUMaVOS는 공식 repository 설명과 논문·project page 사이에 video 수 
   directory는 `JPEGImages`와 `Annotations`에 각각 21,212개 entry(디렉터리 entry 포함)를
   기록한다. 압축 해제 후 실제 file/sequence 수와 paired-stem validator 결과가 최종
   protocol 수량이다.
+- 압축 해제 후 `validate_pumavos_inventory.py`를 RunPod extracted root에 전수 실행했다.
+  결과는 **24 sequences, 21,187 RGB frames, 21,187 annotations, `failure_count=0`**이다.
+  모든 sequence에서 `.jpg`와 `.png`의 exact stem 대응을 확인했다. 따라서 이 보고서와
+  이후 manifest는 실제 official archive 기준의 24 sequences를 사용하며, XMem2 README의
+  23-video overview는 historical documentation discrepancy로 기록한다. 결과 JSON은
+  RunPod `/workspace/CMMT/reports/task03/pumavos_inventory.json`에 보관했다.
 - M³‑VOS project page는 Hugging Face data card를 공식 데이터 링크로 노출한다. 카드의
   현재 viewer는 `test` split 530행의 `video_id`, `obj_id`, phase-transition metadata와
   첫 frame 경로를 보여주지만, 이 화면만으로 479개 video media와 dense mask archive가
@@ -43,6 +49,12 @@ PUMaVOS는 공식 repository 설명과 논문·project page 사이에 video 수 
   `5deb15b2baeaaa294ca168b789537729f7fb53a5`다. 이 크기는 500GB volume의 staged
   onboarding 범위에는 들어가지만, PUMaVOS와 full paired-state를 동시에 보존할 여유를
   보장하지 않는다.
+- RunPod의 resumable Hugging Face 다운로드는 annotation 파일 1,873개를 받은 뒤, 병렬도를
+  16으로 높인 재개 요청에서 공개 API HTTP `429` rate limit을 받았다. 기존 파일은
+  보존하며 인증 우회나 반복 요청은 하지 않는다. 기존 project page의 Google Drive folder
+  `1qNSvE6dpkCHSs_8eZRo6vruLScCHl7oI`도 2026-09-27에 `404 Not Found`였다. 따라서
+  M³‑VOS는 낮은 병렬도의 재개가 허용되거나 저자가 유효한 공식 mirror를 제공할 때까지
+  checksum·inventory gate가 막힌 상태다.
 - 공식 evaluator repository HEAD `8cf8f9b3cb069d8476ef6c3c0b8f11b8337c3b56`를
   읽어 `J`, 마지막 25%의 `J_last`(CMMT 문서의 `J_tr` 대응), connected-component
   matching `J_cc`를 계산함을 확인했다. `Dataset.get_all_masks()`는 label `255`를
