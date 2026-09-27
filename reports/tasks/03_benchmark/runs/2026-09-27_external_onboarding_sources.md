@@ -21,6 +21,10 @@ PUMaVOS는 공식 repository 설명과 논문·project page 사이에 video 수 
 - 동일 README의 별도 sequences/masks 폴더 ID는
   `1Q7gSCCgemUyweu-7-Yb9G_W55Muq5-bC`다. 두 링크 모두 공개 접근 경로지만, 현재
   RunPod storage에 내려받지는 않았으며 파일 크기와 SHA-256은 다운로드 후 기록한다.
+- 2026-09-27에 공개 Drive 파일 페이지의 HTTP HEAD/HTML metadata를 확인했다. 페이지는
+  `200 OK`로 접근되지만 `Content-Length`와 archive byte size를 제공하지 않아, 실제
+  크기·checksum은 다운로드 또는 Drive UI에서 파일 크기를 확인해야 한다. 따라서 이번
+  단계에서는 다운로드를 시작하지 않았다.
 
 ## 보존·삭제 정책
 
