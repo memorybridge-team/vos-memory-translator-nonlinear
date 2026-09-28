@@ -15,7 +15,6 @@ import torch
 from PIL import Image
 
 from .runner import load_binary_prompt
-from .artifacts import write_handoff_artifacts
 from .case_cache import load_case_cache, write_case_cache
 from .metrics import evaluate_state
 from .sam2_state import (
@@ -670,17 +669,9 @@ def run_cached_translator_handoff(
         "resources_shared_reference_preparation": metadata.get("preparation_resources"),
     }
     if artifact_dir is not None:
-        if annotation_dir is None:
-            raise ValueError("annotation_dir is required when artifact_dir is set")
-        report["artifacts"] = write_handoff_artifacts(
-            video_dir=video_dir,
-            annotation_dir=annotation_dir,
-            object_id=int(metadata["object_id"]),
-            oracle_masks=oracle_future,
-            candidate_masks=candidate_future,
-            output_dir=artifact_dir,
-            report=report,
-            candidate_label=candidate_label,
+        raise RuntimeError(
+            "Artifact rendering belongs to vos-memory-benchmark; the public core "
+            "returns structured runtime data only."
         )
     del inference_state, predictor
     gc.collect()
@@ -869,17 +860,9 @@ def run_cached_baseline(
         ),
     }
     if artifact_dir is not None:
-        if annotation_dir is None:
-            raise ValueError("annotation_dir is required when artifact_dir is set")
-        report["artifacts"] = write_handoff_artifacts(
-            video_dir=video_dir,
-            annotation_dir=annotation_dir,
-            object_id=object_id,
-            oracle_masks=oracle_future,
-            candidate_masks=candidate_future,
-            output_dir=artifact_dir,
-            report=report,
-            candidate_label=labels[baseline],
+        raise RuntimeError(
+            "Artifact rendering belongs to vos-memory-benchmark; the public core "
+            "returns structured runtime data only."
         )
     del inference_state, predictor
     gc.collect()
@@ -1763,15 +1746,9 @@ def run_cross_model_translator_handoff(
         "resources": _resource_measurement(started_at, device),
     }
     if artifact_dir is not None:
-        report["artifacts"] = write_handoff_artifacts(
-            video_dir=video_dir,
-            annotation_dir=Path(prompt_mask).resolve().parent,
-            object_id=object_id,
-            oracle_masks=oracle_future,
-            candidate_masks=candidate_future,
-            output_dir=artifact_dir,
-            report=report,
-            candidate_label=candidate_label,
+        raise RuntimeError(
+            "Artifact rendering belongs to vos-memory-benchmark; the public core "
+            "returns structured runtime data only."
         )
     del target_state, target_predictor
     gc.collect()

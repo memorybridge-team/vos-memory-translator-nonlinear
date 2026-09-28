@@ -54,6 +54,9 @@ workspace. Paired-state tensors, checkpoints and prediction artifacts live on
 the RunPod Network Volume. Completed evidence and benchmark reports are kept
 in the dedicated archive repositories rather than this experiment core.
 
+Repository boundaries and the local Task 07/09 execution path are documented
+in [docs/repository_architecture.md](docs/repository_architecture.md).
+
 ```python
 from vos_memory_inspector import ResidualMLPStateTranslator
 ```

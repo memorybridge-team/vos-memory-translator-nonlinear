@@ -5,13 +5,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from vos_memory_inspector.hf_cache import (
-    flatten_kv_tokens,
-    normalize_hf_cache,
-    unflatten_kv_tokens,
-)
 from vos_memory_inspector.metrics import evaluate_state
-from vos_memory_inspector.paired_experiment import run_paired_experiment
 from vos_memory_inspector.sam2_state import (
     canonicalize_sam2_inference_state,
     inject_sam2_canonical_state,
@@ -47,19 +41,6 @@ def _state(spatial: torch.Tensor, pointer: torch.Tensor, presence: torch.Tensor)
         switch_frame=records - 1,
         metadata={"sentinel": "preserve"},
     ).validate()
-
-
-def test_hf_cache_legacy_and_token_roundtrip() -> None:
-    key = torch.arange(2 * 3 * 5 * 4).reshape(2, 3, 5, 4).float()
-    value = key + 1
-    cache = normalize_hf_cache(((key, value),))
-    assert cache.layers[0].key.shape == (2, 3, 5, 4)
-    flattened = flatten_kv_tokens(key)
-    assert flattened.shape == (10, 12)
-    restored = unflatten_kv_tokens(
-        flattened, batch=2, heads=3, sequence=5, head_dim=4
-    )
-    assert torch.equal(restored, key)
 
 
 def test_nested_inspector_writes_json_and_markdown(tmp_path: Path) -> None:
@@ -482,63 +463,3 @@ def test_learned_component_policy_uses_direct_for_unselected_components() -> Non
     assert translated.metadata["translation"]["presence_logits"] == "diagnostic_only"
 
 
-def test_paired_experiment_serializes_residual_mlp_contract(tmp_path: Path) -> None:
-    source = _state(
-        torch.randn(1, 1, 2, 3, 2, 2),
-        torch.randn(1, 1, 2, 4),
-        torch.randn(1, 1, 2, 1),
-    )
-    target = source.with_continuous(
-        spatial_memory=source.spatial_memory * 1.1,
-        object_pointer=source.object_pointer * 0.9,
-        presence_logits=source.presence_logits + 0.2,
-    )
-
-    report = run_paired_experiment(
-        [(source, target)],
-        [(source, target)],
-        tmp_path,
-        epochs=1,
-        hidden_dim=6,
-        translator_names=("residual_mlp",),
-        device="cpu",
-        spatial_samples_per_pair=3,
-    )
-
-    assert report["training"]["device"] == "cpu"
-    assert report["training"]["spatial_samples_per_pair"] == 3
-    saved = torch.load(
-        tmp_path / "paired_translators.pt", map_location="cpu", weights_only=True
-    )
-    payload = saved["residual_mlp"]
-    assert payload["schema_version"] == "cmmt.residual_mlp_translator.v2"
-    assert payload["hidden_dim"] == 6
-    assert payload["source_spec"] == source.spec.to_dict()
-    assert payload["target_spec"] == target.spec.to_dict()
-
-
-def test_paired_experiment_can_run_direct_and_ridge_only(tmp_path: Path) -> None:
-    source = _state(
-        torch.randn(1, 1, 2, 3, 2, 2),
-        torch.randn(1, 1, 2, 4),
-        torch.randn(1, 1, 2, 1),
-    )
-    target = source.with_continuous(
-        spatial_memory=source.spatial_memory * 1.2 + 0.1,
-        object_pointer=source.object_pointer * 0.8 - 0.2,
-        presence_logits=source.presence_logits + 0.3,
-    )
-    report = run_paired_experiment(
-        [(source, target)],
-        [(source, target)],
-        tmp_path,
-        translator_names=("direct", "ridge"),
-    )
-    assert report["translator_names"] == ["direct", "ridge"]
-    assert set(report["results"]) == {"direct", "ridge"}
-    assert "linear_initial_loss" not in report["training"]
-    saved = torch.load(
-        tmp_path / "paired_translators.pt", map_location="cpu", weights_only=True
-    )
-    assert set(saved) == {"ridge"}
-    assert set(saved["ridge"]) >= {"feature_weight", "pointer_weight"}
