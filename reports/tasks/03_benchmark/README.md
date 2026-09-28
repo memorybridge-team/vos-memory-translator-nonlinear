@@ -86,6 +86,5 @@ Task 08·09·13에서 수행한다.
 M³-VOS의 논문 본문 주지표는 공식 evaluator의 `J/J_last/J_cc`로 고정한다. `F/J&F`는 결과를 본 뒤
 선택적으로 삭제하지 않으며, 위 integrity gate를 통과한 경우에만 비공식 부록 지표로 보고한다.
 
-Delivery evidence: [2026-09-28 M³-VOS inventory](runs/2026-09-28_m3vos_delivery_validation/README.md),
-[`inventory.json`](runs/2026-09-28_m3vos_delivery_validation/inventory.json).
+Delivery evidence: [2026-09-28 M³-VOS inventory](milestones/2026-09-28_m3vos_delivery_inventory.md).
 - [ ] 전체 archive per-video 결과·video-clustered bootstrap CI 출력 형식 검증
