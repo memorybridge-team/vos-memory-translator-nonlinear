@@ -135,6 +135,29 @@ python scripts/build_pumavos_external_manifest.py \
   --output manifests/pumavos_external_v1.json
 ```
 
+## M³-VOS external stress v1
+
+- File: `m3vos_external_v1.json`
+- Role: config freeze 뒤 한 번 실행하는 material phase-transition secondary external stress benchmark
+- Immutable delivery revision: `5deb15b2baeaaa294ca168b789537729f7fb53a5`
+- Verified delivery inventory: 471 sequences, RGB/GT 202,577 pairs, 530 metadata object records,
+  68 core members, paired-set `failure_count=0`
+- Cases: 1,590 (annotation에 실제 존재하는 객체별 first-nonempty GT prompt와 25/50/75% frame-index switch)
+- Manifest content SHA-256: `b71c4af8634b53668ed1e74ef51234d815499d48d7a93ab290b4d0884632b612`
+
+문헌·project page의 479 videos/205,181 dense masks 수치와 immutable delivery inventory는 다르므로,
+실험 분모는 이 manifest의 received-delivery 수치를 사용하고 문헌 수치는 별도 맥락으로만 인용한다.
+`target_object.json` metadata와 annotation label이 다른 4개 sequence는 manifest에 명시적으로
+기록된다. metadata-only object에 빈 prompt를 만들지 않으며, annotation에 실제 존재하는 non-void
+label만 평가 객체로 쓴다. label `255`는 void이며 prompt object로 사용하지 않는다.
+
+```bash
+python scripts/build_m3vos_external_manifest.py \
+  /path/to/M3VOS \
+  --revision 5deb15b2baeaaa294ca168b789537729f7fb53a5 \
+  --output manifests/m3vos_external_v1.json
+```
+
 ## LVOS v2 train v1
 
 - File: `lvosv2_train_v1.json`
