@@ -274,3 +274,13 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[상태]** VOST archive·manifest·loader·official evaluator contract는 완료했으나,
   사용자가 추가 검증 데이터셋을 요청했으므로 Task 03은 `In Progress`로 유지한다. 그 데이터셋의
   이름·연구 역할·사용 가능한 GT/공식 evaluator는 아직 미확정이다.
+
+## 33. 2026-09-28 — 학습 파이프라인 검토용 구현
+
+- **[사용자 요청]** Small→Base+ 한 방향·한 번의 no-replay runtime 전환을 유지하고, state 수집·영속 shard·fit/dev loader·재개 가능한 학습·checkpoint runtime 연결을 구현한다. 이번 요청의 learned Linear 비교는 앞의 “새 Linear 학습 제외” 정책보다 우선한다. Nonlinear 구조 제작은 모델팀 책임이다.
+- **[계약]** `cmmt.small_to_base_plus.io.v1.1`을 따른다. `spatial_memory`와 `object_pointer`만 학습하고 discrete metadata를 exact 보존하며 Target PE를 재생성한다. compact cache의 누락된 record alignment 검사를 기존 validator로 보완했다.
+- **[구현]** 새 `vos_memory_inspector.training_cli`는 MOSEv2/LVOS v2 official train만 수집·학습하며 native-history와 controlled same-mask를 분리한다. 기존 DAVIS 전용 수집/학습 경로는 과거 재현용으로 보존한다. 공식 validation과 외부 benchmark는 새 학습 loader가 거부한다.
+- **[검증 범위]** CPU synthetic one-video overfit, video-disjoint dev, epoch-boundary resume parity, 실제 materializer/injector 함수 연결을 검증한다. Synthetic predictor의 결과를 실제 SAM 2 checkpoint 또는 VOS 성능 검증으로 간주하지 않는다. 실행 계약과 명령은 `docs/training_pipeline.md`에 둔다.
+- **[팀 경로, 사용자 전달]** persistent Network Volume `KNSW_DATASET`의 mount는 `/workspace`, 프로젝트는 `/workspace/CMMT`, 데이터는 `/workspace/CMMT/data/MOSEv2`와 `/workspace/CMMT/data/LVOSv2`, checkpoint root는 `/workspace/CMMT/checkpoints`다. 현재 Pod host/port와 파일/hash는 아직 원격 확인하지 못했다. private SSH key는 공유하지 않는다.
+- **[Blocker]** 사용자가 nonlinear 구조는 아직 제작 전이라고 확인했다. 모델팀 factory/constructor/forward adapter 및 현재 Pod endpoint가 필요하다. Real one-video overfit, real video-disjoint dev, actual checkpoint-backed no-replay rollout 및 GPU 비용/Pod restart gate는 미완료다.
+- **[게시 정책]** 사용자 검토 전 원격 push/PR 게시를 하지 않는다. 검증된 로컬 task branch와 review patch를 제공한다. 이번 작업 중 `origin/main`의 dataset guide merge `9128e6d`를 읽고 fast-forward했으며 팀원의 변경을 덮어쓰지 않았다.

@@ -7,7 +7,7 @@ if [[ $# -ne 1 ]]; then
 fi
 
 project_dir="$(cd "$1" && pwd)"
-workspace_dir="/workspace"
+workspace_dir="${CMMT_VOLUME_ROOT:-/workspace}"
 required_free_gb=40
 
 if [[ ! -d "${workspace_dir}" ]]; then

@@ -1,0 +1,36 @@
+{
+  "schema_version": "cmmt.collection_plan.v1",
+  "models": {
+    "source": {
+      "config": "configs/sam2.1/sam2.1_hiera_s.yaml",
+      "checkpoint": "checkpoints/sam2.1_hiera_small.pt"
+    },
+    "target": {
+      "config": "configs/sam2.1/sam2.1_hiera_b+.yaml",
+      "checkpoint": "checkpoints/sam2.1_hiera_base_plus.pt"
+    }
+  },
+  "cases": [
+    {
+      "dataset": "MOSEv2",
+      "release": "v2",
+      "official_split": "train",
+      "video_id": "REPLACE_WITH_TRAIN_VIDEO",
+      "video_dir": "staging/MOSEv2/REPLACE_WITH_TRAIN_VIDEO",
+      "switch_frame": 20,
+      "pair_mode": "native_history",
+      "preprocessing": {
+        "image_size": 1024,
+        "frame_indexing": "zero_based_staged_rgb_order"
+      },
+      "prompt_events": [
+        {
+          "frame_index": 0,
+          "object_id": 1,
+          "kind": "mask",
+          "mask_path": "datasets/MOSEv2/train/Annotations/REPLACE_WITH_TRAIN_VIDEO/00000.png"
+        }
+      ]
+    }
+  ]
+}

@@ -9,7 +9,7 @@ from typing import Any
 
 import torch
 
-from .state_schema import CanonicalState
+from .state_schema import CanonicalState, validate_paired_state_contract
 
 
 SCHEMA_VERSION = "cmmt.paired_state_cache.v1"
@@ -32,6 +32,7 @@ def validate_paired_state_cache(payload: Mapping[str, Any]) -> Mapping[str, Any]
         raise TypeError("paired-state cache needs source and target CanonicalState values")
     source.validate()
     target.validate()
+    validate_paired_state_contract(source, target)
     if source.switch_frame != target.switch_frame:
         raise ValueError("paired source/target switch frames differ")
     if source.object_ids != target.object_ids:

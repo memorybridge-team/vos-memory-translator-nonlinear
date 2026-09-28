@@ -231,7 +231,7 @@ class CanonicalState:
         tensors = {
             "spatial_memory": (self.spatial_memory, SPATIAL_AXES, "translate"),
             "object_pointer": (self.object_pointer, POINTER_AXES, "translate"),
-            "presence_logits": (self.presence_logits, SCALAR_AXES, "calibrate"),
+            "presence_logits": (self.presence_logits, SCALAR_AXES, "diagnostic_only"),
             "frame_indices": (self.frame_indices, RECORD_AXES, "preserve"),
             "slot_order": (self.slot_order, RECORD_AXES, "preserve"),
             "is_conditioning": (self.is_conditioning, RECORD_AXES, "preserve"),
