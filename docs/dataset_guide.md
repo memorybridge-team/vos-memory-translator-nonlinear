@@ -10,7 +10,7 @@
 | LVOS v2 | Translator 학습(fit/dev), 공개 GT 기반 local in-domain final | train의 video-disjoint dev만 사용 | manifest·loader 검증 완료 |
 | VOST validation | primary external zero-shot | 사용하지 않음 | archive·manifest·loader·official `J/J_last` contract 완료 |
 | PUMaVOS 전체 공개 archive | partial/unusual-mask complementary external stress | 사용하지 않음 | checksum·inventory·manifest·local `J/F/J&F` contract 완료 |
-| M³-VOS | material phase-transition complementary external stress | 사용하지 않음 | 다운로드 및 onboarding 진행 중 |
+| M³-VOS | material phase-transition complementary external stress | 사용하지 않음 | immutable delivery inventory·manifest·loader·official evaluator contract 완료 |
 | DAVIS 2017 | 현재 연구 범위 아님 | 사용하지 않음 | 과거 runtime engineering 증거로만 보존 |
 
 ## 학습과 평가의 분리
@@ -45,8 +45,8 @@
 ### M³-VOS
 
 - material phase transition 상황을 보는 external stress benchmark다.
-- 본문 주지표는 원 데이터셋 protocol과 맞춘 `J`, `J_tr`, `J_cc`다. Boundary `F/J&F`는 void 처리·GT-copy·shard merge·morphology 민감도 integrity gate를 통과했을 때만 보조 지표로 쓴다.
-- 2026-09-28 현재 공개 배포본 다운로드와 실제 inventory·loader·evaluator onboarding이 진행 중이다. 아직 어떤 CMMT 성능 결론에도 사용하지 않는다.
+- 본문 주지표는 공식 evaluator가 실제로 출력하는 `J`, `J_last`, `J_cc`다. `J_last`는 endpoint를 제외하고 temporal downsampling한 평가 frame의 마지막 25% mean이다. Boundary `F/J&F`는 void 처리·GT-copy·shard merge·morphology 민감도 integrity gate를 통과했을 때만 보조 지표로 쓴다.
+- 2026-09-28 immutable HF revision inventory는 471 sequences, 202,577 RGB/GT pairs, 530 object records, core 68, `failure_count=0`으로 통과했다. 논문·project page의 479 videos/205,181 masks 수치와 다르므로 두 수치를 혼용하지 않는다. 1,590-case first-prompt loader와 official `J/J_last/J_cc` GT-copy·shard-merge smoke도 통과했다. 아직 어떤 CMMT 성능 결론에도 사용하지 않는다.
 
 ## 누수 방지 규칙
 

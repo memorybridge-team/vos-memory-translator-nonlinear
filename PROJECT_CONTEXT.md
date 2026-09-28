@@ -11,7 +11,7 @@
 ## 2. 확정 범위
 
 - Model: 공식 SAM 2.1 Small → Base+ 한 방향. 같은 revision의 코드와 각각의 checkpoint를 사용한다.
-- Dataset role: MOSEv2/LVOS v2 train-fit·dev로 translator를 학습·선택하고 official validation을 sealed in-domain final로 사용한다. VOST val/test는 primary external zero-shot으로 사용한다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외한다.
+- Dataset role: MOSEv2/LVOS v2 train-fit의 paired state로 translator를 학습하고 video-disjoint dev에서 dense-GT downstream 성능으로 선택한다. LVOS v2 validation은 local detailed final, MOSEv2 validation은 Codabench sealed final, VOST validation은 primary external zero-shot으로 사용한다. PUMaVOS와 M³-VOS는 각각 partial/unusual-mask와 material phase-transition을 보는 complementary external zero-shot stress benchmark다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외한다.
 - Method: nonlinear. 첫 모델은 component-wise residual MLP. 필요성을 검증하며 gated MLP와 slot/context attention을 비교한다. 새로운 Linear/Ridge 학습은 범위가 아니다.
 - Baseline: Source-only, Base+-native/Full Replay, Direct Copy, Moment-Matched Copy, 객체별 Original-Prompt, Last-Visible Source Mask, Original+Last-Visible, Original-Prompt(s)+Replay-4/8/16, Nonlinear Translator. Last-Mask와 original anchor 없는 Recent-Window Replay-k는 최종 비교군에서 제외한다. Empty-reset proxy는 구현 진단군으로만 유지한다.
 - 기간: [대한전자공학회 2026 추계학술대회](https://conf.theieie.org/2026f/pages/outlines.vm)의 논문 제출일은 2026-10-19로 확인했다. 정확한 마감 시각·시간대와 업로드 형식은 제출 화면에서 재확인한다. 일정은 필요한 데이터셋·사례·반복 횟수를 줄이는 상한이 아니다. 추가 GPU·작업 자원과 재개 가능한 실행으로 규모를 유지한다.
@@ -31,7 +31,7 @@
 
 ## 5. 실험 규칙
 
-- MOSEv2/LVOS v2 train을 영상 단위 fit/dev로 분리하고 official validation은 config freeze 전까지 열지 않는다. VOST 결과를 모델 선택에 쓰지 않는다.
+- MOSEv2/LVOS v2 train을 영상 단위 fit/dev로 분리한다. Primary fit에는 future dataset GT를 쓰지 않고 `(b_T,a_T)` state pair를 사용한다. Official validation과 VOST/PUMaVOS/M³-VOS는 config freeze 전까지 열지 않으며 모델 선택에 쓰지 않는다.
 - 모든 비교군은 switch 이전에 등록된 동일 객체 집합과 실제 prompt timeline을 쓴다. 미래 GT로 handoff 입력을 고르지 않는다.
 - Original-Prompt는 객체별 최초 지정 frame을 뜻한다. Last-Visible은 source 예측에서 객체별 마지막 비어 있지 않은 mask와 해당 RGB를 쓴다.
 - Source-only는 수학적 하한, Base+-native는 수학적 상한이 아니다.
@@ -41,7 +41,7 @@
 
 ## 6. 현재 위치와 다음 단계
 
-새 저장소 구성 및 범위 고정 → Base+ checkpoint와 same-checkpoint export→inject 검증 → Task 03 v1.1/VOST onboarding → MOSE/LVOS paired-state·baseline·nonlinear 학습 → sealed in-domain 평가 → VOST external 평가 → 논문 작성. 자세한 일정과 성공 판정은 [실험 계획](docs/experimental_plan.md)을 따른다.
+새 저장소 구성 및 범위 고정 → Base+ checkpoint와 same-checkpoint export→inject 검증 → Task 03 VOST/PUMaVOS/M³-VOS onboarding → MOSE/LVOS future-GT-free paired-state·baseline·nonlinear 학습 → sealed in-domain 평가 → VOST/PUMaVOS/M³-VOS external 평가 → 논문 작성. 자세한 일정과 성공 판정은 [실험 계획](docs/experimental_plan.md)을 따른다.
 
 GitHub repository를 새로 만들었다는 사실만으로 실험이 이전됐다는 뜻은 아니다. 기존 GPU cache는 pair와 checkpoint가 일치하는지 확인한 뒤 사용하고 Base+-native state는 새로 생성한다.
 
@@ -274,3 +274,248 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[상태]** VOST archive·manifest·loader·official evaluator contract는 완료했으나,
   사용자가 추가 검증 데이터셋을 요청했으므로 Task 03은 `In Progress`로 유지한다. 그 데이터셋의
   이름·연구 역할·사용 가능한 GT/공식 evaluator는 아직 미확정이다.
+
+## 33. 2026-09-25 — Translator train/dev/final 평가 역할 정정
+
+- **[결정]** MOSEv2·LVOS v2 train의 video-disjoint fit/dev에서만 Translator를
+  학습·선택하고, 코드·config·checkpoint·manifest·evaluator를 동결한 뒤 final/external
+  평가를 실행한다.
+- **[정정]** MOSEv2 official validation은 첫-frame GT만 공개되고 후속 GT는 숨겨져 있으므로
+  local detailed final이 아니다. Frozen prediction을 Codabench에 제출해 서버가 반환한 공식
+  aggregate만 최종 표에 사용한다. Local GT 기반 switch J&F·recovery·identity 수치는
+  주장하지 않으며, latency·VRAM·replay·bytes처럼 GT가 필요 없는 지표만 추가할 수 있다.
+- **[결정]** LVOS v2 validation은 공개 전체 GT로 official J/F/J&F와 CMMT switch/recovery
+  세부 지표를 계산하는 local in-domain final이다. VOST validation은 freeze 뒤 한 번 실행하는
+  primary translator-level external zero-shot이며 공식 `J/J_last`와 CMMT 세부 지표를 보고한다.
+- **[선택 사항]** VOST train은 main fit/dev에 넣지 않는다. Freeze 뒤 공개 train+validation
+  642개를 supplementary zero-shot stress test로 평가할 수 있으나, 기존 연구와 직접 비교하는
+  공식 숫자는 validation 70개를 별도로 보고한다. VOST-train fine-tuning은 adaptation
+  upper-bound로 분리한다.
+- **[문서]** 독립적인 결정·후속 동기화 지침은
+  `docs/design/03_translator_train_dev_final_evaluation_decision.md`에 기록했다. 기존 protocol,
+  실행 계획, Task 03/07/08/09/13 Issue·Project 설명은 이 결정 문서를 기준으로 별도 PR에서
+  동기화해야 하며, 이 기록만으로 외부 보드나 기존 문서가 수정됐다고 간주하지 않는다.
+
+## 34. 2026-09-26 — State-only fit과 PUMaVOS external stress 확정
+
+- **[판단]** Cross-Model KV Cache Transfer 논문처럼 paired internal state만으로 mapper를
+  맞추는 접근은 CMMT에도 적용 가능하다. 동일 prefix의 Small state `b_T`와 frozen Base+
+  native state `a_T`가 supervision이므로 future dataset GT는 primary state-only fit에 필수가 아니다.
+- **[차이]** KV 논문은 `k`를 네 downstream benchmark 평균으로 선택하고 그 지표도 결과에
+  포함했으므로 엄격한 train/validation/test 분리 사례는 아니다. CMMT는 더 엄격하게
+  future-GT-free fit, video-disjoint dense-GT dev selection, sealed/external final로 분리한다.
+- **[결정]** Primary nonlinear Translator는 state-only로 학습한다. Target-native future
+  logit distillation은 GT-free ablation, dataset GT supervised rollout은 train-fit GT만 쓰는
+  별도 ablation으로 보고한다. Primary paired-state switch는 GT 비의존 temporal rule을 쓴다.
+- **[결정]** PUMaVOS는 논문·project page 기준 24 videos·21,187 dense frames·30 FPS이며 공식 train/val/test split이
+  없으므로 validation split이라 부르지 않는다. 공식 공개 archive 전체를 config freeze 뒤 한 번 실행하는
+  secondary external zero-shot stress test로 사용한다. 객체별 first-nonempty GT mask 한 장만
+  prompt로 쓰고 미래 GT는 평가에만 사용한다.
+- **[상태]** VOST는 primary external을 유지한다. PUMaVOS download/checksum·inventory·loader·
+  fixed manifest·J/F/J&F contract가 Task 03의 새 남은 gate이며, 완료 전 Done으로 옮기지 않는다.
+- **[출처 불일치]** 현재 XMem2 GitHub README overview에는 PUMaVOS를 23 videos라고 쓴 문장이
+  있어 논문·project page의 24 videos와 충돌한다. 다운로드한 공식 archive의 sequence/frame/object
+  inventory와 checksum으로 실제 평가 수량을 확정하고, 차이를 Task 03 보고서에 기록한다.
+- **[보류]** RunPod `/workspace/CMMT`의 DAVIS 원본·과거 산출물 13개 경로는 사용자의 지시에
+  따라 삭제하지 않고 그대로 보존한다.
+
+## 35. 2026-09-26 — M³-VOS external zero-shot과 boundary F 정책 확정
+
+- **[결정]** M³-VOS를 MOSEv2/LVOS v2로 학습·선택한 Translator의 **material phase-transition
+  external zero-shot stress benchmark**로 추가한다. VOST는 primary external을 유지하고,
+  PUMaVOS와 M³-VOS는 서로 다른 실패 조건을 보는 complementary secondary benchmark다.
+- **[공식 규모]** 최신 project page와 arXiv v3 기준 M³-VOS는 479 high-resolution videos와
+  205,181 dense masks/frames를 제공한다. 배포본의 split 이름과 실제 video/object 수는
+  download checksum·inventory로 다시 고정한다.
+- **[누수 금지]** M³-VOS는 gradient, normalization/statistics, architecture/loss/checkpoint,
+  threshold 또는 replay-k 선택에 쓰지 않는다. Config/checkpoint freeze 뒤 first prompt만 입력하고
+  미래 GT는 채점에만 사용한다.
+- **[주 지표]** 논문 본문의 M³-VOS 주지표는 원 논문과 직접 비교 가능한 `J`, `J_tr`(마지막
+  25% frame), `J_cc`(connected-component averaged Jaccard)로 사전 고정한다.
+- **[F 정책]** Boundary `F`와 `J&F`는 결과를 본 뒤 유불리에 따라 제외하지 않는다. Void mask
+  처리, GT-copy identity, shard/monolithic 일치, export/reload 무결성, native-resolution 및
+  controlled resize·1-pixel morphology 민감도 검사를 먼저 수행한다. 이 integrity gate를 통과해도
+  M³-VOS의 `F/J&F`는 비공식 보조·부록 지표이며, 통과하지 못하면 engineering report에만
+  원인과 함께 남긴다. 본문 주결론은 항상 `J/J_tr/J_cc`로 낸다.
+- **[상태]** M³-VOS access/licensing ledger, archive checksum·inventory, official full/core split,
+  void-aware loader, first-prompt manifest, `J/J_tr/J_cc` evaluator와 F integrity gate가 Task 03의
+  새 남은 gate다. Task 03은 PUMaVOS와 M³-VOS onboarding 완료 전까지 `In Progress`다.
+- **[근거]** <https://zixuan-chen.github.io/M-cube-VOS.github.io/>,
+  <https://arxiv.org/abs/2412.13803>,
+  <https://github.com/zixuan-chen/M3VOS_Experiment/blob/main/docs/EVALUATION.md>
+
+## 36. 2026-09-27 — 브랜치 명명 규칙 정비
+
+- **[근거]** 사용자가 공유한 브랜치·PR 협업 글을 검토했다. 공통 원칙은 `main` 직접 작업을
+  피하고, 목적이 드러나는 소문자 하이픈 브랜치에서 작은 commit을 만든 뒤 PR review와
+  checks를 거쳐 병합하는 것이다. 참고: <https://suhanlim.tistory.com/262>,
+  <https://su-devlog.tistory.com/5>.
+- **[결정]** 이후 브랜치는 `feature/task-번호-범위`, `docs/task-번호-범위`,
+  `experiment/범위`, `fix/범위`, `chore/범위` 중 작업 유형에 맞는 접두어를 사용한다.
+  이름은 소문자 ASCII·하이픈만 사용하고 한 브랜치에 한 작업만 담는다.
+- **[정정]** 기존 PR #10의 원격 head를 저장소 권한 없이 rename할 수 없으므로
+  `task/03-external-zero-shot-protocol-v1-3`을 PR의 canonical 작업 브랜치로 유지한다.
+  임시로 만든 `feature/task-03-external-zero-shot-protocol-v1-3`은 삭제하고, 다음 새
+  작업부터 `feature/`, `docs/`, `experiment/`, `fix/`, `chore/` 규칙을 적용한다.
+
+## 37. 2026-09-27 — RunPod 데이터 보존·정리
+
+- **[확인]** RunPod `/workspace`에서 VOST archive는 압축 해제된 상태였고, VOST의
+  `test` split 목록은 존재하지만 실제 JPEG/annotation 파일은 `0`바이트였다.
+- **[삭제]** 압축 해제본이 이미 검증된 VOST zip, MOSEv2 valid tarball, LVOS v2
+  train/valid zip을 삭제했다. DAVIS 원본과 DAVIS paired-state·과거 nonlinear 산출물도
+  현재 연구 범위 제외 결정에 따라 삭제했다. SAM 2 코드와 DAVIS 관련 테스트 코드는
+  재현성 때문에 보존했다.
+- **[보존]** MOSEv2·LVOS v2의 압축 해제본, VOST extracted archive(train/val 포함),
+  현재 checkpoint·manifest·보고서·코드와 non-DAVIS 결과는 보존했다. VOST train은
+  현재 primary 평가에는 쓰지 않지만 optional adaptation upper-bound 가능성을 위해
+  당분간 보존한다.
+- **[용량 판단]** 정리 후 확인된 주요 데이터는 MOSEv2 약 148GB, LVOS v2 약 45GB,
+  VOST extracted 약 53GB다. Dataset 원본과 paired-state는 1:1 복제가 아니지만, 모든
+  영상의 state를 장기 보존하면 수십~수백 GB가 추가될 수 있다. 따라서 500GB는
+  shard·중간 cache를 순차 삭제하는 조건에서만 borderline이며, 전체 paired-state와
+  반복 결과를 동시에 보존하려면 1TB가 안전하다.
+
+## 38. 2026-09-27 — PUMaVOS 공식 archive 경로 확인
+
+- **확인** XMem2 공식 README의 PUMaVOS `.zip` 링크를 따라가 `PUBLIC_PUMaVOS.zip`
+  Google Drive 파일 ID `1VAClrxhWWiu9Y39QtcoUhp2YBN7R_ZCD`와 별도 sequences/masks
+  폴더 ID `1Q7gSCCgemUyweu-7-Yb9G_W55Muq5-bC`를 확인했다.
+- **후속 확인** 같은 날 공식 archive를 RunPod에 내려받아 content range
+  `3,008,102,259` bytes, SHA-256
+  `ccd062636b0422055d1da7344411726b4fd1d74d490e68b50618c34ca9a087a4`,
+  `unzip -t` 42,425 entries 무오류를 확인했다. 실제 extraction inventory는 §41의
+  별도 gate로 남긴다.
+- **근거** [XMem2 공식 README](https://github.com/mbzuai-metaverse/XMem2)의 PUMaVOS
+  Download 섹션과 `reports/tasks/03_benchmark/runs/2026-09-27_external_onboarding_sources.md`.
+
+## 39. 2026-09-27 — M³‑VOS 공식 데이터 경로 대조
+
+- **확인** M³‑VOS project page는 [Hugging Face data card](https://huggingface.co/datasets/Lijiaxin0111/M3_VOS)와 공식 evaluation 저장소를 연결한다.
+- **판정** Hugging Face viewer에서 확인되는 것은 `test` split 530개 object-level metadata 행과
+  첫 frame 경로다. 이는 479개 영상의 JPEG·dense mask media archive가 RunPod에 확보됐다는
+  증거가 아니므로, metadata만으로 M³‑VOS onboarding을 완료 처리하지 않는다.
+- **다음 gate** 공식 evaluation 문서의 `JPEGImages/Annotations/Videos/ImageSets/meta`
+  구조를 실제 배포본과 대조하고, archive checksum·video/object/frame inventory를
+  확인한 뒤에만 다운로드·평가를 결정한다.
+
+## 40. 2026-09-27 — M³‑VOS download와 evaluator integrity 준비
+
+- **확인** 공식 Hugging Face repository의 pinned commit
+  `5deb15b2baeaaa294ca168b789537729f7fb53a5`와 published storage
+  `56,663,215,406` bytes를 확인했다. RunPod에 `/workspace/CMMT/data/M3VOS`로
+  4-worker resumable download를 시작해 annotation 파일 1,873개를 확보했다. 이후
+  worker 수를 16으로 올린 재개 요청은 Hugging Face 공개 API의 HTTP 429 rate limit으로
+  중단됐다. 이미 내려받은 파일은 보존했고, 무의미한 재시도는 하지 않는다. project
+  page에서 연결된 기존 Google Drive folder도 2026-09-27에 `404 Not Found`여서 대체
+  공식 경로로 사용할 수 없었다. 실제 archive/file checksum 및 inventory는 접근
+  복구 후에만 확정한다.
+- **확인** official evaluator HEAD `8cf8f9b3cb069d8476ef6c3c0b8f11b8337c3b56`는
+  `J`, 마지막 25% `J_last`, connected-component matching `J_cc`를 산출한다.
+  `Dataset.get_all_masks()`가 255 label을 void로 분리하지만 현재 evaluation call은
+  void argument를 전달하지 않는다.
+- **결정** CMMT는 official-output 재현과 void-aware output을 혼동하지 않는다.
+  GT-copy·shard merge 결과에서 두 규칙의 차이를 먼저 기록하고, 본문에는 dataset-native
+  official protocol을 우선하며 void-aware 수치는 integrity/engineering 보조 결과로 분리한다.
+
+## 41. 2026-09-27 — PUMaVOS archive 검증과 inventory 도구
+
+- **확인** PUMaVOS official `PUBLIC_PUMaVOS.zip`의 content range는
+  `3,008,102,259` bytes이고 SHA-256은
+  `ccd062636b0422055d1da7344411726b4fd1d74d490e68b50618c34ca9a087a4`다.
+  `unzip -t` 전수 검사는 42,425 entry에서 오류 없이 통과했다.
+- **구현** split 없는 PUMaVOS의 archive 실제 `JPEGImages`/`Annotations` directory를
+  source of truth로 삼는 `scripts/validate_pumavos_inventory.py`를 추가했다. exact stem
+  pairing, sequence/frame/annotation count, missing RGB/mask를 보고한다. synthetic smoke는
+  통과했고 full pytest는 이 local Python에 pytest가 없어 아직 실행하지 못했다.
+- **상태** RunPod 압축 해제 후 full inventory·first-nonempty prompt·switch manifest·local
+  J/F/J&F contract smoke가 남아 있다. M³‑VOS download와는 압축 해제를 겹치지 않는다.
+
+## 42. 2026-09-27 — PUMaVOS extracted inventory 동결
+
+- **검증** RunPod extracted official archive에 `validate_pumavos_inventory.py`를 전수
+  실행해 24 sequences, RGB 21,187 frames, annotation 21,187 frames,
+  `failure_count=0`을 확인했다. 모든 sequence에서 RGB `.jpg`와 GT `.png`의 exact stem이
+  1:1 대응한다.
+- **판정** 논문·project page의 24-video 설명과 일치하며, XMem2 README overview의
+  23-video 문구는 배포본 기준 수량으로 쓰지 않는다. archive checksum과 extracted
+  inventory가 검증돼 원본 zip은 삭제했고 extracted root만 유지한다. 객체별 actual
+  first-nonempty GT prompt와 25/50/75% switch를 적용한 external manifest는 78 cases,
+  content SHA-256 `97857509580c74c517814dd0cd5ec6e53ebc36991305dc88d7ffdf10a47f3d64`로
+  동결했다. local DAVIS J/F evaluator GT-copy smoke(`billie_hair`, object 1, first
+  5 frames)는 J=F=J&F=1.0으로 통과했다. Task 03은 M³‑VOS onboarding이 남아 계속
+  `In Progress`다.
+
+## 43. 2026-09-27 — M³‑VOS 공개 접근 일시 차단 기록
+
+- **사실** M³‑VOS의 저자 공개 Hugging Face dataset은 파일 단위 resume을 허용하지만,
+  공개 IP에서 병렬 수를 높인 요청은 HTTP 429로 거절됐다. 인증 token을 우회하거나
+  계정 정보를 요청하지 않는다. rate limit이 풀린 뒤 낮은 병렬도(기존 4 workers)로
+  재개하거나, 저자가 접근 가능한 공식 mirror를 제공할 때만 이어 간다.
+- **영향** M³‑VOS의 checksum·full/core inventory·void-aware loader와 evaluator smoke는
+  아직 미완료다. PUMaVOS onboarding은 독립적으로 계속하며, 이 외부 접근 문제만으로
+  Task 03을 Done으로 바꾸지 않는다.
+- **후속 상태** 동일 날짜에 single-worker resumable download로 다시 시작했고, 기존
+  annotation 파일을 보존한 채 HTTP 429 없이 진행 중임을 log로 확인했다. 완료 뒤에만
+  archive/file checksum과 actual inventory를 동결한다.
+- **rate-limit 탐색** 2 workers는 약 1,500 files를 받은 뒤 다시 HTTP 429가 발생했다.
+  자동 재시도는 종료하고 cooldown 뒤 1 worker로 되돌렸다. 현재 공개·무인증 endpoint에서
+  1 worker가 확인된 최대 안정 병렬도다.
+- **인증 재개** 사용자가 RunPod에서 Hugging Face Read token으로 `hf auth login`을 완료했고,
+  `hf auth whoami`로 인증을 확인했다. 기존 파일을 유지한 채 4-worker resumable download를
+  재개했으며 초기 관찰에서 HTTP 429 없이 annotation 파일이 증가했다. token 값은 저장소·보고서·
+  대화에 기록하지 않는다.
+
+## 44. 2026-09-28 — M³‑VOS delivery inventory 완료와 metric 정정
+
+- **[확인]** Hugging Face immutable revision
+  `5deb15b2baeaaa294ca168b789537729f7fb53a5`의 RunPod delivery
+  `/workspace/CMMT/data/M3VOS-manual`를 전수 검증했다. `val.txt`, JPEGImages,
+  Annotations, viewer metadata, target-object metadata가 같은 sequence 집합을 이루며,
+  결과는 471 sequences, RGB 202,577개, GT PNG 202,577개, object record 530개,
+  core 68개, `failure_count=0`이다. 증거는
+  `reports/tasks/03_benchmark/runs/2026-09-28_m3vos_delivery_validation/`에 둔다.
+- **[정정]** 논문·project page의 479 videos/205,181 dense masks와 받은 immutable
+  delivery의 수량은 다르다. 이는 현재 검증에서 누락으로 나타나지 않았으며, 이후 manifest와
+  denominator는 delivery inventory를 기준으로 쓰고 문헌 수치는 별도로 인용한다.
+- **[확인]** 공식 evaluator checkout `8cf8f9b3cb069d8476ef6c3c0b8f11b8337c3b56`의
+  실제 출력 지표는 `J`, `J_last`, `J_cc`다. `J_last`는 endpoint를 제외하고 temporal
+  downsampling한 evaluation frame의 마지막 25% mean이다. 이전 문서의 `J_tr` 표기는
+  공식 released code의 명칭과 달라 `J_last`로 정정했다.
+- **[확인]** evaluator dataset reader는 label `255`를 void로 분리하지만 default evaluation
+  call은 void array를 metric 함수에 넘기지 않는다. CMMT는 official-output GT-copy smoke와
+  void-aware engineering check를 분리한다.
+- **[상태]** M³‑VOS 첫-prompt loader·fixed switch manifest, official evaluator의 GT-copy/
+  shard-merge smoke, conditional boundary F/J&F integrity gate가 남아 있으므로 Task 03은
+  계속 `In Progress`다.
+
+## 45. 2026-09-28 — M³‑VOS onboarding core gate 완료
+
+- **[검증]** annotation에 실제 존재하는 non-void object label의 first prompt와 25/50/75%
+  fixed switch로 `m3vos_external_v1.json`을 동결했다. 471 sequences·1,590 cases이며
+  content SHA-256은 `b71c4af8634b53668ed1e74ef51234d815499d48d7a93ab290b4d0884632b612`이다.
+  1,590/1,590 case에서 prompt RGB·prompt label·switch RGB를 읽는 loader가
+  `failure_count=0`으로 통과했고, future GT는 읽지 않는다.
+- **[결함 기록]** metadata와 annotation label이 다른 sequence는 4개다. metadata-only는
+  `0406_assemble_machinery_13: obj_3`, `0453_erupt_foam_2: obj_2`이며,
+  annotation-only label 3은 `0374_assemble_machinery_4`,
+  `0375_assemble_machinery_5`에 있다. 빈 prompt object를 만들지 않고 이 discrepancy를
+  manifest에 보존한다.
+- **[검증]** official evaluator HEAD
+  `8cf8f9b3cb069d8476ef6c3c0b8f11b8337c3b56`에서 GT-copy
+  `0001_open_cup_1` object 1은 `J=1.0`, `J_last=1.0`,
+  `J_cc=0.9999999999990095`(분모 epsilon)였다. 두 sequence shard의 per-object merge와
+  combined invocation 사이 최대 오차는 `0.0`이다.
+- **[검증]** 다섯 native-resolution GT-copy frame은 export/reload에서
+  `J=F=J&F=1.0`이었다. resize 및 1-pixel morphology 민감도도 기록했다. 수신 delivery에서
+  label 255 void pixel은 관찰되지 않았으므로 F/J&F는 계속 비공식 부록 integrity metric이다.
+- **[상태]** M³‑VOS onboarding은 완료했다. Task 03에는 VOST·PUMaVOS·M³‑VOS 증거를
+  묶는 `FINAL_REPORT.md`와 Issue/Project closeout만 남았으며, full per-video evaluation과
+  video-clustered CI는 Task 13의 config-freeze 뒤 산출물이다.
+
+## 2026-09-28 — Task 03 v1.3 최종 완료
+
+- **[완료]** Task 03의 VOST·PUMaVOS·M³-VOS onboarding evidence를 `FINAL_REPORT.md`로 통합하고, GitHub Issue #4에 closeout 결과와 근거 링크를 게시했다.
+- **[정정]** M³-VOS released evaluator의 실제 출력 이름은 `J/J_last/J_cc`다. 과거 문서의 `J_tr` 표기는 closeout 기록에서 정정했으며, boundary F/J&F는 비공식 appendix integrity metric으로만 유지한다.
+- **[GitHub 상태]** Issue #4는 completed로 닫혔고, GitHub Project #2의 Task 03 카드는 `Done`으로 변경됐다.
+- **[후속]** full frozen-method evaluation, video-level 결과, video-clustered confidence interval은 Task 13의 책임이다. 다음 구현 단계는 Task 07 paired-state 수집이다.

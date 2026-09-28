@@ -5,7 +5,7 @@
 **모델:** SAM 2.1 Small → Base+
 **학습·in-domain 평가:** MOSEv2, LVOS v2
 
-**external 평가:** VOST(primary external zero-shot) · PUMaVOS/M³-VOS(complementary stress)
+**external 평가:** VOST(primary external zero-shot), PUMaVOS(partial/unusual-mask stress), M³-VOS(material phase-transition stress)
 **기간:** 2026-09-18부터 약 4주. 실제 투고 마감일은 확정 후 기록합니다.  
 **제안 방법:** 객체별 spatial memory와 object pointer를 변환하는 nonlinear translator. Presence, frame ID, positional encoding과 객체 ID는 별도의 상태 계약에 따라 처리합니다.
 
@@ -33,9 +33,9 @@ Project Board는 상세 연구 문서를 복제해 보관하는 곳이 아니라
 |---|---|---|
 | 연구 범위·성공 기준 고정 | `Done` — [Issue #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1) | [Baseline·성공·중단 기준](docs/design/01_scope_baselines_success_stop.md) 동결 완료 |
 | Small/Base+ State I/O 계약 | `Done` — [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2) | [I/O 계약 v1.1](docs/design/small_base_state_io_contract.md), [Task 02 최종 보고서](reports/tasks/02_state_io/FINAL_REPORT.md) |
-| dataset·난이도·baseline·metric 동결 | `In Progress` — [Issue #4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4) | VOST·PUMaVOS contract 검증 완료; M³-VOS download·inventory·loader·metric contract 진행 중 |
+| dataset·난이도·baseline·metric 동결 | `Done` — [Issue #4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4) | VOST·PUMaVOS·M³-VOS inventory·manifest·loader·metric contract 완료; [Task 03 최종 보고서](reports/tasks/03_benchmark/FINAL_REPORT.md) |
 | 상태 추출·self-injection·target injection | `Done` — [Issue #5](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/5) | [Task 06 최종 보고서](reports/tasks/06_runtime/FINAL_REPORT.md); correction·반복 handoff까지 exact |
-| paired Small/Base+ state 수집 | `Todo` | MOSEv2/LVOS v2 fit/dev만 사용한 video-level split, checksum manifest, compact state pair |
+| paired Small/Base+ state 수집 | `Todo` | MOSEv2/LVOS v2 fit/dev에서 future GT 없는 state-only pair, video-level split, checksum manifest, compact shard |
 | 공통 evaluator·baseline | `Todo` | 같은 manifest에서 강한 재인코딩·replay·native 비교 결과 |
 | nonlinear 후보 학습·비교 | `Todo` | MLP/gated MLP/slot-context 후보의 downstream·비용 비교 |
 
@@ -43,13 +43,22 @@ Project Board는 상세 연구 문서를 복제해 보관하는 곳이 아니라
 
 ## 브랜치 이름 규칙
 
-팀원이 이름만 보고 목적을 알 수 있도록 다음 형식을 사용합니다.
+팀원이 이름만 보고 목적과 범위를 알 수 있도록 **작업유형/짧은-범위** 형식을 사용합니다.
+모든 이름은 소문자 ASCII와 하이픈만 사용하고, 한 브랜치에는 하나의 작업만 담습니다.
 
-- `task/03-benchmark-protocol` — 특정 Project task 구현·문서화
-- `task/06-continuation-injection` — runtime/state injection 작업
-- `experiment/small-base-direct-copy` — 재현 가능한 실험·비교군
+- `feature/task-03-external-zero-shot-protocol` — Project task의 기능·프로토콜 구현
+- `docs/task-03-benchmark-protocol` — 문서만 수정하는 작업
+- `experiment/small-base-direct-copy` — 재현 가능한 실험·비교군 실행
 - `fix/memory-shape-mismatch` — 결함 수정
-- `docs/reproduction-guide` — 문서 전용 변경
+- `chore/update-ci` — 빌드·CI·도구 정리
+
+일반 흐름은 `main → branch → 작은 단위 commit → PR → review/checks → merge`다. PR 제목은
+브랜치 범위와 같은 동사를 사용하고, Issue·실행 명령·결과 보고서를 연결한다. 연구 Task 번호가
+중요한 경우 `feature/task-번호-범위`처럼 번호를 보존한다.
+
+현재 PR #10은 이미 생성된 Task 03 PR과의 연결을 보존하기 위해
+`task/03-external-zero-shot-protocol-v1-3`에서 계속 운영한다. 다음 새 작업부터는 위 규칙을
+적용하며, 다음 문서 전용 작업은 `docs/task-번호-범위`를 우선 사용한다.
 
 기존 `feature/task-06-continuation-injection`은 이전 작업의 역사적 branch로 보존합니다. 현재 최소 handoff 계약 전체를 검증하는 변경은 `codex/minimal-handoff-contract`처럼 범위가 넓은 branch로 분리했으며, 앞으로 새 작업은 위 의미 기반 이름을 우선합니다.
 
@@ -69,7 +78,7 @@ Small이 switch 시점 t까지 처리 → 객체별 source state 추출
 
 성공 기준은 state tensor가 비슷한지만이 아닙니다. 전환 후 객체 분할 J&F, 부재 중 오검출, 재등장 후 복구, 전환 지연과 전달량을 함께 봅니다.
 
-실제 데이터 운영은 `translator fit → in-domain development → sealed in-domain final → external frozen benchmark`의 네 역할로 분리합니다. 주 translator는 MOSEv2/LVOS v2 train-fit에서 학습하고 같은 train의 video-disjoint dev에서만 선택합니다. 공식 validation은 final configuration 동결 후 열며, VOST를 primary external cross-dataset zero-shot benchmark로 사용합니다. PUMaVOS와 M³-VOS는 각각 partial/unusual-mask와 material phase-transition을 보는 complementary external stress benchmark다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외합니다. [데이터셋 안내](docs/dataset_guide.md)에서 각 데이터셋의 상세 역할과 onboarding 상태를 확인할 수 있습니다.
+실제 데이터 운영은 `translator fit → in-domain development → sealed in-domain final → external frozen benchmark`의 네 역할로 분리합니다. 주 translator는 MOSEv2/LVOS v2 train-fit의 `(Small state, Base+ native state)` 쌍으로 학습하며 future frame GT를 primary loss에 사용하지 않습니다. 같은 train의 video-disjoint dev에서만 dense GT downstream 성능으로 구조와 checkpoint를 선택합니다. 설정 동결 뒤 LVOS v2 validation은 local detailed final, MOSEv2 validation은 Codabench sealed final, VOST는 primary external zero-shot으로 사용합니다. PUMaVOS와 M³-VOS는 각각 partial/unusual-mask와 material phase-transition에 대한 complementary external stress benchmark입니다. M³-VOS 본문 주지표는 공식 evaluator의 `J/J_last/J_cc`이며, boundary `F/J&F`는 사전 integrity gate를 통과한 경우에만 부록 보조지표로 냅니다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외합니다. [데이터셋 안내](docs/dataset_guide.md)에서 각 데이터셋의 상세 역할과 onboarding 상태를 확인할 수 있습니다.
 
 ## 계획과 비교군
 
@@ -88,6 +97,7 @@ Nonlinear 후보는 component-wise residual MLP, gated MLP, slot/context attenti
 | `tests/` | 상태 구조와 기존 기능 회귀 검사 |
 | `configs/` | 재현용 설정과 manifest 정책 |
 | `docs/experimental_plan.md` | 현재 유효한 4주 연구 계획 |
+| `docs/design/03_translator_train_dev_final_evaluation_decision.md` | future-GT-free state fit, dense-GT dev, sealed/external final 평가 역할 결정 |
 | `docs/dataset_guide.md` | 데이터셋별 학습·평가 역할, 누수 방지 규칙, onboarding 상태 |
 | `docs/github_task_workflow.md` | Issue·Project·commit/PR·완료 증거 운영 순서 |
 | `docs/project_board_audit_2026-09-19.md` | Project #2의 01→20 task 감사·수정 기록 |

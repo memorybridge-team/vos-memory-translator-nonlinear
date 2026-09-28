@@ -5,8 +5,8 @@
 ## 한눈에 보기
 
 - 완료: Task 01 연구 범위, Task 02 State I/O, Task 06 runtime export·assembly·injection
-- 진행 중: Task 03 benchmark protocol — VOST·PUMaVOS contract 검증 완료, M³-VOS download·onboarding 진행 중
-- 다음: Task 03 최종 동결 → Task 07 paired-state 수집 → Task 08 baselines → Task 09–11 nonlinear 학습·동결 → final/external 평가
+- 완료: Task 03 benchmark protocol — VOST·PUMaVOS·M³-VOS contract 검증, final report·Issue/Project closeout 완료
+- 다음: Task 07 paired-state 수집 → Task 08 baselines → Task 09–11 nonlinear 학습·동결 → final/external 평가
 - 현재 결과 해석: runtime은 exact하게 동작하지만, Small→Base+ nonlinear translator의 성능은 아직 검증하지 않음
 
 # 1. 연구 문제와 범위
@@ -57,6 +57,8 @@
 
 - 작업:
   - MOSEv2·LVOS v2 train/validation manifest와 loader, VOST external manifest와 loader 검증
+  - PUMaVOS를 split 없는 partial/unusual-mask external zero-shot stress test로 추가
+  - M³-VOS를 material phase-transition external zero-shot stress test로 추가하고 공식 evaluator의 `J/J_last/J_cc`를 본문 주지표로 고정
   - MOSEv2/LVOS v2 train을 video-disjoint fit/dev로 분리
   - in-domain held-out와 external cross-dataset zero-shot 역할 분리
 - 결과:
@@ -67,7 +69,7 @@
   - VOST를 primary external zero-shot, PUMaVOS·M³-VOS를 complementary external stress로 고정하고 DAVIS는 연구 범위에서 제외
   - VOST archive checksum·manifest·SAM 2 loader·official `J/J_last` contract 검증 완료
   - PUMaVOS official archive checksum·24-sequence inventory·manifest·local `J/F/J&F` contract 검증 완료
-  - M³-VOS 공개 배포본 download·inventory·void-aware loader·dataset-native metric contract를 검증한 뒤 Task 03을 최종 종료
+  - M³-VOS immutable delivery inventory·first-prompt loader·dataset-native metric contract를 검증했으며, Task 03 최종 보고서와 Issue/Project closeout도 완료
 - 증빙 링크:
   - [데이터셋 안내](dataset_guide.md)
   - [Benchmark protocol](design/03_benchmark_protocol.md)
@@ -90,7 +92,7 @@
 
 ## 다음 단계
 
-1. M³-VOS download·inventory·void-aware loader·`J/J_tr/J_cc` contract와 boundary F integrity gate를 완료한다.
+1. M³-VOS delivery inventory·void-aware loader·`J/J_last/J_cc` contract와 boundary F integrity gate를 완료한다.
 2. MOSEv2/LVOS v2 fit/dev에서만 Small/Base+ paired state를 수집한다.
 3. 같은 evaluator에서 baseline을 구현하고 fit 통계와 dev model selection을 검증한다.
 4. nonlinear 후보를 학습·선정한 뒤 config를 동결한다.

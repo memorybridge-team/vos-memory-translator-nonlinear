@@ -2,7 +2,7 @@
 
 > 상태: **FROZEN v1.2 — 2026-09-24**
 > 적용 범위: SAM 2.1 Small → Base+, MOSEv2·LVOS v2 fit/in-domain evaluation,
-> VOST external zero-shot evaluation, nonlinear state translator
+> VOST primary·PUMaVOS/M³-VOS complementary external zero-shot evaluation, nonlinear state translator
 > 목적: Project task 01의 연구 질문과 판정 규칙을 실험 결과를 보기 전에 고정한다.
 
 ## 1. 연구 질문과 범위
@@ -31,8 +31,9 @@ Small이 frame `t`까지 축적한 객체별 memory/state를 nonlinear translato
 - 입력 정보가 서로 다른 방법을 같은 이름으로 부르지 않는다. 특히 `Last-Visible`과 `Original-Prompt(s)+Replay-k`를 구분한다.
 - 학습·선택은 MOSEv2/LVOS v2 train의 video-disjoint fit/dev에서만 수행한다.
 - MOSEv2/LVOS v2 official validation은 final configuration을 동결하기 전까지 열지 않는다.
-- VOST는 gradient, 통계 추정, architecture/loss/checkpoint/threshold/replay-k 선택에 쓰지
-  않는다. VOST val/test는 primary external zero-shot으로 표시한다. DAVIS는 현재 연구의
+- VOST, PUMaVOS, M³-VOS는 gradient, 통계 추정, architecture/loss/checkpoint/threshold/replay-k 선택에 쓰지
+  않는다. VOST validation은 primary external zero-shot, PUMaVOS와 M³-VOS는 각각 partial/unusual-mask와
+  material phase-transition external stress로 표시한다. DAVIS는 현재 연구의
   학습·평가·주장 범위에서 제외한다.
 
 ## 3. 최종 Baseline
@@ -143,8 +144,8 @@ held-out video에서 다음을 모두 확인한다.
 3. 가장 강한 non-full-replay 대안과 accuracy–cost Pareto 비교에서 지배되지 않는다.
 4. Full Replay보다 과거 재처리 frame 수가 적고, prefix 길이에 따른 handoff latency crossover를 보고한다.
 5. MOSEv2와 LVOS v2의 sealed in-domain evaluation에서 방향이 재현되어야 한다.
-6. VOST의 primary external benchmark에서 translator-level cross-dataset zero-shot 성능을
-   별도 보고한다. DAVIS 결과는 현재 연구의 external evidence에 포함하지 않는다.
+6. VOST의 primary external benchmark와 PUMaVOS/M³-VOS complementary stress에서 translator-level
+   cross-dataset zero-shot 성능을 별도 보고한다. DAVIS 결과는 현재 연구의 external evidence에 포함하지 않는다.
 
 주요 차이는 video-clustered 95% CI와 함께 보고한다. 동률 주장은 사전에 정한 `1.0 J&F point` 비열등 margin 안에서만 사용하고, 그 경우 비용 이득을 반드시 함께 제시한다.
 
@@ -187,6 +188,6 @@ held-out video에서 다음을 모두 확인한다.
 - [x] downstream·continuity·cost 기반 성공 기준
 - [x] 구현 중단, 모델 전환 no-go, learned translator no-go 기준
 - [x] fit/dev, sealed in-domain final, external zero-shot의 역할 분리
-- [x] VOST를 primary external zero-shot으로 고정하고 DAVIS를 연구 범위에서 제외
+- [x] VOST를 primary, PUMaVOS/M³-VOS를 complementary external zero-shot으로 고정하고 DAVIS를 연구 범위에서 제외
 
 실험 결과에 따라 결론은 바뀔 수 있지만, 결과를 본 뒤 유리하게 판정 규칙을 바꾸지는 않는다. 변경이 필요하면 날짜·이유·영향받는 run을 decision log에 남긴다.
