@@ -58,7 +58,7 @@
 - 작업:
   - MOSEv2·LVOS v2 train/validation manifest와 loader, VOST external manifest와 loader 검증
   - PUMaVOS를 split 없는 partial/unusual-mask external zero-shot stress test로 추가
-  - M³-VOS를 material phase-transition external zero-shot stress test로 추가하고 공식 `J/J_tr/J_cc`를 본문 주지표로 고정
+  - M³-VOS를 material phase-transition external zero-shot stress test로 추가하고 공식 evaluator의 `J/J_last/J_cc`를 본문 주지표로 고정
   - MOSEv2/LVOS v2 train을 video-disjoint fit/dev로 분리
   - in-domain held-out와 external cross-dataset zero-shot 역할 분리
 - 결과:
@@ -92,7 +92,7 @@
 
 ## 다음 단계
 
-1. M³-VOS download·inventory·void-aware loader·`J/J_tr/J_cc` contract와 boundary F integrity gate를 완료한다.
+1. M³-VOS delivery inventory·void-aware loader·`J/J_last/J_cc` contract와 boundary F integrity gate를 완료한다.
 2. MOSEv2/LVOS v2 fit/dev에서만 Small/Base+ paired state를 수집한다.
 3. 같은 evaluator에서 baseline을 구현하고 fit 통계와 dev model selection을 검증한다.
 4. nonlinear 후보를 학습·선정한 뒤 config를 동결한다.

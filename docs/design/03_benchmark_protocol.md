@@ -31,7 +31,7 @@
 | LVOS v2 | 2024 공개본(v2), train 420 / val 140 / test 160 videos | 주 fit/dev 및 sealed in-domain final; 장기 부재·재등장 | 공식 train의 video-disjoint 80/20 fit/dev만 학습·선택에 쓴다. 공식 val은 checkpoint 동결 후 최종 평가에만 사용한다. |
 | VOST | 713 videos; train 572 / val 70 / test 71, 51 transformation types, 5 FPS | 주 external cross-dataset zero-shot; 극단적 appearance/identity transformation | main translator는 VOST train/val을 전혀 보지 않는다. val은 config 동결 후 한 번 평가하고, 가능하면 official test server를 최종 외부 평가로 사용한다. VOST-train fine-tuning은 별도 adaptation upper-bound ablation이다. |
 | PUMaVOS | 논문/project page 기준 24 videos, 21,187 dense frames, 30 FPS; 공식 split 없음 | 보조 external zero-shot stress; partial/unusual masks, object parts, fast motion, occlusion | 공식 공개 archive 전체를 config 동결 후 한 번 평가한다. 내부 dev split이나 학습·통계 추정에 쓰지 않는다. 객체별 first-nonempty GT mask 한 장만 prompt로 사용한다. |
-| M³-VOS | 최신 project page·arXiv v3 기준 479 high-resolution videos, 205,181 dense masks; full/core와 void label | 보조 external zero-shot stress; material phase transition과 topology 변화 | Config 동결 후 official full/core를 한 번 평가한다. 미래 GT·Target-native state를 학습·통계·선택에 쓰지 않는다. 논문 주지표는 `J/J_tr/J_cc`다. |
+| M³-VOS | 논문·project page의 479 high-resolution videos/205,181 dense masks 주장과, 실제 immutable delivery inventory를 분리해 기록; full/core와 void label | 보조 external zero-shot stress; material phase transition과 topology 변화 | Config 동결 후 official full/core를 한 번 평가한다. 미래 GT·Target-native state를 학습·통계·선택에 쓰지 않는다. 공식 evaluator 주지표는 `J/J_last/J_cc`다. |
 
 ### 2.1 VOST split별 실행 계약
 
@@ -206,7 +206,7 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - **PUMaVOS:** 공식 train/val/test 분할이나 단일 evaluator가 없으므로 first-nonempty-mask
   semi-supervised protocol을 고정하고 local J/F/J&F와 CMMT switch-relative 지표를 계산한다.
   공식 공개 archive의 영상별 결과와 video-clustered bootstrap CI를 함께 보고한다.
-- **M³-VOS:** 원 논문의 dataset-native 주지표 `J`, `J_tr`(마지막 25% frame), `J_cc`
+- **M³-VOS:** 공식 evaluator의 dataset-native 주지표 `J`, `J_last`(endpoint를 제외하고 temporal downsampling한 평가 frame의 마지막 25%), `J_cc`
   (connected-component averaged Jaccard)를 본문에 보고한다. Void label은 공식 규칙대로 제외한다.
   Boundary `F/J&F`는 공식 주지표가 아니며 GT-copy, shard merge, export/reload, native-resolution,
   resize round-trip과 1-pixel morphology 민감도 integrity gate를 통과한 경우에만 부록에 보조지표로
@@ -253,9 +253,9 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - [x] 외부 benchmark access ledger를 만들고 config freeze commit을 기록한다.
 - [x] PUMaVOS download/checksum, 공식 archive의 dense annotation inventory와 23/24 표기 불일치 해소, object-ID와 first-nonempty
   prompt loader, fixed switch manifest, local J/F/J&F evaluator contract를 동결했다 (24 sequences, 21,187 paired frames, 78 cases).
-- [ ] M³-VOS access/licensing ledger, archive checksum·479-video/205,181-frame inventory,
+- [ ] M³-VOS access/licensing ledger, immutable delivery revision·논문 규모 주장·실제 inventory 대조,
   official full/core split, void-aware first-prompt loader, fixed switch manifest를 검증한다.
-- [ ] M³-VOS 공식 `J/J_tr/J_cc` evaluator의 GT-copy·shard merge contract와 boundary F/J&F
+- [ ] M³-VOS 공식 `J/J_last/J_cc` evaluator의 GT-copy·shard merge contract와 boundary F/J&F
   integrity gate를 검증한다.
 
 v1.0의 세 데이터셋 gate는 2026-09-23 모두 충족했다. 2026-09-24에 평가 역할을

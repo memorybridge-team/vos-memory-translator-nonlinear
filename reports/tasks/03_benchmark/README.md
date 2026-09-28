@@ -1,6 +1,6 @@
 # Task 03 — Benchmark protocol
 
-> 상태: **In Progress** — VOST·PUMaVOS onboarding core gate 완료, M³-VOS 공개 접근 복구 대기
+> 상태: **In Progress** — VOST·PUMaVOS onboarding core gate 완료, M³-VOS delivery inventory·loader·evaluator gate 진행 중
 > Canonical Issue: [#4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4)
 > 현재 PR: [#9](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/pull/9)
 
@@ -76,13 +76,13 @@ Task 08·09·13에서 수행한다.
 ## M³-VOS 남은 gate
 
 - [ ] 공식 source·media 이용조건·download 경로와 access ledger 기록
-- [ ] archive SHA-256, 479-video/205,181-frame 주장과 실제 video/object/frame inventory 대조
+- [ ] immutable delivery revision, 논문 479-video/205,181-frame 주장과 실제 video/object/frame inventory 대조
 - [ ] official full/core split 및 배포본 split 이름 확정
 - [ ] void label을 제외하는 first-prompt loader와 fixed switch manifest 검증
-- [ ] 공식 `J/J_tr/J_cc` evaluator GT-copy·shard merge contract smoke
+- [ ] 공식 `J/J_last/J_cc` evaluator GT-copy·shard merge contract smoke
 - [ ] boundary `F/J&F` integrity gate: export/reload, native-resolution, resize round-trip,
   1-pixel dilation/erosion 민감도와 phase/object-size strata 기록
 
-M³-VOS의 논문 본문 주지표는 공식 `J/J_tr/J_cc`로 고정한다. `F/J&F`는 결과를 본 뒤
+M³-VOS의 논문 본문 주지표는 공식 evaluator의 `J/J_last/J_cc`로 고정한다. `F/J&F`는 결과를 본 뒤
 선택적으로 삭제하지 않으며, 위 integrity gate를 통과한 경우에만 비공식 부록 지표로 보고한다.
 - [ ] 전체 archive per-video 결과·video-clustered bootstrap CI 출력 형식 검증

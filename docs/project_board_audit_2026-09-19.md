@@ -60,9 +60,9 @@ Tasks 기본 보기는 제목 오름차순으로 저장했다. 따라서 보드�
 
 - **03 Benchmark:** fit/dev·sealed final·external 역할, VOST license/download/checksum, manifest·loader·`J/J_last`, external access ledger를 완료 조건에 추가한다.
 - **03 Benchmark:** PUMaVOS 공식 archive download/checksum·dense inventory·23/24 출처 표기 불일치 해소·first-nonempty prompt·fixed manifest·J/F/J&F contract를 추가한다.
-- **03 Benchmark:** M³-VOS access/checksum·full/core inventory·void-aware prompt loader·`J/J_tr/J_cc` contract와 boundary F integrity gate를 추가한다.
+- **03 Benchmark:** M³-VOS access/delivery revision·full/core inventory·void-aware prompt loader·`J/J_last/J_cc` contract와 boundary F integrity gate를 추가한다.
 - **07 Paired state:** MOSEv2/LVOS v2 fit/dev만 training shard에 넣고 future dataset GT를 primary pair loss에 쓰지 않는다. DAVIS/VOST/PUMaVOS/M³-VOS는 training paired-state source에서 제외한다.
-- **08 Baselines:** Moment-Matched 통계는 fit shard로만 계산하고 VOST `J/J_last`, PUMaVOS local J/F/J&F, M³-VOS `J/J_tr/J_cc`와 조건부 보조 F/J&F, in-domain/external 결과 분리를 구현한다.
+- **08 Baselines:** Moment-Matched 통계는 fit shard로만 계산하고 VOST `J/J_last`, PUMaVOS local J/F/J&F, M³-VOS `J/J_last/J_cc`와 조건부 보조 F/J&F, in-domain/external 결과 분리를 구현한다.
 - **09–11 Training:** state-only를 primary로 하고 GT-free distillation·supervised rollout을 ablation으로 분리한다. 모든 architecture/loss/checkpoint 선택은 MOSEv2/LVOS v2 dev에서 끝내고 config freeze 후 official validation과 external benchmark를 연다.
 - **13 Evaluation:** LVOS local detailed final, MOSE Codabench sealed final, VOST primary external, PUMaVOS partial/unusual-mask stress, M³-VOS material phase-transition stress를 다른 표로 보고한다. DAVIS 결과는 현재 연구의 표·주장에 포함하지 않는다.
 

@@ -79,7 +79,7 @@ GT mask를 switch 시점에 새로 주지 않는다. Last-Visible 선택은 sour
 - MOSEv2 valid와 LVOS v2 val을 **in-domain held-out** 표로 보고한다.
 - VOST val/test를 primary **external cross-dataset zero-shot**으로 보고하고 공식 `J`, `J_last`를 사용한다.
 - PUMaVOS 공식 공개 archive 전체를 secondary external zero-shot stress test로 보고하고, first-nonempty prompt 외 미래 GT는 채점에만 사용한다.
-- M³-VOS official full/core를 material phase-transition external stress로 보고한다. 본문 주지표는 공식 `J/J_tr/J_cc`다. Boundary `F/J&F`는 void·해상도·직렬화 integrity gate를 통과한 경우에만 부록 보조지표로 보고한다.
+- M³-VOS official full/core를 material phase-transition external stress로 보고한다. 본문 주지표는 공식 evaluator의 `J/J_last/J_cc`다. Boundary `F/J&F`는 void·해상도·직렬화 integrity gate를 통과한 경우에만 부록 보조지표로 보고한다.
 - VOST switch는 미래 GT 사건을 쓰지 않고 25/50/75% temporal quantile(primary 50%)로 고정한다.
 - VOST-train adaptation을 수행하면 zero-shot 표와 분리한 upper-bound ablation으로만 보고한다.
 - Source-only와 Base+-native 차이를 확인한 뒤 translator의 정확도–전환 지연–전송량 관계를 강한 mask/prompt/replay 비교군과 함께 제시한다.

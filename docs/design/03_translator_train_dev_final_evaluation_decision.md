@@ -87,7 +87,7 @@ normalization/statistics, early stopping, threshold, 구조·loss·checkpoint �
 | VOST validation | 전체 GT 공개 | primary external zero-shot | 공식 J/J_last와 CMMT 세부 지표 |
 | VOST test | 현재 공개 archive에는 sequence 이름만 있고 영상·GT 없음 | 공식 영상·prompt·server가 실제 제공될 때만 optional sealed test | 공식 서버가 제공하는 지표 |
 | PUMaVOS 공식 공개 archive 전체 | 논문·project page 기준 24 videos, 21,187 dense frames; 공식 train/val/test 구분 없음 | secondary external zero-shot stress test | 사전 고정 first-nonempty-mask protocol의 J/F/J&F, switch·recovery·system 지표 |
-| M³-VOS official full/core | 최신 project page·arXiv v3 기준 479 videos, 205,181 dense masks; void label 포함 | material phase-transition external zero-shot stress | 공식 J/J_tr/J_cc; integrity gate 통과 시 비공식 보조 F/J&F; switch·system 지표 |
+| M³-VOS official full/core | 논문·project page의 479 videos/205,181 dense masks 주장과 immutable delivery inventory를 별도 기록; void label 포함 | material phase-transition external zero-shot stress | 공식 evaluator `J/J_last/J_cc`; integrity gate 통과 시 비공식 보조 F/J&F; switch·system 지표 |
 
 공식 근거:
 
@@ -288,7 +288,7 @@ complementary external stress benchmark다. MOSE/LVOS dev에서 config/checkpoin
 
 - First prompt 이후 미래 GT는 채점에만 사용하며 gradient, normalization/statistics,
   checkpoint·threshold·replay-k 선택에 사용하지 않는다.
-- 공식 비교 지표는 `J`, `J_tr`(마지막 25% frame), `J_cc`(connected-component averaged
+- 공식 evaluator 비교 지표는 `J`, `J_last`(endpoint 제외·temporal downsampling 후 마지막 25% frame), `J_cc`(connected-component averaged
   Jaccard)다. 논문 본문의 M³-VOS 주결론은 이 세 지표로 고정한다.
 - 배포본의 void label은 공식 evaluator 규칙대로 제외한다. Full/core 및 실제 split 이름은
   archive checksum·inventory와 official evaluation code로 확정한다.
@@ -312,7 +312,7 @@ annotation-boundary sensitivity에 대한 결과 독립적인 사전 규칙이�
 | 지표 | Train-dev | LVOS val | MOSEv2 val | VOST val | PUMaVOS | M³-VOS |
 |---|---:|---:|---:|---:|---:|---:|
 | State MSE/cosine | 가능 | 가능 | 가능 | 가능 | 가능 | 가능 |
-| Dataset-native metric | J/F/J&F | J/F/J&F | Codabench 반환값 | J/J_last | local J/F/J&F | J/J_tr/J_cc |
+| Dataset-native metric | J/F/J&F | J/F/J&F | Codabench 반환값 | J/J_last | local J/F/J&F | J/J_last/J_cc |
 | Boundary F/J&F | 가능 | 가능 | 서버 반환 시 | 비공식 미사용 | local 주지표 | integrity gate 통과 시 부록 |
 | Switch +1/+5/+20 GT 성능 | 가능 | 가능 | 불가 | 가능 | 가능 | 가능 |
 | GT 기반 recovery | 가능 | 가능 | 불가 | 가능 | 가능 | 가능 |
@@ -369,7 +369,7 @@ MOSEv2 Codabench 제출 비용·횟수가 제한되면 dev와 LVOS validation에
   - LVOS val의 local detailed final 역할 명시
   - VOST val의 primary external zero-shot 역할과 optional VOST-train stress test 명시
   - PUMaVOS 공식 공개 archive 전체의 secondary external zero-shot·first-nonempty prompt 계약 명시
-  - M³-VOS official full/core, void-aware loader, `J/J_tr/J_cc`와 conditional F/J&F 계약 명시
+  - M³-VOS official full/core, void-aware loader, `J/J_last/J_cc`와 conditional F/J&F 계약 명시
 - `docs/experimental_plan.md`
   - train-fit → train-dev → freeze → LVOS local final → MOSE Codabench → VOST/PUMaVOS/M³-VOS zero-shot 순서 반영
 - `docs/research_progress_summary.md`, repository `README.md`
@@ -384,7 +384,7 @@ MOSEv2 Codabench 제출 비용·횟수가 제한되면 dev와 LVOS validation에
 - **Task 07:** MOSE/LVOS train-fit/dev에서만 paired state를 수집하고 final/external state를
   학습 shard에 넣지 않음
 - **Task 08:** LVOS local evaluator, MOSE prediction packaging/Codabench contract, VOST official
-  J/J_last, PUMaVOS local J/F/J&F, M³-VOS J/J_tr/J_cc 및 F integrity gate와 공통 system profiler 구현
+  J/J_last, PUMaVOS local J/F/J&F, M³-VOS J/J_last/J_cc 및 F integrity gate와 공통 system profiler 구현
 - **Task 09:** state-only와 downstream-aware nonlinear 학습, dev-only model selection, freeze artifact
   생성
 - **Task 13:** LVOS detailed final, MOSE official aggregate, VOST primary external zero-shot,
