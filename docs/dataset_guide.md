@@ -46,7 +46,7 @@
 
 - material phase transition 상황을 보는 external stress benchmark다.
 - 본문 주지표는 공식 evaluator가 실제로 출력하는 `J`, `J_last`, `J_cc`다. `J_last`는 endpoint를 제외하고 temporal downsampling한 평가 frame의 마지막 25% mean이다. Boundary `F/J&F`는 void 처리·GT-copy·shard merge·morphology 민감도 integrity gate를 통과했을 때만 보조 지표로 쓴다.
-- 2026-09-28 현재 공개 배포본 다운로드와 실제 inventory·loader·evaluator onboarding이 진행 중이다. 아직 어떤 CMMT 성능 결론에도 사용하지 않는다.
+- 2026-09-28 immutable HF revision inventory는 471 sequences, 202,577 RGB/GT pairs, 530 object records, core 68, `failure_count=0`으로 통과했다. 논문·project page의 479 videos/205,181 masks 수치와 다르므로 두 수치를 혼용하지 않는다. loader·manifest·official evaluator smoke가 남아 있으며 아직 어떤 CMMT 성능 결론에도 사용하지 않는다.
 
 ## 누수 방지 규칙
 

@@ -465,3 +465,26 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
   `hf auth whoami`로 인증을 확인했다. 기존 파일을 유지한 채 4-worker resumable download를
   재개했으며 초기 관찰에서 HTTP 429 없이 annotation 파일이 증가했다. token 값은 저장소·보고서·
   대화에 기록하지 않는다.
+
+## 44. 2026-09-28 — M³‑VOS delivery inventory 완료와 metric 정정
+
+- **[확인]** Hugging Face immutable revision
+  `5deb15b2baeaaa294ca168b789537729f7fb53a5`의 RunPod delivery
+  `/workspace/CMMT/data/M3VOS-manual`를 전수 검증했다. `val.txt`, JPEGImages,
+  Annotations, viewer metadata, target-object metadata가 같은 sequence 집합을 이루며,
+  결과는 471 sequences, RGB 202,577개, GT PNG 202,577개, object record 530개,
+  core 68개, `failure_count=0`이다. 증거는
+  `reports/tasks/03_benchmark/runs/2026-09-28_m3vos_delivery_validation/`에 둔다.
+- **[정정]** 논문·project page의 479 videos/205,181 dense masks와 받은 immutable
+  delivery의 수량은 다르다. 이는 현재 검증에서 누락으로 나타나지 않았으며, 이후 manifest와
+  denominator는 delivery inventory를 기준으로 쓰고 문헌 수치는 별도로 인용한다.
+- **[확인]** 공식 evaluator checkout `8cf8f9b3cb069d8476ef6c3c0b8f11b8337c3b56`의
+  실제 출력 지표는 `J`, `J_last`, `J_cc`다. `J_last`는 endpoint를 제외하고 temporal
+  downsampling한 evaluation frame의 마지막 25% mean이다. 이전 문서의 `J_tr` 표기는
+  공식 released code의 명칭과 달라 `J_last`로 정정했다.
+- **[확인]** evaluator dataset reader는 label `255`를 void로 분리하지만 default evaluation
+  call은 void array를 metric 함수에 넘기지 않는다. CMMT는 official-output GT-copy smoke와
+  void-aware engineering check를 분리한다.
+- **[상태]** M³‑VOS 첫-prompt loader·fixed switch manifest, official evaluator의 GT-copy/
+  shard-merge smoke, conditional boundary F/J&F integrity gate가 남아 있으므로 Task 03은
+  계속 `In Progress`다.
