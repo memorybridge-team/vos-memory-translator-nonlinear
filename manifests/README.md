@@ -2,30 +2,10 @@
 
 이 디렉터리는 데이터셋의 원본 이미지·마스크를 저장하지 않는다. 같은 dataset/split/video/object/switch 조합을 반복해서 평가하기 위한 작은 JSON manifest만 version control 한다.
 
-2026-09-24 protocol v1.1부터 MOSEv2/LVOS v2 train만 translator fit/dev에 사용한다.
-DAVIS 2017 val과 VOST val/test는 external evaluation이며, 외부 manifest의 label-derived 정보는
-모델 입력·학습·선택에 사용하지 않는다. 기존 DAVIS train fit/dev split 파일은 v1.0의
-재현 기록으로 보존하지만 main translator 학습에는 사용하지 않는다.
-
-## DAVIS 2017 validation v1
-
-- File: `davis2017_val_v1.json`
-- Dataset: DAVIS 2017 trainval, 480p validation split
-- Seed: `7`
-- Sequences: `30`
-- Cases: `249`
-- File SHA-256: `5b036f173d74e6939c3096fa03e0af64f3dfba8bdaff21a43e1db8f5c1ada2f5`
-
-Ground truth는 switch case를 고정하고 난이도 tag를 붙이는 데만 쓴다. 모델 입력, handoff payload, translator 학습 target 선택에는 GT pixel을 사용하지 않는다. 원본 dataset root는 runtime argument로만 제공하며 manifest에 기록하지 않는다.
-
-생성 명령은 다음과 같다.
-
-```bash
-cmmt-davis-build-manifest \
-  --root /path/to/DAVIS \
-  --split val --resolution 480p --seed 7 \
-  --output manifests/davis2017_val_v1.json
-```
+Translator fit/development에는 MOSEv2/LVOS v2 train만 사용한다. DAVIS manifest와
+DAVIS runtime evidence는 historical archive에만 보존하며 현재 main의 실행·학습
+matrix에 포함하지 않는다. VOST/PUMaVOS/M³-VOS는 configuration freeze 뒤의 external
+evaluation이다.
 
 ## MOSEv2 validation v1
 
@@ -37,11 +17,7 @@ cmmt-davis-build-manifest \
 - Annotation policy: validation publishes only the first-frame mask. Future visibility,
   disappearance and reappearance tags are unavailable locally and are not inferred.
 
-생성 명령:
-
-```bash
-PYTHONPATH=src python -c "from vos_memory_inspector.mose import build_mosev2_evaluation_manifest, write_mosev2_evaluation_manifest; m=build_mosev2_evaluation_manifest('/path/to/MOSEv2/extracted', split='valid'); write_mosev2_evaluation_manifest(m, 'manifests/mosev2_valid_v1.json')"
-```
+Manifest builder와 Task 07 collection command는 local workspace에서 관리한다.
 
 ## MOSEv2 train v1
 
@@ -56,30 +32,15 @@ Train은 validation처럼 first-frame-only가 아니므로 `meta_train.json`의 
 전체 311,843개 train mask 스캔 결과, 최종 평가 대상 객체의 최초 prompt frame은 모두 0이었지만
 이 값은 더 이상 가정이 아니라 실제 annotation으로 검증된 값이다.
 
-```bash
-cmmt-mose-build-manifest \
-  --root /path/to/MOSEv2/extracted \
-  --split train --seed 7 \
-  --output manifests/mosev2_train_v1.json
-```
 
 ## Video-level fit/development 후보
 
 train manifest의 case를 video ID 기준으로 seed 7, 80/20 비율로 나누며 한 영상의
 객체·switch case가 fit과 development에 동시에 들어가지 않게 한다.
 
-```bash
-python scripts/build_video_splits.py \
-  --input manifests/mosev2_train_v1.json \
-  --output-prefix manifests/mosev2_train_v1
-```
-
-최종 split은 DAVIS fit 43 videos/466 cases와 development 16/133,
-MOSEv2 fit 2,680/16,931과 development 615/3,910,
+최종 split은 MOSEv2 fit 2,680/16,931과 development 615/3,910,
 LVOS v2 fit 347/1,488과 development 73/315다. split manifest는 case를 복제하지 않고
 video membership과 source manifest checksum만 보존한다.
-
-DAVIS split 수치는 v1.0의 역사적 산출물이며 v1.1 main training matrix에서 제외한다.
 
 ## LVOS v2 validation
 
@@ -93,12 +54,6 @@ LVOS v2 loader는 공식 metadata의 object frame range 안에 실제 존재하�
 현재 archive의 `meta.json`은 loader 입력용 `val_meta.json`으로 파생해 사용했으며,
 attribute·prompt/correction loader 검증은 후속 작업이다.
 
-```bash
-cmmt-lvos-build-manifest \
-  --root /path/to/LVOS-v2 \
-  --split val --seed 7 \
-  --output manifests/lvosv2_val_v1.json
-```
 
 ## VOST external benchmark — v1.1 pending
 
@@ -110,8 +65,7 @@ cmmt-lvos-build-manifest \
 - Official metrics: `J`, `J_tr`(마지막 25% transformation 구간)
 - Optional: VOST-train fine-tuning은 별도 adaptation upper-bound ablation
 
-아직 dataset snapshot, checksum, manifest, loader 및 official evaluator 검증이 완료되지 않았다.
-완료 전까지 Task 03 protocol v1.1은 `In Progress`다.
+VOST onboarding evidence와 evaluator command는 benchmark archive에서 관리한다.
 
 ## PUMaVOS external stress v1
 
@@ -129,11 +83,6 @@ cmmt-lvos-build-manifest \
 평가에만 사용한다. model fitting, normalization, threshold, replay-k, early stopping 또는
 architecture/loss 선택에는 PUMaVOS의 label-derived 정보를 사용하지 않는다.
 
-```bash
-python scripts/build_pumavos_external_manifest.py \
-  /path/to/PUBLIC_PUMaVOS \
-  --output manifests/pumavos_external_v1.json
-```
 
 ## M³-VOS external stress v1
 
@@ -151,12 +100,6 @@ python scripts/build_pumavos_external_manifest.py \
 기록된다. metadata-only object에 빈 prompt를 만들지 않으며, annotation에 실제 존재하는 non-void
 label만 평가 객체로 쓴다. label `255`는 void이며 prompt object로 사용하지 않는다.
 
-```bash
-python scripts/build_m3vos_external_manifest.py \
-  /path/to/M3VOS \
-  --revision 5deb15b2baeaaa294ca168b789537729f7fb53a5 \
-  --output manifests/m3vos_external_v1.json
-```
 
 ## LVOS v2 train v1
 
@@ -168,10 +111,3 @@ python scripts/build_m3vos_external_manifest.py \
 - Archive SHA-256: `e4c0cfcb400dbd103ddea6eac3b5ffb5cdd3d50cb87013bf457d963a0b248c0b`
 - Manifest content SHA-256: `8292b1b4674a2ef34955c908e980826f3d041c518a035b5f5b42ad8fb49df74a`
 - `meta.json`의 object별 frame range를 사용하며, train mask는 로컬에서 future 평가에 사용할 수 있다.
-
-```bash
-cmmt-lvos-build-manifest \
-  --root /path/to/LVOS-v2 \
-  --split train --seed 7 \
-  --output manifests/lvosv2_train_v1.json
-```

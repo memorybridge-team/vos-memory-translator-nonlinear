@@ -1,7 +1,0 @@
-{
-  "dataset": "mose",
-  "manifest_cases": 20841,
-  "unique_prompt_inputs": 7087,
-  "failure_count": 0,
-  "failures": []
-}
