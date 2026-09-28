@@ -5,7 +5,7 @@
 **모델:** SAM 2.1 Small → Base+
 **학습·in-domain 평가:** MOSEv2, LVOS v2
 
-**external 평가:** VOST(primary external zero-shot)
+**external 평가:** VOST(primary external zero-shot) · PUMaVOS/M³-VOS(complementary stress)
 **기간:** 2026-09-18부터 약 4주. 실제 투고 마감일은 확정 후 기록합니다.  
 **제안 방법:** 객체별 spatial memory와 object pointer를 변환하는 nonlinear translator. Presence, frame ID, positional encoding과 객체 ID는 별도의 상태 계약에 따라 처리합니다.
 
@@ -17,12 +17,13 @@
 
 ### 팀원이 현재 연구 상태를 읽는 순서
 
-1. [현재 연구 진행 요약](docs/research_progress_summary.md)에서 확정된 연구 질문, 완료 결과, 미완료 gate와 다음 작업을 먼저 읽습니다.
-2. [Project #2 Tasks](https://github.com/orgs/memorybridge-team/projects/2/views/1)에서 현재 `In Progress` task, 담당자, 순서와 blocker를 확인합니다.
-3. 해당 카드가 연결한 canonical Issue에서 범위·완료 조건·결정 이유를 확인합니다.
-4. [`reports/` Task 인덱스](reports/README.md)에서 Task별 현재 보고서와 최종 통합본을 읽습니다.
-5. 연결된 PR과 날짜별 `runs/`에서 실제 diff, 실행 명령, 원본 수치와 한계를 검토합니다.
-6. 구현을 재현하거나 이어서 작업할 때만 [State I/O 계약](docs/design/small_base_state_io_contract.md), [Benchmark protocol](docs/design/03_benchmark_protocol.md), [협업 파이프라인](docs/github_task_workflow.md) 원문을 읽습니다.
+1. [데이터셋 안내](docs/dataset_guide.md)에서 데이터셋별 역할·사용 범위·현재 상태를 먼저 확인합니다.
+2. [현재 연구 진행 요약](docs/research_progress_summary.md)에서 확정된 연구 질문, 완료 결과, 미완료 gate와 다음 작업을 읽습니다.
+3. [Project #2 Tasks](https://github.com/orgs/memorybridge-team/projects/2/views/1)에서 현재 `In Progress` task, 담당자, 순서와 blocker를 확인합니다.
+4. 해당 카드가 연결한 canonical Issue에서 범위·완료 조건·결정 이유를 확인합니다.
+5. [`reports/` Task 인덱스](reports/README.md)에서 Task별 현재 보고서와 최종 통합본을 읽습니다.
+6. 연결된 PR과 날짜별 `runs/`에서 실제 diff, 실행 명령, 원본 수치와 한계를 검토합니다.
+7. 구현을 재현하거나 이어서 작업할 때만 [State I/O 계약](docs/design/small_base_state_io_contract.md), [Benchmark protocol](docs/design/03_benchmark_protocol.md), [협업 파이프라인](docs/github_task_workflow.md) 원문을 읽습니다.
 
 Project Board는 상세 연구 문서를 복제해 보관하는 곳이 아니라 **상태·담당·완료 기준·근거 링크를 찾는 관제판**입니다. 안정된 현재 상태는 이 README와 진행 요약에, task별 논의는 Issue에, 검토 가능한 변경과 실행 증거는 PR·보고서에 둡니다.
 
@@ -32,7 +33,7 @@ Project Board는 상세 연구 문서를 복제해 보관하는 곳이 아니라
 |---|---|---|
 | 연구 범위·성공 기준 고정 | `Done` — [Issue #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1) | [Baseline·성공·중단 기준](docs/design/01_scope_baselines_success_stop.md) 동결 완료 |
 | Small/Base+ State I/O 계약 | `Done` — [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2) | [I/O 계약 v1.1](docs/design/small_base_state_io_contract.md), [Task 02 최종 보고서](reports/tasks/02_state_io/FINAL_REPORT.md) |
-| dataset·난이도·baseline·metric 동결 | `In Progress` — [Issue #4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4) | VOST manifest·loader·`J/J_last` contract 검증 완료; 추가 검증 데이터셋 계약 반영 대기 |
+| dataset·난이도·baseline·metric 동결 | `In Progress` — [Issue #4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4) | VOST·PUMaVOS contract 검증 완료; M³-VOS download·inventory·loader·metric contract 진행 중 |
 | 상태 추출·self-injection·target injection | `Done` — [Issue #5](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/5) | [Task 06 최종 보고서](reports/tasks/06_runtime/FINAL_REPORT.md); correction·반복 handoff까지 exact |
 | paired Small/Base+ state 수집 | `Todo` | MOSEv2/LVOS v2 fit/dev만 사용한 video-level split, checksum manifest, compact state pair |
 | 공통 evaluator·baseline | `Todo` | 같은 manifest에서 강한 재인코딩·replay·native 비교 결과 |
@@ -68,7 +69,7 @@ Small이 switch 시점 t까지 처리 → 객체별 source state 추출
 
 성공 기준은 state tensor가 비슷한지만이 아닙니다. 전환 후 객체 분할 J&F, 부재 중 오검출, 재등장 후 복구, 전환 지연과 전달량을 함께 봅니다.
 
-실제 데이터 운영은 `translator fit → in-domain development → sealed in-domain final → external frozen benchmark`의 네 역할로 분리합니다. 주 translator는 MOSEv2/LVOS v2 train-fit에서 학습하고 같은 train의 video-disjoint dev에서만 선택합니다. 공식 validation은 final configuration 동결 후 열며, VOST를 유일한 primary external cross-dataset zero-shot benchmark로 사용합니다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외합니다. Task 03은 추가 검증 데이터셋의 역할과 계약을 반영할 때까지 열린 상태로 유지합니다.
+실제 데이터 운영은 `translator fit → in-domain development → sealed in-domain final → external frozen benchmark`의 네 역할로 분리합니다. 주 translator는 MOSEv2/LVOS v2 train-fit에서 학습하고 같은 train의 video-disjoint dev에서만 선택합니다. 공식 validation은 final configuration 동결 후 열며, VOST를 primary external cross-dataset zero-shot benchmark로 사용합니다. PUMaVOS와 M³-VOS는 각각 partial/unusual-mask와 material phase-transition을 보는 complementary external stress benchmark다. DAVIS는 현재 연구의 학습·평가·주장 범위에서 제외합니다. [데이터셋 안내](docs/dataset_guide.md)에서 각 데이터셋의 상세 역할과 onboarding 상태를 확인할 수 있습니다.
 
 ## 계획과 비교군
 
@@ -87,6 +88,7 @@ Nonlinear 후보는 component-wise residual MLP, gated MLP, slot/context attenti
 | `tests/` | 상태 구조와 기존 기능 회귀 검사 |
 | `configs/` | 재현용 설정과 manifest 정책 |
 | `docs/experimental_plan.md` | 현재 유효한 4주 연구 계획 |
+| `docs/dataset_guide.md` | 데이터셋별 학습·평가 역할, 누수 방지 규칙, onboarding 상태 |
 | `docs/github_task_workflow.md` | Issue·Project·commit/PR·완료 증거 운영 순서 |
 | `docs/project_board_audit_2026-09-19.md` | Project #2의 01→20 task 감사·수정 기록 |
 | `docs/design/small_base_state_io_contract.md` | Small/Base+ memory tensor와 translator 입력·복사·재생성 정책 |
@@ -112,6 +114,6 @@ python -m pip install -e ".[dev]"
 python -m pytest -q
 ```
 
-GPU Pod에서는 `bash scripts/runpod_bootstrap.sh "$PWD"`가 공식 SAM 2 및 Small/Base+ checkpoint를 준비합니다. 이어서 `bash scripts/runpod_preflight.sh "$PWD"`로 CUDA, Network Volume 여유 공간, revision과 SHA-256을 확인합니다. 첫 Base+ self-injection 실행과 종료 확인 방법은 [RunPod L4 운영 문서](docs/runpod_l4_operations.md)를 따릅니다. MOSEv2/LVOS v2/VOST 원본, checkpoint, 개인 SSH 키, raw state cache는 Git에 넣지 않습니다. 각 데이터셋의 이용 조건과 저장 경로를 확인한 후 수집합니다.
+GPU Pod에서는 `bash scripts/runpod_bootstrap.sh "$PWD"`가 공식 SAM 2 및 Small/Base+ checkpoint를 준비합니다. 이어서 `bash scripts/runpod_preflight.sh "$PWD"`로 CUDA, Network Volume 여유 공간, revision과 SHA-256을 확인합니다. 첫 Base+ self-injection 실행과 종료 확인 방법은 [RunPod L4 운영 문서](docs/runpod_l4_operations.md)를 따릅니다. MOSEv2/LVOS v2/VOST/PUMaVOS/M³-VOS 원본, checkpoint, 개인 SSH 키, raw state cache는 Git에 넣지 않습니다. 각 데이터셋의 이용 조건과 저장 경로를 확인한 후 수집합니다.
 
 현재 `prepare_paired_state_dataset.py`와 일부 baseline script의 DAVIS 전용 경로는 역사적 자료로만 남아 있으며 새 연구 실행에는 사용하지 않습니다. Task 03에서 MOSEv2/LVOS v2 manifest loader와 VOST loader/evaluator contract를 검증했다. paired-state 수집기와 모든 anchor baseline을 두 학습 데이터셋에 연결하는 작업은 Task 07·08에 남아 있습니다.
