@@ -1,6 +1,6 @@
 # Task 03 — Benchmark protocol v1.3
 
-> 상태: **IN PROGRESS** — VOST onboarding gate는 완료했으나, PUMaVOS와 M³-VOS의 download/checksum·manifest·loader·dataset-native metric 계약을 검증하고 동결하기 전에는 Task를 닫지 않는다.
+> 상태: **READY FOR CLOSEOUT** — VOST·PUMaVOS·M³-VOS의 inventory·manifest·loader·dataset-native metric 계약을 동결했다. Task 03 최종 보고서와 Issue/Project closeout 뒤 Done으로 옮긴다.
 > 범위: SAM 2.1 Small → Base+ nonlinear state handoff  
 > 목적: 결과를 보기 전에 dataset role, case taxonomy, baseline 입력, metric과 통계 단위를 고정한다.
 > 변경일: 2026-09-24 — in-domain held-out와 external cross-dataset zero-shot을 분리했다.
@@ -253,13 +253,13 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 - [x] 외부 benchmark access ledger를 만들고 config freeze commit을 기록한다.
 - [x] PUMaVOS download/checksum, 공식 archive의 dense annotation inventory와 23/24 표기 불일치 해소, object-ID와 first-nonempty
   prompt loader, fixed switch manifest, local J/F/J&F evaluator contract를 동결했다 (24 sequences, 21,187 paired frames, 78 cases).
-- [ ] M³-VOS access/licensing ledger, immutable delivery revision·논문 규모 주장·실제 inventory 대조,
+- [x] M³-VOS access/licensing ledger, immutable delivery revision·논문 규모 주장·실제 inventory 대조,
   official full/core split, void-aware first-prompt loader, fixed switch manifest를 검증한다.
-- [ ] M³-VOS 공식 `J/J_last/J_cc` evaluator의 GT-copy·shard merge contract와 boundary F/J&F
+- [x] M³-VOS 공식 `J/J_last/J_cc` evaluator의 GT-copy·shard merge contract와 boundary F/J&F
   integrity gate를 검증한다.
 
 v1.0의 세 데이터셋 gate는 2026-09-23 모두 충족했다. 2026-09-24에 평가 역할을
-강화하면서 VOST onboarding gate를 추가했고 2026-09-25에 완료했다. PUMaVOS와 M³-VOS onboarding은
-새 남은 gate이며 완료 전 Task 03을 닫지 않는다. 이후 결과를 본 뒤
+강화하면서 VOST onboarding gate를 추가했고 2026-09-25에 완료했다. PUMaVOS와 M³-VOS onboarding도
+2026-09-28에 완료했다. 최종 보고서와 Issue/Project closeout 전에는 Task 03을 Done으로 옮기지 않는다. 이후 결과를 본 뒤
 taxonomy, k 값, metric 또는 split을 유리하게 바꾸려면 날짜·이유·영향받는 run을 decision
 log에 남긴다.

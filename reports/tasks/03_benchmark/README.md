@@ -1,6 +1,6 @@
 # Task 03 — Benchmark protocol
 
-> 상태: **In Progress** — VOST·PUMaVOS onboarding core gate 완료, M³-VOS delivery inventory·loader·evaluator gate 진행 중
+> 상태: **Ready for final closeout** — VOST·PUMaVOS·M³-VOS onboarding core gate 완료; Task 03 통합 보고서·Issue/Project closeout만 남음
 > Canonical Issue: [#4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4)
 > 현재 PR: [#9](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/pull/9)
 
@@ -78,13 +78,17 @@ Task 08·09·13에서 수행한다.
 - [x] 공식 source·media 이용조건·download 경로와 access ledger 기록
 - [x] immutable delivery revision, 논문 479-video/205,181-frame 주장과 실제 video/object/frame inventory 대조 (471 sequences / 202,577 RGB·GT pairs / 530 object records / 68 core, failure 0)
 - [x] official full/core split 및 배포본 split 이름 확정 (`data/ImageSets/val.txt`, `meta/all_core_seqs.txt`)
-- [ ] void label을 제외하는 first-prompt loader와 fixed switch manifest 검증
-- [ ] 공식 `J/J_last/J_cc` evaluator GT-copy·shard merge contract smoke
-- [ ] boundary `F/J&F` integrity gate: export/reload, native-resolution, resize round-trip,
+- [x] void label을 제외하는 first-prompt loader와 fixed switch manifest 검증 (1,590/1,590 loader cases, failure 0)
+- [x] 공식 `J/J_last/J_cc` evaluator GT-copy·shard merge contract smoke (GT-copy J/J_last 1.0, shard merge error 0)
+- [x] boundary `F/J&F` integrity gate: export/reload, native-resolution, resize round-trip,
   1-pixel dilation/erosion 민감도와 phase/object-size strata 기록
 
 M³-VOS의 논문 본문 주지표는 공식 evaluator의 `J/J_last/J_cc`로 고정한다. `F/J&F`는 결과를 본 뒤
 선택적으로 삭제하지 않으며, 위 integrity gate를 통과한 경우에만 비공식 부록 지표로 보고한다.
 
 Delivery evidence: [2026-09-28 M³-VOS inventory](milestones/2026-09-28_m3vos_delivery_inventory.md).
+Loader/evaluator evidence: [2026-09-28 M³-VOS contract closure](milestones/2026-09-28_m3vos_loader_and_evaluator.md).
+
+## Task 13 이후 평가 산출물
+
 - [ ] 전체 archive per-video 결과·video-clustered bootstrap CI 출력 형식 검증

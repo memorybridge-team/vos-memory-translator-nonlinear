@@ -488,3 +488,27 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[상태]** M³‑VOS 첫-prompt loader·fixed switch manifest, official evaluator의 GT-copy/
   shard-merge smoke, conditional boundary F/J&F integrity gate가 남아 있으므로 Task 03은
   계속 `In Progress`다.
+
+## 45. 2026-09-28 — M³‑VOS onboarding core gate 완료
+
+- **[검증]** annotation에 실제 존재하는 non-void object label의 first prompt와 25/50/75%
+  fixed switch로 `m3vos_external_v1.json`을 동결했다. 471 sequences·1,590 cases이며
+  content SHA-256은 `b71c4af8634b53668ed1e74ef51234d815499d48d7a93ab290b4d0884632b612`이다.
+  1,590/1,590 case에서 prompt RGB·prompt label·switch RGB를 읽는 loader가
+  `failure_count=0`으로 통과했고, future GT는 읽지 않는다.
+- **[결함 기록]** metadata와 annotation label이 다른 sequence는 4개다. metadata-only는
+  `0406_assemble_machinery_13: obj_3`, `0453_erupt_foam_2: obj_2`이며,
+  annotation-only label 3은 `0374_assemble_machinery_4`,
+  `0375_assemble_machinery_5`에 있다. 빈 prompt object를 만들지 않고 이 discrepancy를
+  manifest에 보존한다.
+- **[검증]** official evaluator HEAD
+  `8cf8f9b3cb069d8476ef6c3c0b8f11b8337c3b56`에서 GT-copy
+  `0001_open_cup_1` object 1은 `J=1.0`, `J_last=1.0`,
+  `J_cc=0.9999999999990095`(분모 epsilon)였다. 두 sequence shard의 per-object merge와
+  combined invocation 사이 최대 오차는 `0.0`이다.
+- **[검증]** 다섯 native-resolution GT-copy frame은 export/reload에서
+  `J=F=J&F=1.0`이었다. resize 및 1-pixel morphology 민감도도 기록했다. 수신 delivery에서
+  label 255 void pixel은 관찰되지 않았으므로 F/J&F는 계속 비공식 부록 integrity metric이다.
+- **[상태]** M³‑VOS onboarding은 완료했다. Task 03에는 VOST·PUMaVOS·M³‑VOS 증거를
+  묶는 `FINAL_REPORT.md`와 Issue/Project closeout만 남았으며, full per-video evaluation과
+  video-clustered CI는 Task 13의 config-freeze 뒤 산출물이다.
