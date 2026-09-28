@@ -62,6 +62,22 @@ def _examples(items: set[str], limit: int = 20) -> list[str]:
     return sorted(items)[:limit]
 
 
+def _object_ids(value: Any) -> list[str]:
+    """Normalize the release's object record without discarding its labels.
+
+    The current M³-VOS release stores ``{"obj_1": {...}}`` per sequence,
+    whereas early mirror descriptions represented object IDs as a list.
+    Supporting both makes the validator an inventory check rather than an
+    undocumented release-format assumption.
+    """
+
+    if isinstance(value, dict):
+        return sorted(key for key in value if isinstance(key, str))
+    if isinstance(value, list):
+        return sorted(item for item in value if isinstance(item, str))
+    return []
+
+
 def build_inventory(root: Path, *, revision: str | None = None) -> dict[str, object]:
     """Return a compact, deterministic inventory for an M³-VOS delivery."""
 
@@ -95,8 +111,7 @@ def build_inventory(root: Path, *, revision: str | None = None) -> dict[str, obj
         annotation_stems = _file_stems(data / "Annotations" / sequence, ".png")
         missing_annotations = frame_stems - annotation_stems
         missing_frames = annotation_stems - frame_stems
-        object_value = target_objects.get(sequence, [])
-        object_ids = object_value if isinstance(object_value, list) else []
+        object_ids = _object_ids(target_objects.get(sequence, []))
         memberships = {name: sequence in values for name, values in declared_sets.items()}
         valid = (
             all(memberships.values())

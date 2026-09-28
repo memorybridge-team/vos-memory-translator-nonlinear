@@ -20,7 +20,8 @@ def _write_metadata(root: Path, sequences: list[str]) -> None:
     (root / "data" / "ImageSets" / "val.txt").write_text("\n".join(sequences), encoding="utf-8")
     (root / "meta" / "all_core_seqs.txt").write_text(sequences[0], encoding="utf-8")
     (root / "meta" / "target_object.json").write_text(
-        json.dumps({sequence: ["obj_1"] for sequence in sequences}), encoding="utf-8"
+        json.dumps({sequence: {"obj_1": {"English": "test object"}} for sequence in sequences}),
+        encoding="utf-8",
     )
     (root / "m3vos_viewer_data_with_paths.jsonl").write_text(
         "\n".join(json.dumps({"video_id": sequence, "obj_id": "obj_1"}) for sequence in sequences),
