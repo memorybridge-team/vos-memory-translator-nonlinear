@@ -512,3 +512,10 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[상태]** M³‑VOS onboarding은 완료했다. Task 03에는 VOST·PUMaVOS·M³‑VOS 증거를
   묶는 `FINAL_REPORT.md`와 Issue/Project closeout만 남았으며, full per-video evaluation과
   video-clustered CI는 Task 13의 config-freeze 뒤 산출물이다.
+
+## 2026-09-28 — Task 03 v1.3 최종 완료
+
+- **[완료]** Task 03의 VOST·PUMaVOS·M³-VOS onboarding evidence를 `FINAL_REPORT.md`로 통합하고, GitHub Issue #4에 closeout 결과와 근거 링크를 게시했다.
+- **[정정]** M³-VOS released evaluator의 실제 출력 이름은 `J/J_last/J_cc`다. 과거 문서의 `J_tr` 표기는 closeout 기록에서 정정했으며, boundary F/J&F는 비공식 appendix integrity metric으로만 유지한다.
+- **[GitHub 상태]** Issue #4는 completed로 닫혔고, GitHub Project #2의 Task 03 카드는 `Done`으로 변경됐다.
+- **[후속]** full frozen-method evaluation, video-level 결과, video-clustered confidence interval은 Task 13의 책임이다. 다음 구현 단계는 Task 07 paired-state 수집이다.

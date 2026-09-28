@@ -1,6 +1,6 @@
 # Task 03 — Benchmark protocol v1.3
 
-> 상태: **READY FOR CLOSEOUT** — VOST·PUMaVOS·M³-VOS의 inventory·manifest·loader·dataset-native metric 계약을 동결했다. Task 03 최종 보고서와 Issue/Project closeout 뒤 Done으로 옮긴다.
+> 상태: **DONE (2026-09-28)** — VOST·PUMaVOS·M³-VOS의 inventory·manifest·loader·dataset-native metric 계약을 동결했고, Task 03 최종 보고서와 Issue #4·Project 보드 closeout을 완료했다.
 > 범위: SAM 2.1 Small → Base+ nonlinear state handoff  
 > 목적: 결과를 보기 전에 dataset role, case taxonomy, baseline 입력, metric과 통계 단위를 고정한다.
 > 변경일: 2026-09-24 — in-domain held-out와 external cross-dataset zero-shot을 분리했다.
@@ -260,6 +260,6 @@ MOSEv2의 공식 disappearance/reappearance 지표와 CMMT의 자체 switch-rela
 
 v1.0의 세 데이터셋 gate는 2026-09-23 모두 충족했다. 2026-09-24에 평가 역할을
 강화하면서 VOST onboarding gate를 추가했고 2026-09-25에 완료했다. PUMaVOS와 M³-VOS onboarding도
-2026-09-28에 완료했다. 최종 보고서와 Issue/Project closeout 전에는 Task 03을 Done으로 옮기지 않는다. 이후 결과를 본 뒤
+2026-09-28에 완료했다. 같은 날 최종 보고서와 Issue #4·Project 보드 closeout까지 완료했다. 이후 결과를 본 뒤
 taxonomy, k 값, metric 또는 split을 유리하게 바꾸려면 날짜·이유·영향받는 run을 decision
 log에 남긴다.

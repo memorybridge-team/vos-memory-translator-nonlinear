@@ -17,7 +17,7 @@
 | Task | 상태 | 현재 보고서 | 최종 통합본 |
 |---|---|---|---|
 | 02 State I/O | Done | [`tasks/02_state_io/README.md`](tasks/02_state_io/README.md) | [`FINAL_REPORT.md`](tasks/02_state_io/FINAL_REPORT.md) |
-| 03 Benchmark | In Progress | [`tasks/03_benchmark/README.md`](tasks/03_benchmark/README.md) | v1.1 gate 완료 후 작성 |
+| 03 Benchmark | Done | [`tasks/03_benchmark/README.md`](tasks/03_benchmark/README.md) | [`FINAL_REPORT.md`](tasks/03_benchmark/FINAL_REPORT.md) |
 | 06 Runtime | Done | [`tasks/06_runtime/README.md`](tasks/06_runtime/README.md) | [`FINAL_REPORT.md`](tasks/06_runtime/FINAL_REPORT.md) |
 | 07 Paired state | Todo | Task 시작 시 생성 | Task 완료 시 작성 |
 | 08 Baselines | Todo | Task 시작 시 생성 | Task 완료 시 작성 |

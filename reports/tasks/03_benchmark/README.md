@@ -1,6 +1,6 @@
 # Task 03 — Benchmark protocol
 
-> 상태: **Ready for final closeout** — VOST·PUMaVOS·M³-VOS onboarding core gate 완료; Task 03 통합 보고서·Issue/Project closeout만 남음
+> 상태: **Done** — VOST·PUMaVOS·M³-VOS onboarding core gate, Task 03 통합 보고서, Issue #4 및 Project 보드 closeout 완료
 > Canonical Issue: [#4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4)
 > 현재 PR: [#9](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/pull/9)
 

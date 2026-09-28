@@ -5,8 +5,8 @@
 ## 한눈에 보기
 
 - 완료: Task 01 연구 범위, Task 02 State I/O, Task 06 runtime export·assembly·injection
-- Ready for closeout: Task 03 benchmark protocol — VOST·PUMaVOS·M³-VOS contract 검증 완료, final report·Issue/Project closeout 대기
-- 다음: Task 03 최종 동결 → Task 07 paired-state 수집 → Task 08 baselines → Task 09–11 nonlinear 학습·동결 → final/external 평가
+- 완료: Task 03 benchmark protocol — VOST·PUMaVOS·M³-VOS contract 검증, final report·Issue/Project closeout 완료
+- 다음: Task 07 paired-state 수집 → Task 08 baselines → Task 09–11 nonlinear 학습·동결 → final/external 평가
 - 현재 결과 해석: runtime은 exact하게 동작하지만, Small→Base+ nonlinear translator의 성능은 아직 검증하지 않음
 
 # 1. 연구 문제와 범위
@@ -69,7 +69,7 @@
   - VOST를 primary external zero-shot, PUMaVOS·M³-VOS를 complementary external stress로 고정하고 DAVIS는 연구 범위에서 제외
   - VOST archive checksum·manifest·SAM 2 loader·official `J/J_last` contract 검증 완료
   - PUMaVOS official archive checksum·24-sequence inventory·manifest·local `J/F/J&F` contract 검증 완료
-  - M³-VOS immutable delivery inventory·first-prompt loader·dataset-native metric contract를 검증했고, Task 03 최종 보고서와 Issue/Project closeout만 남음
+  - M³-VOS immutable delivery inventory·first-prompt loader·dataset-native metric contract를 검증했으며, Task 03 최종 보고서와 Issue/Project closeout도 완료
 - 증빙 링크:
   - [데이터셋 안내](dataset_guide.md)
   - [Benchmark protocol](design/03_benchmark_protocol.md)

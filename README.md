@@ -33,7 +33,7 @@ Project Board는 상세 연구 문서를 복제해 보관하는 곳이 아니라
 |---|---|---|
 | 연구 범위·성공 기준 고정 | `Done` — [Issue #1](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/1) | [Baseline·성공·중단 기준](docs/design/01_scope_baselines_success_stop.md) 동결 완료 |
 | Small/Base+ State I/O 계약 | `Done` — [Issue #2](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/2) | [I/O 계약 v1.1](docs/design/small_base_state_io_contract.md), [Task 02 최종 보고서](reports/tasks/02_state_io/FINAL_REPORT.md) |
-| dataset·난이도·baseline·metric 동결 | `Ready for closeout` — [Issue #4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4) | VOST·PUMaVOS·M³-VOS inventory·manifest·loader·metric contract 완료; final report·Issue/Project closeout 대기 |
+| dataset·난이도·baseline·metric 동결 | `Done` — [Issue #4](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/4) | VOST·PUMaVOS·M³-VOS inventory·manifest·loader·metric contract 완료; [Task 03 최종 보고서](reports/tasks/03_benchmark/FINAL_REPORT.md) |
 | 상태 추출·self-injection·target injection | `Done` — [Issue #5](https://github.com/memorybridge-team/vos-memory-translator-nonlinear/issues/5) | [Task 06 최종 보고서](reports/tasks/06_runtime/FINAL_REPORT.md); correction·반복 handoff까지 exact |
 | paired Small/Base+ state 수집 | `Todo` | MOSEv2/LVOS v2 fit/dev에서 future GT 없는 state-only pair, video-level split, checksum manifest, compact shard |
 | 공통 evaluator·baseline | `Todo` | 같은 manifest에서 강한 재인코딩·replay·native 비교 결과 |
