@@ -95,26 +95,34 @@ def build_manifest(root: Path, *, revision: str | None = None) -> dict[str, Any]
         mask_stems = _stems(masks_root / sequence, ".png")
         if not frame_stems or frame_stems != mask_stems:
             raise ValueError(f"unpaired or empty RGB/mask stems in {sequence}")
-        object_ids = _declared_object_ids(target_objects.get(sequence), sequence)
-        pending = set(object_ids)
+        declared_object_ids = _declared_object_ids(target_objects.get(sequence), sequence)
         first_prompt: dict[int, str] = {}
         void_seen = False
+        observed_object_ids: set[int] = set()
         for stem in frame_stems:
             labels = _labels(masks_root / sequence / f"{stem}.png")
             void_seen = void_seen or 255 in labels
-            for object_id in pending & labels:
-                first_prompt[object_id] = stem
-            pending -= labels
-            if not pending:
-                break
-        if pending:
-            raise ValueError(f"declared object labels never appear in {sequence}: {sorted(pending)}")
+            frame_object_ids = {label for label in labels if label not in {0, 255}}
+            observed_object_ids.update(frame_object_ids)
+            for object_id in frame_object_ids:
+                first_prompt.setdefault(object_id, stem)
+        if not observed_object_ids:
+            raise ValueError(f"no non-void object labels appear in {sequence}")
+        # The annotation labels are the only objects that can be prompted and
+        # scored. Metadata-only names are retained as an explicit discrepancy,
+        # rather than being silently converted into empty-object cases.
+        object_ids = sorted(observed_object_ids)
+        declared_but_unannotated = sorted(set(declared_object_ids) - observed_object_ids)
+        annotated_but_undeclared = sorted(observed_object_ids - set(declared_object_ids))
 
         sequences.append(
             {
                 "sequence": sequence,
                 "frame_count": len(frame_stems),
                 "object_ids": object_ids,
+                "declared_object_ids": declared_object_ids,
+                "declared_but_unannotated_object_ids": declared_but_unannotated,
+                "annotated_but_undeclared_object_ids": annotated_but_undeclared,
                 "is_core": sequence in set(core_sequences),
                 "void_label_255_seen_before_all_prompts": void_seen,
             }
@@ -149,6 +157,7 @@ def build_manifest(root: Path, *, revision: str | None = None) -> dict[str, Any]
         "core_subset": "meta/all_core_seqs.txt",
         "root_contract": "data/JPEGImages/<sequence>/*.jpg paired with data/Annotations/<sequence>/*.png",
         "object_contract": "meta/target_object.json keys obj_<positive integer>; label 255 is never a prompt object",
+        "metadata_discrepancy_policy": "prompt and score only non-void labels present in annotations; record metadata-only and annotation-only labels per sequence",
         "prompt_policy": "one actual first-nonempty GT mask per declared object; later GT is evaluation-only",
         "switch_policy": "fixed frame-index quantiles 25/50/75%, strictly after prompt",
         "sequences": sequences,

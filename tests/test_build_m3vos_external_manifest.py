@@ -43,13 +43,12 @@ def test_manifest_uses_actual_first_prompt_and_fixed_switches(tmp_path: Path, mo
     assert all(case["future_gt_policy"] == "evaluation_only" for case in result["cases"])
 
 
-def test_manifest_rejects_declared_object_without_gt_pixels(tmp_path: Path, monkeypatch) -> None:
+def test_manifest_records_declared_object_without_gt_pixels(tmp_path: Path, monkeypatch) -> None:
     root = _root(tmp_path)
-    monkeypatch.setattr(m3, "_labels", lambda _path: {0})
+    monkeypatch.setattr(m3, "_labels", lambda _path: {0, 1})
 
-    try:
-        m3.build_manifest(root)
-    except ValueError as error:
-        assert "never appear" in str(error)
-    else:
-        raise AssertionError("expected missing declared object to fail")
+    result = m3.build_manifest(root)
+
+    assert result["sequences"][0]["object_ids"] == [1]
+    assert result["sequences"][0]["declared_but_unannotated_object_ids"] == [2]
+    assert len(result["cases"]) == 3
