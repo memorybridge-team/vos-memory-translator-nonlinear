@@ -461,5 +461,3 @@ def test_learned_component_policy_uses_direct_for_unselected_components() -> Non
         "spatial_memory": "learned",
     }
     assert translated.metadata["translation"]["presence_logits"] == "diagnostic_only"
-
-
