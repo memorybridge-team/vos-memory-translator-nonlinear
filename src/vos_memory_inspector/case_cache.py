@@ -13,7 +13,8 @@ import torch
 from .state_schema import CanonicalState
 
 
-SCHEMA_VERSION = "cmmt.prepared_handoff_case.v1"
+SCHEMA_VERSION = "cmmt.prepared_handoff_case.v2"
+LEGACY_SCHEMA_VERSION = "cmmt.prepared_handoff_case.v1"
 
 
 def _sha256(path: Path) -> str:
@@ -43,7 +44,9 @@ def _to_cpu(value: Any) -> Any:
     return deepcopy(value)
 
 
-def _cpu_state(state: CanonicalState) -> CanonicalState:
+def _cpu_state(
+    state: CanonicalState, *, include_positional_information: bool = True
+) -> CanonicalState:
     state.validate()
     return CanonicalState(
         spatial_memory=state.spatial_memory.detach().cpu(),
@@ -55,14 +58,22 @@ def _cpu_state(state: CanonicalState) -> CanonicalState:
         validity=state.validity.detach().cpu(),
         object_ids=tuple(state.object_ids),
         switch_frame=state.switch_frame,
-        positional_information=_to_cpu(state.positional_information),
+        positional_information=(
+            _to_cpu(state.positional_information)
+            if include_positional_information
+            else {
+                "policy": state.positional_information.get(
+                    "policy", "regenerate_at_target"
+                )
+            }
+        ),
         metadata=_to_cpu(state.metadata),
         schema_version=state.schema_version,
     ).validate()
 
 
 def validate_case_cache(payload: Mapping[str, Any]) -> Mapping[str, Any]:
-    if payload.get("schema_version") != SCHEMA_VERSION:
+    if payload.get("schema_version") not in {SCHEMA_VERSION, LEGACY_SCHEMA_VERSION}:
         raise ValueError(f"unsupported case cache: {payload.get('schema_version')!r}")
     source = payload.get("source_canonical")
     target = payload.get("target_canonical")
@@ -76,9 +87,18 @@ def validate_case_cache(payload: Mapping[str, Any]) -> Mapping[str, Any]:
             raise ValueError(f"{label} canonical state is not CPU-offloaded")
     if source.switch_frame != target.switch_frame:
         raise ValueError("source and target switch frames differ")
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, Mapping):
+        raise TypeError("case cache metadata must be a mapping")
     switch_frame = source.switch_frame
     source_masks = payload.get("source_prefix_masks")
     oracle_masks = payload.get("target_oracle_future_masks")
+    if (source_masks is None) != (oracle_masks is None):
+        raise ValueError("case cache must store both mask groups or neither")
+    if source_masks is None:
+        if metadata.get("cache_mode") != "state_only":
+            raise ValueError("mask-free cache must declare cache_mode=state_only")
+        return payload
     if not isinstance(source_masks, Mapping) or not source_masks:
         raise ValueError("case cache has no source prefix masks")
     if not isinstance(oracle_masks, Mapping) or not oracle_masks:
@@ -101,9 +121,8 @@ def validate_case_cache(payload: Mapping[str, Any]) -> Mapping[str, Any]:
                 raise TypeError(f"{group_name} must map integer frames to tensors")
             if value.device.type != "cpu":
                 raise ValueError(f"{group_name}[{frame}] is not CPU-offloaded")
-    metadata = payload.get("metadata")
-    if not isinstance(metadata, Mapping):
-        raise TypeError("case cache metadata must be a mapping")
+    if metadata.get("cache_mode", "handoff_full") != "handoff_full":
+        raise ValueError("mask-containing cache must declare cache_mode=handoff_full")
     if "switch_frame" in metadata and int(metadata["switch_frame"]) != switch_frame:
         raise ValueError("case cache metadata switch frame differs from state")
     if "num_frames" in metadata:
@@ -122,22 +141,37 @@ def write_case_cache(
     *,
     source_canonical: CanonicalState,
     target_canonical: CanonicalState,
-    source_prefix_masks: Mapping[int, torch.Tensor],
-    target_oracle_future_masks: Mapping[int, torch.Tensor],
     metadata: Mapping[str, Any],
+    source_prefix_masks: Mapping[int, torch.Tensor] | None = None,
+    target_oracle_future_masks: Mapping[int, torch.Tensor] | None = None,
 ) -> dict[str, Any]:
     """Atomically write a trusted local cache and SHA-256 sidecar."""
 
     output = Path(output).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
+    has_masks = source_prefix_masks is not None or target_oracle_future_masks is not None
+    if (source_prefix_masks is None) != (target_oracle_future_masks is None):
+        raise ValueError("source and target masks must be supplied together")
+    cache_mode = "handoff_full" if has_masks else "state_only"
+    stored_metadata = dict(metadata)
+    declared_mode = stored_metadata.setdefault("cache_mode", cache_mode)
+    if declared_mode != cache_mode:
+        raise ValueError(f"metadata cache_mode {declared_mode!r} conflicts with payload")
+    payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "source_canonical": _cpu_state(source_canonical),
-        "target_canonical": _cpu_state(target_canonical),
-        "source_prefix_masks": _cpu_masks(source_prefix_masks),
-        "target_oracle_future_masks": _cpu_masks(target_oracle_future_masks),
-        "metadata": dict(metadata),
+        "source_canonical": _cpu_state(
+            source_canonical, include_positional_information=has_masks
+        ),
+        "target_canonical": _cpu_state(
+            target_canonical, include_positional_information=has_masks
+        ),
+        "metadata": stored_metadata,
     }
+    if has_masks:
+        assert source_prefix_masks is not None
+        assert target_oracle_future_masks is not None
+        payload["source_prefix_masks"] = _cpu_masks(source_prefix_masks)
+        payload["target_oracle_future_masks"] = _cpu_masks(target_oracle_future_masks)
     validate_case_cache(payload)
     partial = output.with_suffix(output.suffix + ".partial")
     torch.save(payload, partial)
@@ -152,8 +186,9 @@ def write_case_cache(
         "path": str(output),
         "sha256": digest,
         "bytes": output.stat().st_size,
-        "source_prefix_frames": len(source_prefix_masks),
-        "target_oracle_future_frames": len(target_oracle_future_masks),
+        "cache_mode": cache_mode,
+        "source_prefix_frames": len(source_prefix_masks) if source_prefix_masks else 0,
+        "target_oracle_future_frames": len(target_oracle_future_masks) if target_oracle_future_masks else 0,
     }
 
 
