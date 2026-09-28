@@ -39,14 +39,14 @@ A **handoff state** bundles per-object memory up to the switch so the translator
 src/vos_memory_inspector/   모델 state contract·export·inject·translator library
 tests/                      CPU contract and regression tests
 manifests/                  frozen MOSEv2/LVOS v2 and external evaluation splits
-docs/architecture/          state assembly map
+state map                   system archive link below
 ```
 
 ```text
 src/vos_memory_inspector/   model-state contract, export/inject, translator library
 tests/                      CPU contract and regression tests
 manifests/                  frozen MOSEv2/LVOS v2 and external evaluation splits
-docs/architecture/          state assembly map
+state map                   system archive link below
 ```
 
 Collection, training and evaluation orchestration lives in the team's local
@@ -56,6 +56,9 @@ in the dedicated archive repositories rather than this experiment core.
 
 Repository boundaries and the local Task 07/09 execution path are documented
 in [docs/repository_architecture.md](docs/repository_architecture.md).
+
+The frozen visual State Assembly Map is maintained in the system archive:
+[cmmt-state-assembly-map.html](https://github.com/memorybridge-team/vos-memory-system/blob/chore/archive-runtime-evidence/cmmt-evidence/nonlinear-v2/architecture/cmmt-state-assembly-map.html).
 
 ```python
 from vos_memory_inspector import ResidualMLPStateTranslator
