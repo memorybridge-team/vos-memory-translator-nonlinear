@@ -266,6 +266,7 @@ def _collect_native(
     mask: np.ndarray,
     object_id: int,
     switch_frame: int,
+    capture_masks: bool = True,
 ) -> tuple[Any, dict[int, torch.Tensor]]:
     predictor.add_new_mask(
         inference_state,
@@ -288,7 +289,7 @@ def _collect_native(
                 switch_frame=switch_frame,
                 strict=True,
             )
-        if frame > switch_frame:
+        if capture_masks and frame > switch_frame:
             future[frame] = masks.detach().cpu().float()
     if canonical is None:
         raise RuntimeError("native run did not reach switch_frame")
@@ -320,6 +321,7 @@ def _collect_prefix_reference(
     mask: np.ndarray,
     object_id: int,
     switch_frame: int,
+    capture_masks: bool = True,
 ) -> tuple[Any, dict[int, torch.Tensor]]:
     predictor.add_new_mask(
         inference_state,
@@ -336,7 +338,8 @@ def _collect_prefix_reference(
         reverse=False,
     ):
         frame = int(frame_idx)
-        prefix_masks[frame] = masks.detach().cpu().float()
+        if capture_masks:
+            prefix_masks[frame] = masks.detach().cpu().float()
         if frame == switch_frame:
             canonical = canonicalize_sam2_inference_state(
                 inference_state,
@@ -446,6 +449,7 @@ def prepare_cross_model_case_reference(
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
+    store_masks: bool = True,
 ) -> dict[str, Any]:
     """Compute source prefix and target oracle once for reuse by all baselines."""
 
@@ -482,6 +486,7 @@ def prepare_cross_model_case_reference(
         mask=prompt,
         object_id=object_id,
         switch_frame=switch_frame,
+        capture_masks=store_masks,
     )
     num_frames = int(source_state["num_frames"])
     del source_state, source_predictor
@@ -506,6 +511,7 @@ def prepare_cross_model_case_reference(
         mask=prompt,
         object_id=object_id,
         switch_frame=switch_frame,
+        capture_masks=store_masks,
     )
     del target_state, target_predictor
     gc.collect()
@@ -523,6 +529,7 @@ def prepare_cross_model_case_reference(
         "seed": seed,
         "device": device,
         "path_policy": "runtime_paths_not_stored",
+        "cache_mode": "handoff_full" if store_masks else "state_only",
     }
     preparation_resources = _resource_measurement(started_at, device)
     metadata["preparation_resources"] = preparation_resources
@@ -530,9 +537,9 @@ def prepare_cross_model_case_reference(
         output,
         source_canonical=source_canonical,
         target_canonical=target_canonical,
-        source_prefix_masks=source_prefix_masks,
-        target_oracle_future_masks=target_oracle_future,
         metadata=metadata,
+        source_prefix_masks=source_prefix_masks if store_masks else None,
+        target_oracle_future_masks=target_oracle_future if store_masks else None,
     )
     return {
         **metadata,

@@ -116,6 +116,26 @@ def test_case_cache_rejects_noncontiguous_prefix(tmp_path: Path) -> None:
         )
 
 
+def test_state_only_case_cache_omits_masks_and_roundtrips(tmp_path: Path) -> None:
+    output = tmp_path / "state_only.pt"
+    summary = write_case_cache(
+        output,
+        source_canonical=_state(2, 1.0),
+        target_canonical=_state(2, 2.0),
+        metadata={"video_id": "demo", "cache_mode": "state_only"},
+    )
+
+    assert summary["cache_mode"] == "state_only"
+    assert summary["source_prefix_frames"] == 0
+    restored = load_case_cache(output)
+    assert restored["metadata"]["cache_mode"] == "state_only"
+    assert "source_prefix_masks" not in restored
+    assert "target_oracle_future_masks" not in restored
+    assert restored["source_canonical"].positional_information == {
+        "policy": "regenerate_at_target"
+    }
+
+
 def test_case_cache_detects_file_tampering(tmp_path: Path) -> None:
     output = tmp_path / "case.pt"
     write_case_cache(

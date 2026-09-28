@@ -661,6 +661,11 @@ def prepare_handoff_case_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--keep-video-on-device", action="store_true")
     parser.add_argument("--keep-state-on-device", action="store_true")
+    parser.add_argument(
+        "--state-only",
+        action="store_true",
+        help="store paired canonical states only; omit prediction masks and future GT-derived payloads",
+    )
     parser.add_argument("--seed", type=int, default=7)
     args = parser.parse_args(argv)
     report = prepare_cross_model_case_reference(
@@ -680,6 +685,7 @@ def prepare_handoff_case_main(argv: list[str] | None = None) -> None:
         offload_video_to_cpu=not args.keep_video_on_device,
         offload_state_to_cpu=not args.keep_state_on_device,
         seed=args.seed,
+        store_masks=not args.state_only,
     )
     if args.report_json is not None:
         args.report_json.parent.mkdir(parents=True, exist_ok=True)
