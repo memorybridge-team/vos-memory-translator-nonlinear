@@ -1,0 +1,312 @@
+"""Collect future-GT-free Small/Base+ paired states for Task 07.
+
+This is intentionally a local orchestration script.  It reads only the frozen
+MOSEv2/LVOS v2 train manifests and their video-level fit/development split
+manifests.  A mask is read solely at the object's recorded first-prompt frame;
+no later annotation is supplied to either model.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source-manifest", required=True, type=Path)
+    parser.add_argument("--fit-split", required=True, type=Path)
+    parser.add_argument("--development-split", required=True, type=Path)
+    parser.add_argument("--dataset-root", required=True, type=Path)
+    parser.add_argument("--sam2-repo", required=True, type=Path)
+    parser.add_argument("--source-config", required=True)
+    parser.add_argument("--source-checkpoint", required=True, type=Path)
+    parser.add_argument("--source-model-id", required=True)
+    parser.add_argument("--target-config", required=True)
+    parser.add_argument("--target-checkpoint", required=True, type=Path)
+    parser.add_argument("--target-model-id", required=True)
+    parser.add_argument("--network-volume-root", required=True, type=Path)
+    parser.add_argument("--run-directory", required=True, type=Path)
+    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument(
+        "--paired-split",
+        choices=("all", "fit", "development"),
+        default="all",
+        help="collect one frozen paired split or both",
+    )
+    parser.add_argument(
+        "--shard-count",
+        type=int,
+        default=1,
+        help="number of deterministic independent collection shards",
+    )
+    parser.add_argument(
+        "--shard-index",
+        type=int,
+        default=0,
+        help="zero-based shard index to collect",
+    )
+    parser.add_argument("--max-cases", type=int)
+    parser.add_argument("--dry-run", action="store_true")
+    return parser
+
+
+def _load_checked(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    digest = payload.pop("content_sha256", None)
+    if digest is not None:
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        if hashlib.sha256(canonical.encode("utf-8")).hexdigest() != digest:
+            raise ValueError(f"content_sha256 mismatch: {path}")
+        payload["content_sha256"] = digest
+    return payload
+
+
+def _dataset_layout(root: Path) -> tuple[Path, Path]:
+    candidates = (root, root / "train", root / "extracted" / "train")
+    for candidate in candidates:
+        frames = candidate / "JPEGImages"
+        masks = candidate / "Annotations"
+        if frames.is_dir() and masks.is_dir():
+            return frames, masks
+    raise FileNotFoundError(
+        "expected JPEGImages/ and Annotations/ under dataset root, train/, or extracted/train/"
+    )
+
+
+def _numeric_frame(directory: Path, frame: int, suffix: str) -> Path:
+    matches = [path for path in directory.glob(f"*{suffix}") if path.stem.isdigit() and int(path.stem) == frame]
+    if len(matches) != 1:
+        raise FileNotFoundError(f"expected one {suffix} frame {frame} in {directory}, found {len(matches)}")
+    return matches[0]
+
+
+def _frame_id_to_video_index(video: Path, frame_id: int) -> int:
+    """Map a manifest frame ID to SAM 2's contiguous video-frame index.
+
+    MOSEv2 uses consecutive numeric frame names, so its frame ID and index are
+    usually identical.  LVOS v2 uses sparse numeric names; passing a raw LVOS
+    ID to SAM 2 would select a wrong frame or go out of range.
+    """
+    numeric_ids = sorted(
+        int(path.stem)
+        for path in video.iterdir()
+        if path.is_file() and path.stem.isdigit()
+    )
+    try:
+        return numeric_ids.index(frame_id)
+    except ValueError as error:
+        raise FileNotFoundError(
+            f"manifest switch frame ID {frame_id} is absent from {video}"
+        ) from error
+
+
+def _case_slug(case: dict[str, Any]) -> str:
+    dataset = str(case["dataset"]).lower().replace(" ", "").replace("v2", "")
+    return f"{dataset}_{case['video_id']}_obj{case['object_id']}_switch{case['switch_frame']}"
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
+    """Write a small run ledger without exposing a partially-written JSON file."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    partial = path.with_suffix(path.suffix + ".partial")
+    partial.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    partial.replace(path)
+
+
+def _cache_checksum_matches(cache: Path) -> bool:
+    """Return True only when the cache and its SHA-256 sidecar agree."""
+
+    checksum = cache.with_suffix(cache.suffix + ".sha256")
+    if not cache.is_file() or not checksum.is_file():
+        return False
+    fields = checksum.read_text(encoding="ascii").split()
+    if not fields:
+        return False
+    digest = hashlib.sha256()
+    with cache.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest() == fields[0]
+
+
+def _producer_revision() -> str:
+    """Use an explicit deployment revision; never guess it from a live checkout."""
+
+    return os.environ.get("CMMT_CODE_REVISION", "unknown")
+
+
+def _selection(args: argparse.Namespace) -> dict[str, Any]:
+    source = _load_checked(args.source_manifest.resolve())
+    fit = _load_checked(args.fit_split.resolve())
+    development = _load_checked(args.development_split.resolve())
+    if source.get("dataset") not in {"MOSEv2", "LVOS v2"}:
+        raise ValueError("Task 07 accepts only the MOSEv2 or LVOS v2 train manifest")
+    if fit.get("source_manifest_content_sha256") != source.get("content_sha256"):
+        raise ValueError("fit split does not belong to source manifest")
+    if development.get("source_manifest_content_sha256") != source.get("content_sha256"):
+        raise ValueError("development split does not belong to source manifest")
+    fit_videos = set(map(str, fit["videos"]))
+    development_videos = set(map(str, development["videos"]))
+    if fit_videos & development_videos:
+        raise ValueError("fit and development videos overlap")
+    cases = []
+    for case in source["cases"]:
+        video_id = str(case["video_id"])
+        split = "fit" if video_id in fit_videos else "development" if video_id in development_videos else None
+        if split is not None:
+            cases.append({**case, "paired_split": split})
+    cases.sort(key=lambda item: (item["paired_split"], item["case_id"]))
+    if args.paired_split != "all":
+        cases = [case for case in cases if case["paired_split"] == args.paired_split]
+    if args.shard_count < 1:
+        raise ValueError("--shard-count must be positive")
+    if not 0 <= args.shard_index < args.shard_count:
+        raise ValueError("--shard-index must be in [0, --shard-count)")
+    cases = cases[args.shard_index :: args.shard_count]
+    if args.max_cases is not None:
+        if args.max_cases < 1:
+            raise ValueError("--max-cases must be positive")
+        cases = cases[: args.max_cases]
+    selection: dict[str, Any] = {
+        "schema_version": "cmmt.task07.paired_state_selection.v2",
+        "dataset": source["dataset"],
+        "source_manifest": str(args.source_manifest.resolve()),
+        "source_manifest_content_sha256": source["content_sha256"],
+        "fit_split": str(args.fit_split.resolve()),
+        "development_split": str(args.development_split.resolve()),
+        "future_gt_policy": "first_prompt_mask_only; no future annotation is read or passed to SAM 2",
+        "paired_split_request": args.paired_split,
+        "shard_count": args.shard_count,
+        "shard_index": args.shard_index,
+        "producer_revision": _producer_revision(),
+        "state_policy": {
+            "cache_mode": "state_only",
+            "active_memory_only": True,
+            "num_maskmem": 7,
+            "max_obj_ptrs_in_encoder": 16,
+        },
+        "cases": cases,
+        "split_case_counts": {
+            "fit": sum(case["paired_split"] == "fit" for case in cases),
+            "development": sum(case["paired_split"] == "development" for case in cases),
+        },
+    }
+    canonical = json.dumps(selection, sort_keys=True, separators=(",", ":"))
+    selection["content_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return selection
+
+
+def _prepare_command(
+    args: argparse.Namespace,
+    case: dict[str, Any],
+    video: Path,
+    prompt: Path,
+    cache: Path,
+    *,
+    runtime_switch_index: int,
+) -> list[str]:
+    executable = str(Path(sys.executable).with_name("cmmt-sam2-prepare-case"))
+    return [
+        executable, "--sam2-repo", str(args.sam2_repo),
+        "--source-config", args.source_config, "--source-checkpoint", str(args.source_checkpoint),
+        "--source-model-id", args.source_model_id, "--target-config", args.target_config,
+        "--target-checkpoint", str(args.target_checkpoint), "--target-model-id", args.target_model_id,
+        "--video-dir", str(video), "--prompt-mask", str(prompt),
+        "--object-id", str(case["object_id"]), "--switch-frame", str(runtime_switch_index),
+        "--output", str(cache), "--report-json", str(cache.with_suffix(".prepare.json")),
+        "--device", args.device, "--seed", str(args.seed), "--state-only",
+        "--active-memory-only", "--num-maskmem", "7",
+        "--max-obj-ptrs-in-encoder", "16",
+    ]
+
+
+def main() -> None:
+    args = _parser().parse_args()
+    selection = _selection(args)
+    if args.dry_run:
+        print(json.dumps(selection, indent=2, ensure_ascii=False))
+        return
+    frames_root, masks_root = _dataset_layout(args.dataset_root.resolve())
+    volume = args.network_volume_root.resolve()
+    run_directory = args.run_directory.resolve()
+    volume.mkdir(parents=True, exist_ok=True)
+    run_directory.mkdir(parents=True, exist_ok=True)
+    _write_json_atomic(run_directory / "selection_manifest.json", selection)
+    status: dict[str, Any] = {
+        "schema_version": "cmmt.task07.paired_state_collection_status.v2",
+        "state": "running",
+        "started_at": _now(),
+        "updated_at": _now(),
+        "producer_revision": selection["producer_revision"],
+        "source_manifest_content_sha256": selection["source_manifest_content_sha256"],
+        "paired_split_request": selection["paired_split_request"],
+        "shard_count": selection["shard_count"],
+        "shard_index": selection["shard_index"],
+        "cases": {},
+    }
+    status_path = run_directory / "collection_status.json"
+    for index, case in enumerate(selection["cases"], start=1):
+        video = frames_root / str(case["video_id"])
+        annotations = masks_root / str(case["video_id"])
+        prompt = _numeric_frame(annotations, int(case["first_prompt_frame"]), ".png")
+        if not video.is_dir():
+            raise FileNotFoundError(video)
+        manifest_switch_frame = int(case["switch_frame"])
+        runtime_switch_index = _frame_id_to_video_index(video, manifest_switch_frame)
+        cache = volume / str(case["paired_split"]) / f"{_case_slug(case)}.pt"
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        checksum = cache.with_suffix(".pt.sha256")
+        if _cache_checksum_matches(cache):
+            state = "skipped_complete"
+        else:
+            subprocess.run(
+                _prepare_command(
+                    args,
+                    case,
+                    video,
+                    prompt,
+                    cache,
+                    runtime_switch_index=runtime_switch_index,
+                ),
+                check=True,
+            )
+            state = "completed"
+        status["cases"][_case_slug(case)] = {
+            "state": state,
+            "paired_split": case["paired_split"],
+            "manifest_switch_frame_id": manifest_switch_frame,
+            "runtime_switch_frame_index": runtime_switch_index,
+            "cache_sha256": (
+                checksum.read_text(encoding="ascii").split()[0]
+                if checksum.is_file()
+                else None
+            ),
+            "updated_at": _now(),
+        }
+        status["updated_at"] = _now()
+        _write_json_atomic(status_path, status)
+        print(f"[{index}/{len(selection['cases'])}] {_case_slug(case)}: {state}", flush=True)
+    status["state"] = "completed"
+    status["updated_at"] = _now()
+    _write_json_atomic(status_path, status)
+
+
+if __name__ == "__main__":
+    main()
