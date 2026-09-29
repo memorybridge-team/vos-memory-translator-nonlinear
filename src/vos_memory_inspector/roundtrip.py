@@ -469,20 +469,28 @@ def prepare_cross_model_case_reference(
     from sam2.build_sam import build_sam2_video_predictor
 
     started_at = _start_resource_measurement(device)
+    phase_started = time.perf_counter()
+    phase_seconds: dict[str, float] = {}
     prompt = load_binary_prompt(prompt_mask, object_id)
+    phase_seconds["prompt_load"] = time.perf_counter() - phase_started
     _seed_everything(seed)
+    phase_started = time.perf_counter()
     source_predictor = build_sam2_video_predictor(
         config_file=source_config_file,
         ckpt_path=str(source_checkpoint),
         device=device,
     )
+    phase_seconds["source_model_build"] = time.perf_counter() - phase_started
+    phase_started = time.perf_counter()
     source_state = source_predictor.init_state(
         video_path=str(video_dir),
         offload_video_to_cpu=offload_video_to_cpu,
         offload_state_to_cpu=offload_state_to_cpu,
     )
+    phase_seconds["source_video_init"] = time.perf_counter() - phase_started
     if not 0 <= switch_frame < int(source_state["num_frames"]) - 1:
         raise ValueError("switch_frame must leave at least one continuation frame")
+    phase_started = time.perf_counter()
     source_canonical, source_prefix_masks = _collect_prefix_reference(
         source_predictor,
         source_state,
@@ -491,6 +499,7 @@ def prepare_cross_model_case_reference(
         switch_frame=switch_frame,
         capture_masks=store_masks,
     )
+    phase_seconds["source_inference"] = time.perf_counter() - phase_started
     num_frames = int(source_state["num_frames"])
     del source_state, source_predictor
     gc.collect()
@@ -498,16 +507,21 @@ def prepare_cross_model_case_reference(
         torch.cuda.empty_cache()
 
     _seed_everything(seed)
+    phase_started = time.perf_counter()
     target_predictor = build_sam2_video_predictor(
         config_file=target_config_file,
         ckpt_path=str(target_checkpoint),
         device=device,
     )
+    phase_seconds["target_model_build"] = time.perf_counter() - phase_started
+    phase_started = time.perf_counter()
     target_state = target_predictor.init_state(
         video_path=str(video_dir),
         offload_video_to_cpu=offload_video_to_cpu,
         offload_state_to_cpu=offload_state_to_cpu,
     )
+    phase_seconds["target_video_init"] = time.perf_counter() - phase_started
+    phase_started = time.perf_counter()
     target_canonical, target_oracle_future = _collect_native(
         target_predictor,
         target_state,
@@ -516,12 +530,15 @@ def prepare_cross_model_case_reference(
         switch_frame=switch_frame,
         capture_masks=store_masks,
     )
+    phase_seconds["target_inference"] = time.perf_counter() - phase_started
     if active_memory_only:
+        phase_started = time.perf_counter()
         source_canonical = select_sam2_active_memory(
             source_canonical,
             num_maskmem=num_maskmem,
             max_obj_ptrs_in_encoder=max_obj_ptrs_in_encoder,
         )
+        phase_seconds["active_memory_selection"] = time.perf_counter() - phase_started
         target_canonical = select_sam2_active_memory(
             target_canonical,
             num_maskmem=num_maskmem,
@@ -552,6 +569,7 @@ def prepare_cross_model_case_reference(
     }
     preparation_resources = _resource_measurement(started_at, device)
     metadata["preparation_resources"] = preparation_resources
+    phase_started = time.perf_counter()
     cache = write_case_cache(
         output,
         source_canonical=source_canonical,
@@ -560,6 +578,9 @@ def prepare_cross_model_case_reference(
         source_prefix_masks=source_prefix_masks if store_masks else None,
         target_oracle_future_masks=target_oracle_future if store_masks else None,
     )
+    phase_seconds["cache_write_and_checksum"] = time.perf_counter() - phase_started
+    metadata["phase_seconds"] = phase_seconds
+    metadata["phase_seconds_total"] = float(sum(phase_seconds.values()))
     return {
         **metadata,
         "source_contract": source_canonical.contract_dict(),
