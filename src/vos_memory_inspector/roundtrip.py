@@ -945,6 +945,8 @@ def run_same_checkpoint_roundtrip(
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
+    active_memory_only: bool = False,
+    num_maskmem: int = 7,
 ) -> dict[str, Any]:
     """Compare native continuation with export→inject continuation."""
 
@@ -980,6 +982,11 @@ def run_same_checkpoint_roundtrip(
         object_id=object_id,
         switch_frame=switch_frame,
     )
+    full_record_count = canonical.valid_record_count()
+    if active_memory_only:
+        canonical = select_sam2_active_memory(
+            canonical, num_maskmem=num_maskmem
+        )
     num_frames = int(native_state["num_frames"])
     del native_state, native_predictor
     gc.collect()
@@ -1028,6 +1035,10 @@ def run_same_checkpoint_roundtrip(
         "upstream_commit": commit,
         "video_id": video_dir.name,
         "switch_frame": switch_frame,
+        "active_memory_only": active_memory_only,
+        "num_maskmem": num_maskmem if active_memory_only else None,
+        "records_before_selection": full_record_count,
+        "records_injected": canonical.valid_record_count(),
         "future_frames": sorted(injected_future),
         "injection": injection,
         "backbone_calls_before_injection": calls_before_injection,

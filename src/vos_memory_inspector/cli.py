@@ -135,6 +135,8 @@ def roundtrip_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--keep-video-on-device", action="store_true")
     parser.add_argument("--keep-state-on-device", action="store_true")
+    parser.add_argument("--active-memory-only", action="store_true")
+    parser.add_argument("--num-maskmem", type=int, default=7)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--json", type=Path)
     args = parser.parse_args(argv)
@@ -151,6 +153,8 @@ def roundtrip_main(argv: list[str] | None = None) -> None:
         offload_video_to_cpu=not args.keep_video_on_device,
         offload_state_to_cpu=not args.keep_state_on_device,
         seed=args.seed,
+        active_memory_only=args.active_memory_only,
+        num_maskmem=args.num_maskmem,
     )
     if args.json is not None:
         args.json.parent.mkdir(parents=True, exist_ok=True)
