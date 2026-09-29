@@ -450,6 +450,7 @@ def roundtrip_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--keep-state-on-device", action="store_true")
     parser.add_argument("--active-memory-only", action="store_true")
     parser.add_argument("--num-maskmem", type=int, default=7)
+    parser.add_argument("--max-obj-ptrs-in-encoder", type=int, default=16)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--json", type=Path)
     args = parser.parse_args(argv)
@@ -468,6 +469,7 @@ def roundtrip_main(argv: list[str] | None = None) -> None:
         seed=args.seed,
         active_memory_only=args.active_memory_only,
         num_maskmem=args.num_maskmem,
+        max_obj_ptrs_in_encoder=args.max_obj_ptrs_in_encoder,
     )
     if args.json is not None:
         args.json.parent.mkdir(parents=True, exist_ok=True)
@@ -676,6 +678,7 @@ def prepare_handoff_case_main(argv: list[str] | None = None) -> None:
         help="keep conditioning records and SAM 2's immediate non-conditioning memory window only",
     )
     parser.add_argument("--num-maskmem", type=int, default=7)
+    parser.add_argument("--max-obj-ptrs-in-encoder", type=int, default=16)
     parser.add_argument("--seed", type=int, default=7)
     args = parser.parse_args(argv)
     report = prepare_cross_model_case_reference(
@@ -698,6 +701,7 @@ def prepare_handoff_case_main(argv: list[str] | None = None) -> None:
         store_masks=not args.state_only,
         active_memory_only=args.active_memory_only,
         num_maskmem=args.num_maskmem,
+        max_obj_ptrs_in_encoder=args.max_obj_ptrs_in_encoder,
     )
     if args.report_json is not None:
         args.report_json.parent.mkdir(parents=True, exist_ok=True)

@@ -453,6 +453,7 @@ def prepare_cross_model_case_reference(
     store_masks: bool = True,
     active_memory_only: bool = False,
     num_maskmem: int = 7,
+    max_obj_ptrs_in_encoder: int = 16,
 ) -> dict[str, Any]:
     """Compute source prefix and target oracle once for reuse by all baselines."""
 
@@ -518,10 +519,14 @@ def prepare_cross_model_case_reference(
     )
     if active_memory_only:
         source_canonical = select_sam2_active_memory(
-            source_canonical, num_maskmem=num_maskmem
+            source_canonical,
+            num_maskmem=num_maskmem,
+            max_obj_ptrs_in_encoder=max_obj_ptrs_in_encoder,
         )
         target_canonical = select_sam2_active_memory(
-            target_canonical, num_maskmem=num_maskmem
+            target_canonical,
+            num_maskmem=num_maskmem,
+            max_obj_ptrs_in_encoder=max_obj_ptrs_in_encoder,
         )
     del target_state, target_predictor
     gc.collect()
@@ -542,6 +547,9 @@ def prepare_cross_model_case_reference(
         "cache_mode": "handoff_full" if store_masks else "state_only",
         "active_memory_only": active_memory_only,
         "num_maskmem": num_maskmem if active_memory_only else None,
+        "max_obj_ptrs_in_encoder": (
+            max_obj_ptrs_in_encoder if active_memory_only else None
+        ),
     }
     preparation_resources = _resource_measurement(started_at, device)
     metadata["preparation_resources"] = preparation_resources
@@ -964,6 +972,7 @@ def run_same_checkpoint_roundtrip(
     seed: int = 7,
     active_memory_only: bool = False,
     num_maskmem: int = 7,
+    max_obj_ptrs_in_encoder: int = 16,
 ) -> dict[str, Any]:
     """Compare native continuation with export→inject continuation."""
 
@@ -1002,7 +1011,9 @@ def run_same_checkpoint_roundtrip(
     full_record_count = canonical.valid_record_count()
     if active_memory_only:
         canonical = select_sam2_active_memory(
-            canonical, num_maskmem=num_maskmem
+            canonical,
+            num_maskmem=num_maskmem,
+            max_obj_ptrs_in_encoder=max_obj_ptrs_in_encoder,
         )
     num_frames = int(native_state["num_frames"])
     del native_state, native_predictor
@@ -1054,6 +1065,9 @@ def run_same_checkpoint_roundtrip(
         "switch_frame": switch_frame,
         "active_memory_only": active_memory_only,
         "num_maskmem": num_maskmem if active_memory_only else None,
+        "max_obj_ptrs_in_encoder": (
+            max_obj_ptrs_in_encoder if active_memory_only else None
+        ),
         "records_before_selection": full_record_count,
         "records_injected": canonical.valid_record_count(),
         "future_frames": sorted(injected_future),
