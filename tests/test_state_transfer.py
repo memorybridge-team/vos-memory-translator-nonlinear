@@ -16,6 +16,7 @@ from vos_memory_inspector.sam2_state import (
     canonicalize_sam2_inference_state,
     inject_sam2_canonical_state,
     materialize_sam2_history,
+    select_sam2_active_memory,
 )
 from vos_memory_inspector.state_inspector import inspect_state, write_inspection_report
 from vos_memory_inspector.state_schema import (
@@ -144,6 +145,36 @@ def test_sam2_multi_object_canonicalization_and_materialization() -> None:
         "frames_tracked_per_obj",
         "preserved_inputs",
     } & state.metadata.keys()
+
+
+def test_sam2_active_memory_keeps_conditioning_and_latest_window() -> None:
+    spatial = torch.arange(12, dtype=torch.float32).view(1, 1, 12, 1, 1, 1)
+    state = _state(
+        spatial,
+        torch.arange(12, dtype=torch.float32).view(1, 1, 12, 1),
+        torch.zeros(1, 1, 12, 1),
+    )
+    state.is_conditioning[0, 0, 0] = True
+
+    compact = select_sam2_active_memory(state, num_maskmem=7)
+
+    assert compact.valid_record_count() == 7
+    assert compact.frame_indices[0, 0].tolist() == [0, 6, 7, 8, 9, 10, 11]
+    assert compact.is_conditioning[0, 0].tolist() == [
+        True,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+    ]
+    assert compact.metadata["sam2_active_memory_selection"] == {
+        "num_maskmem": 7,
+        "policy": "all_conditioning_plus_latest_nonconditioning",
+        "records_before": 12,
+        "records_after": 7,
+    }
 
 
 def test_sam2_canonicalization_synchronizes_cuda_cpu_offload(monkeypatch) -> None:

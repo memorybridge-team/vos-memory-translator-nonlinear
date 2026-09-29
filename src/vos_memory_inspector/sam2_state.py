@@ -236,6 +236,99 @@ def canonicalize_sam2_inference_state(
     ).validate()
 
 
+def select_sam2_active_memory(
+    state: CanonicalState,
+    *,
+    num_maskmem: int,
+) -> CanonicalState:
+    """Keep only records SAM 2 can read at the immediate continuation step.
+
+    SAM 2 reads conditioning records plus at most ``num_maskmem - 1`` closest
+    non-conditioning records when predicting ``switch_frame + 1``. Older
+    non-conditioning history therefore adds storage and a regression target the
+    target cannot consume at handoff. All conditioning records are retained:
+    the upstream predictor owns any conditioning-frame cap.
+    """
+
+    state.validate()
+    if num_maskmem < 1:
+        raise ValueError("num_maskmem must be positive")
+
+    selected_per_object: list[list[int]] = []
+    for object_slot in range(state.spatial_memory.shape[1]):
+        valid = [
+            record_slot
+            for record_slot in range(state.spatial_memory.shape[2])
+            if bool(state.validity[0, object_slot, record_slot])
+        ]
+        conditioning = [
+            record_slot for record_slot in valid
+            if bool(state.is_conditioning[0, object_slot, record_slot])
+        ]
+        non_conditioning = [
+            record_slot for record_slot in valid
+            if not bool(state.is_conditioning[0, object_slot, record_slot])
+        ]
+        non_conditioning.sort(
+            key=lambda record_slot: int(
+                state.frame_indices[0, object_slot, record_slot].item()
+            )
+        )
+        keep = conditioning + non_conditioning[-(num_maskmem - 1) :]
+        if not keep:
+            raise ValueError(f"object {object_slot} has no active SAM 2 memory")
+        keep.sort(
+            key=lambda record_slot: (
+                int(state.frame_indices[0, object_slot, record_slot].item()),
+                not bool(state.is_conditioning[0, object_slot, record_slot]),
+            )
+        )
+        selected_per_object.append(keep)
+
+    batch, objects, _, channels, height, width = state.spatial_memory.shape
+    records = max(len(items) for items in selected_per_object)
+    spatial = state.spatial_memory.new_zeros((batch, objects, records, channels, height, width))
+    pointer = state.object_pointer.new_zeros((batch, objects, records, state.object_pointer.shape[-1]))
+    presence = state.presence_logits.new_zeros((batch, objects, records, 1))
+    frame_indices = torch.full((batch, objects, records), -1, dtype=torch.long)
+    slot_order = torch.full((batch, objects, records), -1, dtype=torch.long)
+    is_conditioning = torch.zeros((batch, objects, records), dtype=torch.bool)
+    validity = torch.zeros((batch, objects, records), dtype=torch.bool)
+    for object_slot, selected in enumerate(selected_per_object):
+        for new_slot, old_slot in enumerate(selected):
+            spatial[:, object_slot, new_slot].copy_(state.spatial_memory[:, object_slot, old_slot])
+            pointer[:, object_slot, new_slot].copy_(state.object_pointer[:, object_slot, old_slot])
+            presence[:, object_slot, new_slot].copy_(state.presence_logits[:, object_slot, old_slot])
+            frame_indices[:, object_slot, new_slot].copy_(state.frame_indices[:, object_slot, old_slot])
+            slot_order[:, object_slot, new_slot] = new_slot
+            is_conditioning[:, object_slot, new_slot].copy_(state.is_conditioning[:, object_slot, old_slot])
+            validity[:, object_slot, new_slot] = True
+
+    metadata = dict(state.metadata)
+    metadata["sam2_active_memory_selection"] = {
+        "num_maskmem": num_maskmem,
+        "policy": "all_conditioning_plus_latest_nonconditioning",
+        "records_before": state.valid_record_count(),
+        "records_after": int(validity.sum().item()),
+    }
+    return CanonicalState(
+        spatial_memory=spatial,
+        object_pointer=pointer,
+        presence_logits=presence,
+        frame_indices=frame_indices,
+        slot_order=slot_order,
+        is_conditioning=is_conditioning,
+        validity=validity,
+        object_ids=tuple(state.object_ids),
+        switch_frame=state.switch_frame,
+        positional_information={
+            "policy": state.positional_information.get("policy", "regenerate_at_target")
+        },
+        metadata=metadata,
+        schema_version=state.schema_version,
+    ).validate()
+
+
 def probe_sam2_inference_state(inference_state: Mapping[str, Any]) -> InspectionReport:
     """Recursively inventory the full predictor container without modifying it."""
 
