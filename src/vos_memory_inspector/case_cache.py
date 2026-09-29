@@ -48,6 +48,14 @@ def _cpu_state(
     state: CanonicalState, *, include_positional_information: bool = True
 ) -> CanonicalState:
     state.validate()
+    metadata = _to_cpu(state.metadata)
+    if not include_positional_information:
+        # ``pred_masks`` are diagnostic source-runtime outputs.  A state-only
+        # paired cache has no consumer for them; retaining them here silently
+        # serializes every historical prediction despite omitting top-level
+        # mask payloads.  Preserve only the cache contract metadata needed for
+        # state alignment and checksum validation.
+        metadata.pop("preserved_pred_masks", None)
     return CanonicalState(
         spatial_memory=state.spatial_memory.detach().cpu(),
         object_pointer=state.object_pointer.detach().cpu(),
@@ -67,7 +75,7 @@ def _cpu_state(
                 )
             }
         ),
-        metadata=_to_cpu(state.metadata),
+        metadata=metadata,
         schema_version=state.schema_version,
     ).validate()
 
