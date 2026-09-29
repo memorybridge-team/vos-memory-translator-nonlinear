@@ -137,7 +137,9 @@ def test_sam2_active_memory_keeps_conditioning_and_latest_window() -> None:
     )
     state.is_conditioning[0, 0, 0] = True
 
-    compact = select_sam2_active_memory(state, num_maskmem=7)
+    compact = select_sam2_active_memory(
+        state, num_maskmem=7, max_obj_ptrs_in_encoder=7
+    )
 
     assert compact.valid_record_count() == 7
     assert compact.frame_indices[0, 0].tolist() == [0, 6, 7, 8, 9, 10, 11]
@@ -152,10 +154,30 @@ def test_sam2_active_memory_keeps_conditioning_and_latest_window() -> None:
     ]
     assert compact.metadata["sam2_active_memory_selection"] == {
         "num_maskmem": 7,
+        "max_obj_ptrs_in_encoder": 7,
+        "non_conditioning_limit": 6,
         "policy": "all_conditioning_plus_latest_nonconditioning",
         "records_before": 12,
         "records_after": 7,
     }
+
+
+def test_sam2_active_memory_respects_longer_object_pointer_window() -> None:
+    state = _state(
+        torch.zeros(1, 1, 12, 1, 1, 1),
+        torch.zeros(1, 1, 12, 1),
+        torch.zeros(1, 1, 12, 1),
+    )
+    state.is_conditioning[0, 0, 0] = True
+
+    compact = select_sam2_active_memory(
+        state, num_maskmem=7, max_obj_ptrs_in_encoder=16
+    )
+
+    assert compact.valid_record_count() == 12
+    assert compact.metadata["sam2_active_memory_selection"][
+        "non_conditioning_limit"
+    ] == 15
 
 
 def test_sam2_canonicalization_synchronizes_cuda_cpu_offload(monkeypatch) -> None:

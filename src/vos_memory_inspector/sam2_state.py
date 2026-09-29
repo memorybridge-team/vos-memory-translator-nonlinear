@@ -240,19 +240,22 @@ def select_sam2_active_memory(
     state: CanonicalState,
     *,
     num_maskmem: int,
+    max_obj_ptrs_in_encoder: int,
 ) -> CanonicalState:
     """Keep only records SAM 2 can read at the immediate continuation step.
 
-    SAM 2 reads conditioning records plus at most ``num_maskmem - 1`` closest
-    non-conditioning records when predicting ``switch_frame + 1``. Older
-    non-conditioning history therefore adds storage and a regression target the
-    target cannot consume at handoff. All conditioning records are retained:
-    the upstream predictor owns any conditioning-frame cap.
+    SAM 2 reads conditioning records plus its spatial-memory window and a
+    potentially longer object-pointer window when predicting
+    ``switch_frame + 1``. Older non-conditioning history therefore adds storage
+    and a regression target the target cannot consume at handoff. All
+    conditioning records are retained: the upstream predictor owns any
+    conditioning-frame cap.
     """
 
     state.validate()
-    if num_maskmem < 1:
-        raise ValueError("num_maskmem must be positive")
+    if num_maskmem < 1 or max_obj_ptrs_in_encoder < 1:
+        raise ValueError("SAM 2 memory-window sizes must be positive")
+    non_conditioning_limit = max(num_maskmem - 1, max_obj_ptrs_in_encoder - 1)
 
     selected_per_object: list[list[int]] = []
     for object_slot in range(state.spatial_memory.shape[1]):
@@ -274,7 +277,7 @@ def select_sam2_active_memory(
                 state.frame_indices[0, object_slot, record_slot].item()
             )
         )
-        keep = conditioning + non_conditioning[-(num_maskmem - 1) :]
+        keep = conditioning + non_conditioning[-non_conditioning_limit:]
         if not keep:
             raise ValueError(f"object {object_slot} has no active SAM 2 memory")
         keep.sort(
@@ -307,6 +310,8 @@ def select_sam2_active_memory(
     metadata = dict(state.metadata)
     metadata["sam2_active_memory_selection"] = {
         "num_maskmem": num_maskmem,
+        "max_obj_ptrs_in_encoder": max_obj_ptrs_in_encoder,
+        "non_conditioning_limit": non_conditioning_limit,
         "policy": "all_conditioning_plus_latest_nonconditioning",
         "records_before": state.valid_record_count(),
         "records_after": int(validity.sum().item()),
