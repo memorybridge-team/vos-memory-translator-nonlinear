@@ -24,6 +24,15 @@
 
 ## 작성 기여와 복구
 
+### 2026-09-29 paired-state ZIP repair의 출처
+
+사용자가 제공한 `paired-state 제작 코드.zip`(SHA256
+`312702886b9ae7c231fb1abcaee69e35eec9fa5822c33c9333b88fd24dc193aa`)의
+단일 객체 case 순서와 active-memory 선택 방식을 검토하여 기존 training branch 위에 필요한 수집·검증·변환을 반영했다.
+ZIP 자체의 작성자와 Git revision은 확인되지 않았다. 이를 이번 commit 작성자의 원저작으로 재표기하지 않는다.
+ZIP와 실제 배포 source가 같다는 증거도 아직 없다. 원본 ZIP 및 기존 팀원의 파일/이력은 보존한다.
+변경 범위와 검증은 `reports/tasks/07_paired_training/REPAIR_REPORT.md`에 기록한다.
+
 새 저장소의 초기 commit 작성자는 GitHub 계정 `KIMKYUDO`로 설정한다. 이는 **파일 전체를 KIMKYUDO가 처음 작성했다는 뜻이 아니다.** 이전 저장소에는 `KyudoKim`과 `서수빈`의 커밋이 있으며, 후자는 초기 memory probe 등 일부 이관 파일에 기여했다. 과거 저장소의 `git log`와 이 문서가 작성 경위를 설명한다. 원본 Git 이력과 전체 산출물을 복구할 수 있도록 로컬 기존 checkout의 `.git`을 보존한다. 원본 GitHub 저장소를 삭제하면 그 저장소의 Pages URL 및 GitHub 상의 history 접근도 사라진다.
 
 새 GitHub 저장소의 Contributors 표시는 새 commit의 작성 이력에 의해 계산된다. 초기 commit을 단일 GitHub 계정의 검증 가능한 이메일로 작성한 뒤 확인한다. 이후 팀원 기여가 생기면 정당한 작성자를 그대로 기록한다.

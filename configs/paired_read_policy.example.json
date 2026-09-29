@@ -1,0 +1,20 @@
+{
+  "source": {
+    "num_maskmem": 7,
+    "max_obj_ptrs_in_encoder": 16,
+    "memory_temporal_stride_for_eval": 1,
+    "max_cond_frames_in_attn": -1,
+    "only_obj_ptrs_in_the_past_for_eval": true,
+    "use_obj_ptrs_in_encoder": true,
+    "add_all_frames_to_correct_as_cond": false
+  },
+  "target": {
+    "num_maskmem": 7,
+    "max_obj_ptrs_in_encoder": 16,
+    "memory_temporal_stride_for_eval": 1,
+    "max_cond_frames_in_attn": -1,
+    "only_obj_ptrs_in_the_past_for_eval": true,
+    "use_obj_ptrs_in_encoder": true,
+    "add_all_frames_to_correct_as_cond": false
+  }
+}

@@ -11,7 +11,7 @@ import torch
 
 from .sam2_state import init_sam2_inference_state_without_warmup, inject_sam2_canonical_state
 from .training_collection import freeze_model, model_provenance, prepare_case, run_prefix
-from .training_data import load_pair, pair_id, read_manifest
+from .training_data import load_pair, pair_id, read_manifest, case_lineage
 from .training_runner import CheckpointTranslator
 from .training_storage import write_json
 
@@ -39,6 +39,8 @@ def rollout(plan_path, persistent_root, collection, checkpoint, sam2_repo, outpu
         raise ValueError("runtime models differ from checkpoint/collection provenance")
     entry = manifest["pairs"][pair_index]
     source, target, case = load_pair(collection, entry, models)
+    if translator.identity.get("collection_lineage") != case_lineage(case):
+        raise ValueError("runtime memory policy/object semantics differ from checkpoint")
     if case["pair_mode"] != "native_history" or translator.identity["pair_mode"] != case["pair_mode"]:
         raise ValueError("downstream native rollout requires native-history checkpoint and pair")
     matching = [raw for raw in plan["cases"] if pair_id(prepare_case(root, raw)) == entry["pair_id"]]

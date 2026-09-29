@@ -284,3 +284,12 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[팀 경로, 사용자 전달]** persistent Network Volume `KNSW_DATASET`의 mount는 `/workspace`, 프로젝트는 `/workspace/CMMT`, 데이터는 `/workspace/CMMT/data/MOSEv2`와 `/workspace/CMMT/data/LVOSv2`, checkpoint root는 `/workspace/CMMT/checkpoints`다. 현재 Pod host/port와 파일/hash는 아직 원격 확인하지 못했다. private SSH key는 공유하지 않는다.
 - **[Blocker]** 사용자가 nonlinear 구조는 아직 제작 전이라고 확인했다. 모델팀 factory/constructor/forward adapter 및 현재 Pod endpoint가 필요하다. Real one-video overfit, real video-disjoint dev, actual checkpoint-backed no-replay rollout 및 GPU 비용/Pod restart gate는 미완료다.
 - **[게시 정책]** 사용자 검토 전 원격 push/PR 게시를 하지 않는다. 검증된 로컬 task branch와 review patch를 제공한다. 이번 작업 중 `origin/main`의 dataset guide merge `9128e6d`를 읽고 fast-forward했으며 팀원의 변경을 덮어쓰지 않았다.
+
+## 34. 2026-09-29 — ZIP paired-state 수집 계약의 로컬 repair
+
+- **[범위]** 검토 기준 `5be4fba`에서 `fix/paired-state-collection-contract`를 만들었다. 최신 첨부 요청에 따라 로컬 구현·CPU 검증·검토 산출물만 준비하며 push/PR/main merge 및 live worker 변경은 수행하지 않는다.
+- **[계약]** Small→Base+ 한 번의 no-replay, 독립 O=1 native-history production case와 provisional `active_window_v1`을 유지한다. Spatial/pointer만 학습하며 presence는 diagnostic_only다. Frozen source와 fit/dev membership은 변경하지 않는다.
+- **[수정]** JPEG official/runtime prompt·switch 독립 mapping, 양 모델 switch까지 inclusive prefix propagation, strict checksum/생성 조건 resume, atomic completion/ownership, 정책·slot 기록, trusted legacy CPU import와 semantic dedup, lineage 검증 및 8-way full/disjoint 계획을 추가했다. Full future-reference 경로는 보존했다.
+- **[검증]** CPU 전체 `107 passed in 49.08s`; 실제 synthetic audit/import/verify CLI, idempotence, loader·Linear 1 epoch·checkpoint adapter load를 확인했다. MOSE 20,841/LVOS 1,803은 선택 수이며 GPU 성공 결과가 아니다.
+- **[배포 증거]** 현재 endpoint/read-only 승인·worker topology/source/run 기록·실제 cache 소수가 없다. ZIP_ONLY 문제를 실제 worker 결함으로 판정하지 않았다. Production 검사 수 0, 확정 재수집 ID 0, production 완료/unknown 수는 미확인이다.
+- **[남은 gate]** Actual SAM GPU ordinary/late prompt, same-checkpoint full/selected continuation, actual trained checkpoint no-replay rollout 및 persistent-volume restart/동시성은 미완료다. Nonlinear factory/forward 계약의 모델팀 최종 구현과 승인이 필요하다.

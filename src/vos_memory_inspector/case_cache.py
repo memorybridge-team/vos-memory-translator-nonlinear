@@ -11,9 +11,18 @@ from typing import Any
 import torch
 
 from .state_schema import CanonicalState
+from .training_data import validate_pair
+from .training_storage import atomic_write, write_json, ExclusiveWriter, content_hash
 
 
-SCHEMA_VERSION = "cmmt.prepared_handoff_case.v1"
+SCHEMA_VERSION = "cmmt.prepared_handoff_case.v2"
+LEGACY_SCHEMA_VERSION = "cmmt.prepared_handoff_case.v1"
+
+
+class CaseOwnership(ExclusiveWriter):
+    """공유 filesystem의 O_EXCL/atomic replace를 전제로 한 case별 ownership."""
+    def __init__(self, path):
+        self.path = Path(str(Path(path).resolve()) + ".writer.lock")
 
 
 def _sha256(path: Path) -> str:
@@ -43,8 +52,11 @@ def _to_cpu(value: Any) -> Any:
     return deepcopy(value)
 
 
-def _cpu_state(state: CanonicalState) -> CanonicalState:
+def _cpu_state(state: CanonicalState, *, include_masks=True) -> CanonicalState:
     state.validate()
+    metadata = _to_cpu(state.metadata)
+    if not include_masks:
+        metadata.pop("preserved_pred_masks", None)
     return CanonicalState(
         spatial_memory=state.spatial_memory.detach().cpu(),
         object_pointer=state.object_pointer.detach().cpu(),
@@ -55,14 +67,15 @@ def _cpu_state(state: CanonicalState) -> CanonicalState:
         validity=state.validity.detach().cpu(),
         object_ids=tuple(state.object_ids),
         switch_frame=state.switch_frame,
-        positional_information=_to_cpu(state.positional_information),
-        metadata=_to_cpu(state.metadata),
+        positional_information=(_to_cpu(state.positional_information) if include_masks
+                                else {"policy": "regenerate_at_target"}),
+        metadata=metadata,
         schema_version=state.schema_version,
     ).validate()
 
 
 def validate_case_cache(payload: Mapping[str, Any]) -> Mapping[str, Any]:
-    if payload.get("schema_version") != SCHEMA_VERSION:
+    if payload.get("schema_version") not in {SCHEMA_VERSION, LEGACY_SCHEMA_VERSION}:
         raise ValueError(f"unsupported case cache: {payload.get('schema_version')!r}")
     source = payload.get("source_canonical")
     target = payload.get("target_canonical")
@@ -70,22 +83,41 @@ def validate_case_cache(payload: Mapping[str, Any]) -> Mapping[str, Any]:
         raise TypeError("case cache must contain source and target CanonicalState values")
     source.validate()
     target.validate()
+    validate_pair(source, target)
     for label, state in (("source", source), ("target", target)):
         continuous = (state.spatial_memory, state.object_pointer, state.presence_logits)
         if any(tensor.device.type != "cpu" for tensor in continuous):
             raise ValueError(f"{label} canonical state is not CPU-offloaded")
+        if not torch.isfinite(state.presence_logits[state.validity]).all():
+            raise ValueError(f"non-finite valid {label} presence diagnostics")
     if source.switch_frame != target.switch_frame:
         raise ValueError("source and target switch frames differ")
     switch_frame = source.switch_frame
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, Mapping):
+        raise TypeError("case cache metadata must be a mapping")
+    if "switch_frame" in metadata and int(metadata["switch_frame"]) != switch_frame:
+        raise ValueError("case cache metadata switch frame differs from state")
+    if "num_frames" in metadata and int(metadata["num_frames"]) <= switch_frame+1:
+        raise ValueError("case cache metadata leaves no continuation frames")
     source_masks = payload.get("source_prefix_masks")
     oracle_masks = payload.get("target_oracle_future_masks")
+    if (source_masks is None) != (oracle_masks is None):
+        raise ValueError("case cache must store both mask groups or neither")
+    if source_masks is None:
+        if metadata.get("cache_mode") != "state_only" or "switch_frame" not in metadata:
+            raise ValueError("mask-free cache must declare cache_mode=state_only and switch_frame")
+        return payload
+    if metadata.get("cache_mode", "handoff_full") != "handoff_full":
+        raise ValueError("mask-containing cache must declare cache_mode=handoff_full")
     if not isinstance(source_masks, Mapping) or not source_masks:
         raise ValueError("case cache has no source prefix masks")
     if not isinstance(oracle_masks, Mapping) or not oracle_masks:
         raise ValueError("case cache has no target oracle future masks")
     source_frames = sorted(int(frame) for frame in source_masks)
     oracle_frames = sorted(int(frame) for frame in oracle_masks)
-    if source_frames != list(range(0, switch_frame + 1)):
+    prompt_frame = int(metadata.get("prompt_frame_index", 0))
+    if source_frames != list(range(prompt_frame, switch_frame + 1)):
         raise ValueError(
             f"source prefix masks must cover 0..{switch_frame}; got {source_frames}"
         )
@@ -101,11 +133,6 @@ def validate_case_cache(payload: Mapping[str, Any]) -> Mapping[str, Any]:
                 raise TypeError(f"{group_name} must map integer frames to tensors")
             if value.device.type != "cpu":
                 raise ValueError(f"{group_name}[{frame}] is not CPU-offloaded")
-    metadata = payload.get("metadata")
-    if not isinstance(metadata, Mapping):
-        raise TypeError("case cache metadata must be a mapping")
-    if "switch_frame" in metadata and int(metadata["switch_frame"]) != switch_frame:
-        raise ValueError("case cache metadata switch frame differs from state")
     if "num_frames" in metadata:
         num_frames = int(metadata["num_frames"])
         if num_frames <= switch_frame + 1:
@@ -122,38 +149,48 @@ def write_case_cache(
     *,
     source_canonical: CanonicalState,
     target_canonical: CanonicalState,
-    source_prefix_masks: Mapping[int, torch.Tensor],
-    target_oracle_future_masks: Mapping[int, torch.Tensor],
     metadata: Mapping[str, Any],
+    source_prefix_masks: Mapping[int, torch.Tensor] | None = None,
+    target_oracle_future_masks: Mapping[int, torch.Tensor] | None = None,
 ) -> dict[str, Any]:
     """Atomically write a trusted local cache and SHA-256 sidecar."""
 
     output = Path(output).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
+    has_masks = source_prefix_masks is not None
+    if has_masks != (target_oracle_future_masks is not None):
+        raise ValueError("source and target masks must be supplied together")
+    stored_metadata = dict(metadata)
+    stored_metadata.setdefault("cache_mode", "handoff_full" if has_masks else "state_only")
     payload = {
         "schema_version": SCHEMA_VERSION,
-        "source_canonical": _cpu_state(source_canonical),
-        "target_canonical": _cpu_state(target_canonical),
-        "source_prefix_masks": _cpu_masks(source_prefix_masks),
-        "target_oracle_future_masks": _cpu_masks(target_oracle_future_masks),
-        "metadata": dict(metadata),
+        "source_canonical": _cpu_state(source_canonical, include_masks=has_masks),
+        "target_canonical": _cpu_state(target_canonical, include_masks=has_masks),
+        "metadata": stored_metadata,
     }
+    if has_masks:
+        payload["source_prefix_masks"] = _cpu_masks(source_prefix_masks)
+        payload["target_oracle_future_masks"] = _cpu_masks(target_oracle_future_masks)
     validate_case_cache(payload)
-    partial = output.with_suffix(output.suffix + ".partial")
-    torch.save(payload, partial)
-    partial.replace(output)
-    digest = _sha256(output)
-    checksum_path = output.with_suffix(output.suffix + ".sha256")
-    checksum_partial = checksum_path.with_suffix(checksum_path.suffix + ".partial")
-    checksum_partial.write_text(f"{digest}  {output.name}\n", encoding="ascii")
-    checksum_partial.replace(checksum_path)
+    with CaseOwnership(output):
+        # 불완전/기존 원본도 임의로 덮어쓰지 않는다. 새 namespace에서 재수집한다.
+        if output.exists() or output.with_suffix(output.suffix + ".sha256").exists():
+            raise FileExistsError(f"cache already exists; audit or use new namespace: {output}")
+        atomic_write(output, lambda stream: torch.save(payload, stream))
+        digest = _sha256(output)
+        checksum_path = output.with_suffix(output.suffix + ".sha256")
+        atomic_write(checksum_path, lambda stream: stream.write(f"{digest}  {output.name}\n".encode("ascii")))
+        write_json(str(output) + ".complete.json", {"sha256": digest, "bytes": output.stat().st_size,
+                   "schema_version": SCHEMA_VERSION, "generating_sha256":
+                   content_hash(stored_metadata.get("generating"))})
     return {
         "schema_version": SCHEMA_VERSION,
         "path": str(output),
         "sha256": digest,
         "bytes": output.stat().st_size,
-        "source_prefix_frames": len(source_prefix_masks),
-        "target_oracle_future_frames": len(target_oracle_future_masks),
+        "cache_mode": stored_metadata["cache_mode"],
+        "source_prefix_frames": len(source_prefix_masks) if source_prefix_masks else 0,
+        "target_oracle_future_frames": len(target_oracle_future_masks) if target_oracle_future_masks else 0,
     }
 
 

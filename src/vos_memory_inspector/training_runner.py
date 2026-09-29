@@ -242,6 +242,7 @@ def train(fit, dev, output, config: TrainConfig, *, resume=None, overfit=False):
                 "dev_sha256": dev.manifest["content_sha256"] if dev else None,
                 "source_spec": source_spec.to_dict(), "target_spec": target_spec.to_dict(),
                 "models": fit.manifest["models"], "pair_mode": fit.manifest["pair_mode"],
+                "collection_lineage": fit.lineage,
                 "overfit": overfit}
     output = Path(output)
     with ExclusiveWriter(output):

@@ -266,33 +266,65 @@ def _collect_native(
     mask: np.ndarray,
     object_id: int,
     switch_frame: int,
+    prompt_frame_index: int = 0,
+    capture_masks: bool = True,
+    stop_at_switch: bool = False,
+    trace: dict | None = None,
 ) -> tuple[Any, dict[int, torch.Tensor]]:
-    predictor.add_new_mask(
-        inference_state,
-        frame_idx=0,
-        obj_id=object_id,
-        mask=mask,
-    )
-    canonical = None
-    future: dict[int, torch.Tensor] = {}
-    for frame_idx, _object_ids, masks in predictor.propagate_in_video(
-        inference_state,
-        start_frame_idx=0,
-        max_frame_num_to_track=int(inference_state["num_frames"]),
-        reverse=False,
-    ):
-        frame = int(frame_idx)
-        if frame == switch_frame:
-            canonical = canonicalize_sam2_inference_state(
-                inference_state,
-                switch_frame=switch_frame,
-                strict=True,
-            )
-        if frame > switch_frame:
-            future[frame] = masks.detach().cpu().float()
-    if canonical is None:
-        raise RuntimeError("native run did not reach switch_frame")
-    return canonical, future
+    stop = switch_frame if stop_at_switch else int(inference_state["num_frames"])-1
+    canonical, masks = _collect_case_frames(predictor, inference_state, mask=mask,
+        object_id=object_id, switch_frame=switch_frame, prompt_frame_index=prompt_frame_index,
+        stop_frame=stop, capture_masks=capture_masks, trace=trace)
+    return canonical, {f: m for f, m in masks.items() if f > switch_frame}
+
+
+def _collect_case_frames(predictor, inference_state, *, mask, object_id, switch_frame,
+                         prompt_frame_index=0, stop_frame, capture_masks=True, trace=None):
+    """Inclusive pinned API 경계를 사용하며 prompt 이전/stop 이후 propagation을 금지한다."""
+    if not 0 <= prompt_frame_index <= switch_frame <= stop_frame < int(inference_state["num_frames"]):
+        raise ValueError("prompt/switch/stop outside video bounds")
+    trace = {} if trace is None else trace
+    trace.update({"prompt_frame_index": prompt_frame_index, "processed_frame_indices": [],
+                  "inference_frame_indices": [], "backbone_calls": 0})
+    original_inference = getattr(predictor, "_run_single_frame_inference", None)
+    original_forward = getattr(predictor, "forward_image", None)
+    if original_inference is not None:
+        def counted_inference(*args, **kwargs):
+            index = int(kwargs["frame_idx"])
+            trace["inference_frame_indices"].append(index)
+            if index > stop_frame:
+                raise RuntimeError("inference exceeded declared prefix")
+            return original_inference(*args, **kwargs)
+        predictor._run_single_frame_inference = counted_inference
+    if original_forward is not None:
+        def counted_forward(*args, **kwargs):
+            trace["backbone_calls"] += 1
+            return original_forward(*args, **kwargs)
+        predictor.forward_image = counted_forward
+    try:
+        predictor.add_new_mask(inference_state, frame_idx=prompt_frame_index, obj_id=object_id, mask=mask)
+        canonical, outputs = None, {}
+        for frame_idx, _object_ids, masks in predictor.propagate_in_video(
+                inference_state, start_frame_idx=prompt_frame_index,
+                max_frame_num_to_track=stop_frame-prompt_frame_index, reverse=False):
+            frame = int(frame_idx)
+            if not prompt_frame_index <= frame <= stop_frame:
+                raise RuntimeError("upstream propagation exceeded declared prefix")
+            trace["processed_frame_indices"].append(frame)
+            if frame == switch_frame:
+                canonical = canonicalize_sam2_inference_state(inference_state, switch_frame=switch_frame, strict=True)
+            if capture_masks:
+                outputs[frame] = masks.detach().cpu().float()
+        if trace["processed_frame_indices"] != list(range(prompt_frame_index, stop_frame+1)):
+            raise RuntimeError("propagation did not cover declared interval")
+        if canonical is None:
+            raise RuntimeError("native run did not reach switch_frame")
+        return canonical, outputs
+    finally:
+        if original_inference is not None:
+            predictor._run_single_frame_inference = original_inference
+        if original_forward is not None:
+            predictor.forward_image = original_forward
 
 
 def _collect_prefix(
@@ -320,32 +352,13 @@ def _collect_prefix_reference(
     mask: np.ndarray,
     object_id: int,
     switch_frame: int,
+    prompt_frame_index: int = 0,
+    capture_masks: bool = True,
+    trace: dict | None = None,
 ) -> tuple[Any, dict[int, torch.Tensor]]:
-    predictor.add_new_mask(
-        inference_state,
-        frame_idx=0,
-        obj_id=object_id,
-        mask=mask,
-    )
-    prefix_masks: dict[int, torch.Tensor] = {}
-    canonical = None
-    for frame_idx, _object_ids, masks in predictor.propagate_in_video(
-        inference_state,
-        start_frame_idx=0,
-        max_frame_num_to_track=switch_frame,
-        reverse=False,
-    ):
-        frame = int(frame_idx)
-        prefix_masks[frame] = masks.detach().cpu().float()
-        if frame == switch_frame:
-            canonical = canonicalize_sam2_inference_state(
-                inference_state,
-                switch_frame=switch_frame,
-                strict=True,
-            )
-    if canonical is None:
-        raise RuntimeError("source run did not reach switch_frame")
-    return canonical, prefix_masks
+    return _collect_case_frames(predictor, inference_state, mask=mask, object_id=object_id,
+            switch_frame=switch_frame, stop_frame=switch_frame, prompt_frame_index=prompt_frame_index,
+            capture_masks=capture_masks, trace=trace)
 
 
 def plan_cached_baseline(
@@ -446,6 +459,12 @@ def prepare_cross_model_case_reference(
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
+    prompt_frame_index: int = 0,
+    store_masks: bool = True,
+    active_memory_only: bool = False,
+    num_maskmem: int = 7,
+    max_obj_ptrs_in_encoder: int = 16,
+    generating: dict | None = None,
 ) -> dict[str, Any]:
     """Compute source prefix and target oracle once for reuse by all baselines."""
 
@@ -454,9 +473,52 @@ def prepare_cross_model_case_reference(
     target_checkpoint = Path(target_checkpoint).resolve()
     video_dir = Path(video_dir).resolve()
     commit = verify_sam2_checkout(sam2_repo)
+    from .collection_contract import (apply_memory_policy, memory_policy, observed_read_policy,
+                                      validate_generating, require, jpeg_map)
+    from .training_collection import freeze_model
+    if not store_masks:
+        require(generating is not None, "MISSING_GENERATING", "state-only requires explicit production conditions")
+    if generating is not None:
+        validate_generating(generating)
+        require(generating["case"]["switch_frame"] == switch_frame and
+                generating["case"]["object_ids"] == [object_id] and
+                generating["case"]["prompt_conditions"][0]["frame_index"] == prompt_frame_index,
+                "CLI_CASE_MISMATCH")
+        require(generating["seed"] == seed and generating["collection_mode"] ==
+                ("handoff_full" if store_masks else "state_only"), "CLI_GENERATING_MISMATCH")
+    policy = memory_policy("active_window_v1" if active_memory_only else "full_history",
+                           num_maskmem, max_obj_ptrs_in_encoder)
+    if generating is not None:
+        require(generating["case"]["memory_policy"] == policy, "CLI_MEMORY_POLICY")
     for label, checkpoint in (("source", source_checkpoint), ("target", target_checkpoint)):
         if not checkpoint.is_file():
             raise FileNotFoundError(f"{label} checkpoint not found: {checkpoint}")
+    if generating is not None:
+        from .training_storage import sha256, content_hash
+        if "environment" in generating:
+            from .paired_collection_cli import environment_snapshot
+            require(environment_snapshot() == generating["environment"], "SUBPROCESS_ENVIRONMENT_MISMATCH")
+        for name, digest in generating["collector_source_hashes"].items():
+            if name == "sam2_base.py":
+                path = sam2_repo/"sam2"/"modeling"/name
+            elif name == "sam2_video_predictor.py":
+                path = sam2_repo/"sam2"/name
+            elif name == "build_sam.py":
+                path = sam2_repo/"sam2"/name
+            elif name == "misc.py":
+                path = sam2_repo/"sam2"/"utils"/name
+            else:
+                path = Path(__file__).with_name(name)
+            require(path.is_file() and sha256(path) == digest, "SUBPROCESS_SOURCE_MISMATCH", name)
+        for role, config, checkpoint in (("source", source_config_file, source_checkpoint),
+                                         ("target", target_config_file, target_checkpoint)):
+            require(sha256(checkpoint) == generating["models"][role]["checkpoint_sha256"] and
+                    sha256(sam2_repo/"sam2"/config) == generating["models"][role]["config_sha256"] and
+                    commit == generating["models"][role]["upstream_commit"], "MODEL_HASH_MISMATCH")
+        require(sha256(prompt_mask) == generating["case"]["prompt_conditions"][0]["sha256"], "PROMPT_CONTENT_MISMATCH")
+        files, _ = jpeg_map(video_dir, hash_pixels=False)
+        require(len(files) == len(generating["frame_map"]) and all(sha256(p) == r["sha256"] for p, r in
+                zip(files, generating["frame_map"])), "VIDEO_CONTENT_MISMATCH")
     if str(sam2_repo) not in sys.path:
         sys.path.insert(0, str(sam2_repo))
     from sam2.build_sam import build_sam2_video_predictor
@@ -469,19 +531,27 @@ def prepare_cross_model_case_reference(
         ckpt_path=str(source_checkpoint),
         device=device,
     )
+    freeze_model(source_predictor)
+    if generating is not None:
+        require(observed_read_policy(source_predictor) == generating["effective_model_policy"]["source"], "READ_POLICY_MISMATCH")
+        require(source_predictor.image_size == generating["preprocessing"]["image_size"], "PREPROCESSING_MISMATCH")
+    loading_started = time.perf_counter()
     source_state = source_predictor.init_state(
         video_path=str(video_dir),
         offload_video_to_cpu=offload_video_to_cpu,
         offload_state_to_cpu=offload_state_to_cpu,
     )
+    source_loading_seconds = time.perf_counter() - loading_started
     if not 0 <= switch_frame < int(source_state["num_frames"]) - 1:
         raise ValueError("switch_frame must leave at least one continuation frame")
+    source_trace = {}
     source_canonical, source_prefix_masks = _collect_prefix_reference(
         source_predictor,
         source_state,
         mask=prompt,
         object_id=object_id,
         switch_frame=switch_frame,
+        prompt_frame_index=prompt_frame_index, capture_masks=store_masks, trace=source_trace,
     )
     num_frames = int(source_state["num_frames"])
     del source_state, source_predictor
@@ -495,43 +565,71 @@ def prepare_cross_model_case_reference(
         ckpt_path=str(target_checkpoint),
         device=device,
     )
+    freeze_model(target_predictor)
+    if generating is not None:
+        require(observed_read_policy(target_predictor) == generating["effective_model_policy"]["target"], "READ_POLICY_MISMATCH")
+        require(target_predictor.image_size == generating["preprocessing"]["image_size"], "PREPROCESSING_MISMATCH")
+    loading_started = time.perf_counter()
     target_state = target_predictor.init_state(
         video_path=str(video_dir),
         offload_video_to_cpu=offload_video_to_cpu,
         offload_state_to_cpu=offload_state_to_cpu,
     )
+    target_loading_seconds = time.perf_counter() - loading_started
+    require(int(target_state["num_frames"]) == num_frames, "VIDEO_COUNT_MISMATCH")
+    target_trace = {}
     target_canonical, target_oracle_future = _collect_native(
         target_predictor,
         target_state,
         mask=prompt,
         object_id=object_id,
         switch_frame=switch_frame,
+        prompt_frame_index=prompt_frame_index, capture_masks=store_masks,
+        stop_at_switch=not store_masks, trace=target_trace,
     )
     del target_state, target_predictor
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
+    source_canonical = apply_memory_policy(source_canonical, policy)
+    target_canonical = apply_memory_policy(target_canonical, policy)
+
     metadata = {
         "source_model_id": source_model_id,
         "target_model_id": target_model_id,
         "upstream_commit": commit,
-        "video_id": video_dir.name,
+        "video_id": generating["case"]["video_id"] if generating else video_dir.name,
         "object_id": object_id,
         "switch_frame": switch_frame,
         "num_frames": num_frames,
         "seed": seed,
         "device": device,
         "path_policy": "runtime_paths_not_stored",
+        "cache_mode": "handoff_full" if store_masks else "state_only",
+        "prompt_frame_index": prompt_frame_index,
+        "memory_policy": policy,
+        "memory_selection": {"source": source_canonical.metadata["memory_selection"],
+                             "target": target_canonical.metadata["memory_selection"]},
+        "collection_trace": {"source": source_trace, "target": target_trace,
+                             "video_loading": {"source_seconds": source_loading_seconds,
+                                               "target_seconds": target_loading_seconds,
+                                               "input_frame_count": num_frames,
+                                               "scope": "init_state can load all input frames and warm up frame 0"}},
     }
+    if generating is not None:
+        metadata["generating"] = generating
+        from .collection_contract import validate_cache_generating
+        validate_cache_generating({"source_canonical": source_canonical,
+            "target_canonical": target_canonical, "metadata": metadata}, generating)
     preparation_resources = _resource_measurement(started_at, device)
     metadata["preparation_resources"] = preparation_resources
     cache = write_case_cache(
         output,
         source_canonical=source_canonical,
         target_canonical=target_canonical,
-        source_prefix_masks=source_prefix_masks,
-        target_oracle_future_masks=target_oracle_future,
+        source_prefix_masks=source_prefix_masks if store_masks else None,
+        target_oracle_future_masks=target_oracle_future if store_masks else None,
         metadata=metadata,
     )
     return {

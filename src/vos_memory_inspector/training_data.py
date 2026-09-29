@@ -19,6 +19,13 @@ TENSORS = ("spatial_memory", "object_pointer", "presence_logits", "frame_indices
            "slot_order", "is_conditioning", "validity")
 
 
+def case_lineage(case):
+    # 기존 training.v1은 full history의 prompt registry를 joint로 실행했다.
+    return {"memory_policy": case.get("memory_policy", {"name": "full_history", "version": 1}),
+            "object_semantics": case.get("object_semantics", "prompt_registry_joint_v1"),
+            "pair_mode": case["pair_mode"]}
+
+
 def pack_state(state: CanonicalState) -> dict:
     state.validate()
     return {**{name: getattr(state, name).detach().cpu().clone() for name in TENSORS},
@@ -218,6 +225,11 @@ class PairedStateDataset(Dataset):
         self.allow_synthetic = allow_synthetic
         if not self.entries or len({e["pair_id"] for e in self.entries}) != len(self.entries):
             raise ValueError("empty or duplicate pairs")
+        self.lineage = case_lineage(self.entries[0]["case"])
+        if any(case_lineage(e["case"]) != self.lineage for e in self.entries):
+            raise ValueError("mixed memory policies or object semantics")
+        if "lineage" in value and value["lineage"] != self.lineage:
+            raise ValueError("manifest/case lineage mismatch")
         for entry in self.entries:
             validate_case(entry["case"], allow_synthetic=allow_synthetic)
             if entry["case"]["pair_mode"] != pair_mode:
@@ -232,6 +244,8 @@ class PairedStateDataset(Dataset):
 
 
 def check_disjoint(fit: PairedStateDataset, dev: PairedStateDataset) -> None:
+    if fit.lineage != dev.lineage:
+        raise ValueError("fit/dev memory policy or object semantics differs")
     if fit.manifest["models"] != dev.manifest["models"]:
         raise ValueError("fit/dev model provenance differs")
     if fit.manifest["pair_mode"] != dev.manifest["pair_mode"]:

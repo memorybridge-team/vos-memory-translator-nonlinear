@@ -641,8 +641,8 @@ def repeated_switch_roundtrip_main(argv: list[str] | None = None) -> None:
 def prepare_handoff_case_main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Compute one source prefix and target oracle once, then cache them for "
-            "reuse by all handoff baselines."
+            "동일 prompt의 Source prefix와 Target state/reference를 수집합니다. "
+            "기본은 handoff_full이며 state-only는 두 모델을 switch에서 멈춥니다."
         )
     )
     parser.add_argument("--sam2-repo", required=True, type=Path)
@@ -662,6 +662,12 @@ def prepare_handoff_case_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--keep-video-on-device", action="store_true")
     parser.add_argument("--keep-state-on-device", action="store_true")
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--prompt-frame-index", type=int, default=0, help="해석된 첫 prompt runtime RGB index")
+    parser.add_argument("--state-only", action="store_true", help="두 모델 모두 switch까지 propagation; 미래 oracle 없음")
+    parser.add_argument("--active-memory-only", action="store_true", help="ZIP active_window_v1 임시 정책")
+    parser.add_argument("--num-maskmem", type=int, default=7)
+    parser.add_argument("--max-obj-ptrs-in-encoder", type=int, default=16)
+    parser.add_argument("--generating-json", type=Path, help="생성 조건 JSON; state-only에는 필수")
     args = parser.parse_args(argv)
     report = prepare_cross_model_case_reference(
         sam2_repo=args.sam2_repo,
@@ -680,10 +686,15 @@ def prepare_handoff_case_main(argv: list[str] | None = None) -> None:
         offload_video_to_cpu=not args.keep_video_on_device,
         offload_state_to_cpu=not args.keep_state_on_device,
         seed=args.seed,
+        prompt_frame_index=args.prompt_frame_index, store_masks=not args.state_only,
+        active_memory_only=args.active_memory_only, num_maskmem=args.num_maskmem,
+        max_obj_ptrs_in_encoder=args.max_obj_ptrs_in_encoder,
+        generating=json.loads(args.generating_json.read_text(encoding="utf-8")) if args.generating_json else None,
     )
     if args.report_json is not None:
         args.report_json.parent.mkdir(parents=True, exist_ok=True)
-        args.report_json.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        from .training_storage import write_json
+        write_json(args.report_json, report)
     print(json.dumps(report, indent=2))
 
 
