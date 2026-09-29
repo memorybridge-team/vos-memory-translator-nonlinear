@@ -353,6 +353,12 @@ def prepare_handoff_case_main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="store paired canonical states only; omit prediction masks and future GT-derived payloads",
     )
+    parser.add_argument(
+        "--active-memory-only",
+        action="store_true",
+        help="keep conditioning records and SAM 2's immediate non-conditioning memory window only",
+    )
+    parser.add_argument("--num-maskmem", type=int, default=7)
     parser.add_argument("--seed", type=int, default=7)
     args = parser.parse_args(argv)
     report = prepare_cross_model_case_reference(
@@ -373,6 +379,8 @@ def prepare_handoff_case_main(argv: list[str] | None = None) -> None:
         offload_state_to_cpu=not args.keep_state_on_device,
         seed=args.seed,
         store_masks=not args.state_only,
+        active_memory_only=args.active_memory_only,
+        num_maskmem=args.num_maskmem,
     )
     if args.report_json is not None:
         args.report_json.parent.mkdir(parents=True, exist_ok=True)

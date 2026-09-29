@@ -21,6 +21,7 @@ from .sam2_state import (
     canonicalize_sam2_inference_state,
     init_sam2_inference_state_without_warmup,
     inject_sam2_canonical_state,
+    select_sam2_active_memory,
 )
 from .upstream import verify_sam2_checkout
 from .translators import DirectCopyTranslator
@@ -449,6 +450,8 @@ def prepare_cross_model_case_reference(
     offload_state_to_cpu: bool = True,
     seed: int = 7,
     store_masks: bool = True,
+    active_memory_only: bool = False,
+    num_maskmem: int = 7,
 ) -> dict[str, Any]:
     """Compute source prefix and target oracle once for reuse by all baselines."""
 
@@ -512,6 +515,13 @@ def prepare_cross_model_case_reference(
         switch_frame=switch_frame,
         capture_masks=store_masks,
     )
+    if active_memory_only:
+        source_canonical = select_sam2_active_memory(
+            source_canonical, num_maskmem=num_maskmem
+        )
+        target_canonical = select_sam2_active_memory(
+            target_canonical, num_maskmem=num_maskmem
+        )
     del target_state, target_predictor
     gc.collect()
     if torch.cuda.is_available():
@@ -529,6 +539,8 @@ def prepare_cross_model_case_reference(
         "device": device,
         "path_policy": "runtime_paths_not_stored",
         "cache_mode": "handoff_full" if store_masks else "state_only",
+        "active_memory_only": active_memory_only,
+        "num_maskmem": num_maskmem if active_memory_only else None,
     }
     preparation_resources = _resource_measurement(started_at, device)
     metadata["preparation_resources"] = preparation_resources
