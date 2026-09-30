@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
+import time
 from pathlib import Path
 
 
@@ -38,8 +40,12 @@ def test_atomic_json_write_does_not_leave_partial_file(tmp_path: Path) -> None:
 
 def test_dynamic_queue_claim_is_exclusive(tmp_path: Path) -> None:
     collector = _collector_module()
-    first = collector._claim_case(tmp_path, "mose_case_1", "worker-a")
-    second = collector._claim_case(tmp_path, "mose_case_1", "worker-b")
+    first = collector._claim_case(
+        tmp_path, "mose_case_1", "worker-a", reclaim_stale=True, lease_seconds=60
+    )
+    second = collector._claim_case(
+        tmp_path, "mose_case_1", "worker-b", reclaim_stale=True, lease_seconds=60
+    )
 
     assert first is not None
     assert second is None
@@ -48,9 +54,44 @@ def test_dynamic_queue_claim_is_exclusive(tmp_path: Path) -> None:
 
 def test_dynamic_queue_claim_can_be_released_after_success(tmp_path: Path) -> None:
     collector = _collector_module()
-    first = collector._claim_case(tmp_path, "mose_case_2", "worker-a")
+    first = collector._claim_case(
+        tmp_path, "mose_case_2", "worker-a", reclaim_stale=True, lease_seconds=60
+    )
     assert first is not None
     first.unlink()
 
-    second = collector._claim_case(tmp_path, "mose_case_2", "worker-b")
+    second = collector._claim_case(
+        tmp_path, "mose_case_2", "worker-b", reclaim_stale=True, lease_seconds=60
+    )
     assert second is not None
+
+
+def test_stale_claim_is_quarantined_then_reclaimed(tmp_path: Path) -> None:
+    collector = _collector_module()
+    first = collector._claim_case(
+        tmp_path, "mose_case_3", "dead-worker", reclaim_stale=True, lease_seconds=60
+    )
+    assert first is not None
+    old = time.time() - 61
+    os.utime(first, (old, old))
+
+    second = collector._claim_case(
+        tmp_path, "mose_case_3", "new-worker", reclaim_stale=True, lease_seconds=60
+    )
+    assert second is not None
+    assert "new-worker" in second.read_text(encoding="utf-8")
+    assert list((tmp_path / "claims").glob("mose_case_3.claim.stale-*"))
+
+
+def test_queue_contract_rejects_mixed_runs(tmp_path: Path) -> None:
+    collector = _collector_module()
+    first = {"content_sha256": "a"}
+    collector._ensure_queue_contract(tmp_path, first)
+    collector._ensure_queue_contract(tmp_path, first)
+
+    try:
+        collector._ensure_queue_contract(tmp_path, {"content_sha256": "b"})
+    except ValueError as error:
+        assert "contract differs" in str(error)
+    else:
+        raise AssertionError("mixed dynamic queue contracts must be rejected")

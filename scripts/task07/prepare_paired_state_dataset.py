@@ -14,6 +14,9 @@ import json
 import os
 import subprocess
 import sys
+import threading
+import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -66,6 +69,18 @@ def _parser() -> argparse.ArgumentParser:
         help="shared directory for dynamic-queue claim files (required with --dynamic-queue)",
     )
     parser.add_argument("--worker-id", default=None)
+    parser.add_argument(
+        "--claim-lease-seconds",
+        type=int,
+        default=1800,
+        help="reclaim a claim only after this many seconds without a heartbeat",
+    )
+    parser.add_argument(
+        "--claim-heartbeat-seconds",
+        type=int,
+        default=30,
+        help="how often an active worker refreshes its claim lease",
+    )
     parser.add_argument("--dry-run", action="store_true")
     return parser
 
@@ -183,7 +198,6 @@ def _selection(args: argparse.Namespace) -> dict[str, Any]:
         split = "fit" if video_id in fit_videos else "development" if video_id in development_videos else None
         if split is not None:
             cases.append({**case, "paired_split": split})
-    cases.sort(key=lambda item: (item["paired_split"], item["case_id"]))
     if args.paired_split != "all":
         cases = [case for case in cases if case["paired_split"] == args.paired_split]
     if args.shard_count < 1:
@@ -193,7 +207,19 @@ def _selection(args: argparse.Namespace) -> dict[str, Any]:
     if args.dynamic_queue:
         if args.queue_root is None:
             raise ValueError("--queue-root is required with --dynamic-queue")
+        if args.claim_lease_seconds <= args.claim_heartbeat_seconds:
+            raise ValueError("--claim-lease-seconds must exceed --claim-heartbeat-seconds")
+        # Long cases are claimed first, reducing end-of-run tail latency. The
+        # fallback keeps manifests without frame counts deterministic.
+        cases.sort(
+            key=lambda item: (
+                -int(item.get("num_frames", 0)) - int(item.get("switch_frame", 0)),
+                str(item["paired_split"]),
+                str(item["case_id"]),
+            )
+        )
     else:
+        cases.sort(key=lambda item: (item["paired_split"], item["case_id"]))
         cases = cases[args.shard_index :: args.shard_count]
     if args.max_cases is not None:
         if args.max_cases < 1:
@@ -210,6 +236,7 @@ def _selection(args: argparse.Namespace) -> dict[str, Any]:
         "paired_split_request": args.paired_split,
         "shard_count": args.shard_count,
         "shard_index": args.shard_index,
+        "queue_mode": "dynamic_cost_descending" if args.dynamic_queue else "static_round_robin",
         "producer_revision": _producer_revision(),
         "state_policy": {
             "cache_mode": "state_only",
@@ -228,12 +255,58 @@ def _selection(args: argparse.Namespace) -> dict[str, Any]:
     return selection
 
 
-def _claim_case(queue_root: Path, slug: str, worker_id: str) -> Path | None:
+def _queue_contract(args: argparse.Namespace, selection: dict[str, Any]) -> dict[str, Any]:
+    """Return the run contract every worker must share before claiming work."""
+
+    payload = {
+        "schema_version": "cmmt.task07.dynamic_queue_contract.v1",
+        "dataset": selection["dataset"],
+        "source_manifest_content_sha256": selection["source_manifest_content_sha256"],
+        "paired_split_request": selection["paired_split_request"],
+        "source_model_id": args.source_model_id,
+        "target_model_id": args.target_model_id,
+        "source_config": args.source_config,
+        "target_config": args.target_config,
+        "source_checkpoint_name": args.source_checkpoint.name,
+        "target_checkpoint_name": args.target_checkpoint.name,
+        "seed": args.seed,
+        "state_policy": selection["state_policy"],
+        "producer_revision": selection["producer_revision"],
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return {**payload, "content_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest()}
+
+
+def _ensure_queue_contract(queue_root: Path, contract: dict[str, Any]) -> None:
+    """Create one immutable queue contract or reject a mismatched worker."""
+
+    path = queue_root / "queue_contract.json"
+    try:
+        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        existing = json.loads(path.read_text(encoding="utf-8"))
+        if existing.get("content_sha256") != contract["content_sha256"]:
+            raise ValueError(
+                "dynamic queue contract differs from the worker contract; use a separate queue root"
+            )
+        return
+    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+        stream.write(json.dumps(contract, indent=2, ensure_ascii=False) + "\n")
+
+
+def _claim_case(
+    queue_root: Path,
+    slug: str,
+    worker_id: str,
+    *,
+    reclaim_stale: bool,
+    lease_seconds: int,
+) -> Path | None:
     """Atomically claim one case on a shared filesystem.
 
-    O_EXCL makes the claim operation one filesystem round trip and prevents two
-    workers from running the same case concurrently. A claim is retained on
-    failure so an operator can inspect it before removing it for retry.
+    O_EXCL prevents two workers from running the same case concurrently. A
+    heartbeat keeps valid long-running work fresh. An expired, non-heartbeating
+    claim may be atomically moved aside and reclaimed on a later worker run.
     """
 
     claims = queue_root / "claims"
@@ -242,10 +315,32 @@ def _claim_case(queue_root: Path, slug: str, worker_id: str) -> Path | None:
     try:
         descriptor = os.open(claim, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     except FileExistsError:
-        return None
+        try:
+            age_seconds = time.time() - claim.stat().st_mtime
+        except FileNotFoundError:
+            return None
+        if not reclaim_stale or age_seconds <= lease_seconds:
+            return None
+        stale = claim.with_name(f"{claim.name}.stale-{uuid.uuid4().hex}")
+        try:
+            os.replace(claim, stale)
+        except FileNotFoundError:
+            return None
+        try:
+            descriptor = os.open(claim, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            return None
     with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
         stream.write(json.dumps({"worker_id": worker_id, "claimed_at": _now()}) + "\n")
     return claim
+
+
+def _refresh_claim_until_stopped(claim: Path, stop: threading.Event, interval: int) -> None:
+    while not stop.wait(interval):
+        try:
+            os.utime(claim, None)
+        except FileNotFoundError:
+            return
 
 
 def _prepare_command(
@@ -282,11 +377,16 @@ def main() -> None:
     volume = args.network_volume_root.resolve()
     run_directory = args.run_directory.resolve()
     volume.mkdir(parents=True, exist_ok=True)
-    run_directory.mkdir(parents=True, exist_ok=True)
     if args.dynamic_queue:
         assert args.queue_root is not None
-        args.queue_root.resolve().mkdir(parents=True, exist_ok=True)
     worker_id = args.worker_id or f"pid-{os.getpid()}"
+    if args.dynamic_queue:
+        queue_root = args.queue_root.resolve()
+        queue_root.mkdir(parents=True, exist_ok=True)
+        _ensure_queue_contract(queue_root, _queue_contract(args, selection))
+        # Separate ledgers avoid multiple workers overwriting one status file.
+        run_directory = run_directory / worker_id
+    run_directory.mkdir(parents=True, exist_ok=True)
     _write_json_atomic(run_directory / "selection_manifest.json", selection)
     status: dict[str, Any] = {
         "schema_version": "cmmt.task07.paired_state_collection_status.v2",
@@ -298,6 +398,8 @@ def main() -> None:
         "paired_split_request": selection["paired_split_request"],
         "shard_count": selection["shard_count"],
         "shard_index": selection["shard_index"],
+        "worker_id": worker_id,
+        "queue_mode": selection["queue_mode"],
         "cases": {},
     }
     status_path = run_directory / "collection_status.json"
@@ -315,7 +417,13 @@ def main() -> None:
         if _cache_checksum_matches(cache):
             state = "skipped_complete"
         elif args.dynamic_queue:
-            claim = _claim_case(args.queue_root.resolve(), _case_slug(case), worker_id)
+            claim = _claim_case(
+                args.queue_root.resolve(),
+                _case_slug(case),
+                worker_id,
+                reclaim_stale=True,
+                lease_seconds=args.claim_lease_seconds,
+            )
             if claim is None:
                 status["cases"][_case_slug(case)] = {
                     "state": "claimed_by_other_worker",
@@ -325,6 +433,13 @@ def main() -> None:
                 status["updated_at"] = _now()
                 _write_json_atomic(status_path, status)
                 continue
+            heartbeat_stop = threading.Event()
+            heartbeat = threading.Thread(
+                target=_refresh_claim_until_stopped,
+                args=(claim, heartbeat_stop, args.claim_heartbeat_seconds),
+                daemon=True,
+            )
+            heartbeat.start()
             try:
                 subprocess.run(
                     _prepare_command(
@@ -337,11 +452,22 @@ def main() -> None:
                     ),
                     check=True,
                 )
+                if not _cache_checksum_matches(cache):
+                    raise RuntimeError(f"collector finished without an intact cache checksum: {cache}")
                 state = "completed"
             except Exception:
-                # Retain the claim as a failure lease for inspection/retry.
+                status["cases"][_case_slug(case)] = {
+                    "state": "failed_claim_retained",
+                    "paired_split": case["paired_split"],
+                    "updated_at": _now(),
+                }
+                status["updated_at"] = _now()
+                _write_json_atomic(status_path, status)
                 raise
-            else:
+            finally:
+                heartbeat_stop.set()
+                heartbeat.join(timeout=args.claim_heartbeat_seconds + 1)
+            if state == "completed":
                 claim.unlink(missing_ok=True)
         else:
             subprocess.run(
