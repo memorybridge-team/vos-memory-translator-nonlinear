@@ -59,6 +59,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--max-cases", type=int)
     parser.add_argument(
+        "--max-frame-count",
+        type=int,
+        help="optional pilot/smoke filter; production runs should leave this unset",
+    )
+    parser.add_argument(
         "--dynamic-queue",
         action="store_true",
         help="claim cases atomically from a shared queue instead of static shards",
@@ -200,6 +205,15 @@ def _selection(args: argparse.Namespace) -> dict[str, Any]:
             cases.append({**case, "paired_split": split})
     if args.paired_split != "all":
         cases = [case for case in cases if case["paired_split"] == args.paired_split]
+    if args.max_frame_count is not None:
+        if args.max_frame_count < 1:
+            raise ValueError("--max-frame-count must be positive")
+        cases = [
+            case
+            for case in cases
+            if int(case.get("frame_count", case.get("frame_count_for_object", 0)))
+            <= args.max_frame_count
+        ]
     if args.shard_count < 1:
         raise ValueError("--shard-count must be positive")
     if not 0 <= args.shard_index < args.shard_count:
@@ -234,6 +248,7 @@ def _selection(args: argparse.Namespace) -> dict[str, Any]:
         "development_split": str(args.development_split.resolve()),
         "future_gt_policy": "first_prompt_mask_only; no future annotation is read or passed to SAM 2",
         "paired_split_request": args.paired_split,
+        "max_frame_count": args.max_frame_count,
         "shard_count": args.shard_count,
         "shard_index": args.shard_index,
         "queue_mode": "dynamic_cost_descending" if args.dynamic_queue else "static_round_robin",
