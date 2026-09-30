@@ -277,10 +277,11 @@ def _collect_native(
     )
     canonical = None
     future: dict[int, torch.Tensor] = {}
+    max_frames = int(inference_state["num_frames"]) if capture_masks else switch_frame
     for frame_idx, _object_ids, masks in predictor.propagate_in_video(
         inference_state,
         start_frame_idx=0,
-        max_frame_num_to_track=int(inference_state["num_frames"]),
+        max_frame_num_to_track=max_frames,
         reverse=False,
     ):
         frame = int(frame_idx)
@@ -292,6 +293,7 @@ def _collect_native(
             )
         if capture_masks and frame > switch_frame:
             future[frame] = masks.detach().cpu().float()
+        _trim_nonconditioning_history(inference_state, keep=16)
     if canonical is None:
         raise RuntimeError("native run did not reach switch_frame")
     return canonical, future
@@ -347,9 +349,30 @@ def _collect_prefix_reference(
                 switch_frame=switch_frame,
                 strict=True,
             )
+        _trim_nonconditioning_history(inference_state, keep=16)
     if canonical is None:
         raise RuntimeError("source run did not reach switch_frame")
     return canonical, prefix_masks
+
+
+def _trim_nonconditioning_history(
+    inference_state: dict[str, Any], *, keep: int
+) -> None:
+    """Bound SAM2's per-object output history during long prefix collection.
+
+    SAM2's memory attention and object-pointer encoder consume only a bounded
+    recent non-conditioning window (the Task 07 contract uses 16).  Keeping
+    every per-frame output makes long videos grow linearly in host memory even
+    when the final state-only cache discards masks.  Conditioning records are
+    never removed.
+    """
+
+    for object_output in inference_state.get("output_dict_per_obj", {}).values():
+        outputs = object_output.get("non_cond_frame_outputs")
+        if not isinstance(outputs, dict) or len(outputs) <= keep:
+            continue
+        for frame in sorted(outputs)[:-keep]:
+            outputs.pop(frame, None)
 
 
 def plan_cached_baseline(
@@ -467,6 +490,12 @@ def prepare_cross_model_case_reference(
             raise FileNotFoundError(f"{label} checkpoint not found: {checkpoint}")
     if str(sam2_repo) not in sys.path:
         sys.path.insert(0, str(sam2_repo))
+    from .sam2_lazy_loader import install_sam2_lazy_loader
+
+    # Keep only a small LRU of decoded frames.  The stock SAM2 loader creates
+    # one float32 tensor for every JPEG, which can OOM on long videos before
+    # inference starts.
+    install_sam2_lazy_loader(cache_size=8)
     from sam2.build_sam import build_sam2_video_predictor
 
     started_at = _start_resource_measurement(device)
@@ -487,6 +516,7 @@ def prepare_cross_model_case_reference(
         video_path=str(video_dir),
         offload_video_to_cpu=offload_video_to_cpu,
         offload_state_to_cpu=offload_state_to_cpu,
+        async_loading_frames=True,
     )
     phase_seconds["source_video_init"] = time.perf_counter() - phase_started
     if not 0 <= switch_frame < int(source_state["num_frames"]) - 1:
@@ -520,6 +550,7 @@ def prepare_cross_model_case_reference(
         video_path=str(video_dir),
         offload_video_to_cpu=offload_video_to_cpu,
         offload_state_to_cpu=offload_state_to_cpu,
+        async_loading_frames=True,
     )
     phase_seconds["target_video_init"] = time.perf_counter() - phase_started
     phase_started = time.perf_counter()
