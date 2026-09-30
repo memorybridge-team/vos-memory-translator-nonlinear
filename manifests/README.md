@@ -55,7 +55,13 @@ LVOS v2 loader는 공식 metadata의 object frame range 안에 실제 존재하�
 attribute·prompt/correction loader 검증은 후속 작업이다.
 
 
-## VOST external benchmark — v1.1 pending
+## VOST external benchmark — v1.1
+
+- File: `vost_val_v1.json`
+- Validation inventory: 70 sequences, 7,820 RGB frames and 7,820 annotations
+- Cases: 210 (25/50/75% temporal quantile per sequence)
+- Manifest content SHA-256: `47bab054c87281e7b904831ea8891b81d22f1d8683786f1d5cf84a4f1ba85cbf`
+- The official test split is excluded because the delivered archive contains no RGB/GT files.
 
 - Main role: primary translator-level cross-dataset zero-shot evaluation
 - Allowed split: validation; 가능하면 official test server
