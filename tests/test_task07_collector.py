@@ -34,3 +34,23 @@ def test_atomic_json_write_does_not_leave_partial_file(tmp_path: Path) -> None:
 
     assert json.loads(output.read_text(encoding="utf-8")) == {"state": "running"}
     assert not output.with_suffix(".json.partial").exists()
+
+
+def test_dynamic_queue_claim_is_exclusive(tmp_path: Path) -> None:
+    collector = _collector_module()
+    first = collector._claim_case(tmp_path, "mose_case_1", "worker-a")
+    second = collector._claim_case(tmp_path, "mose_case_1", "worker-b")
+
+    assert first is not None
+    assert second is None
+    assert "worker-a" in first.read_text(encoding="utf-8")
+
+
+def test_dynamic_queue_claim_can_be_released_after_success(tmp_path: Path) -> None:
+    collector = _collector_module()
+    first = collector._claim_case(tmp_path, "mose_case_2", "worker-a")
+    assert first is not None
+    first.unlink()
+
+    second = collector._claim_case(tmp_path, "mose_case_2", "worker-b")
+    assert second is not None

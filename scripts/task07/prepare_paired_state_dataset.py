@@ -55,6 +55,17 @@ def _parser() -> argparse.ArgumentParser:
         help="zero-based shard index to collect",
     )
     parser.add_argument("--max-cases", type=int)
+    parser.add_argument(
+        "--dynamic-queue",
+        action="store_true",
+        help="claim cases atomically from a shared queue instead of static shards",
+    )
+    parser.add_argument(
+        "--queue-root",
+        type=Path,
+        help="shared directory for dynamic-queue claim files (required with --dynamic-queue)",
+    )
+    parser.add_argument("--worker-id", default=None)
     parser.add_argument("--dry-run", action="store_true")
     return parser
 
@@ -179,7 +190,11 @@ def _selection(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError("--shard-count must be positive")
     if not 0 <= args.shard_index < args.shard_count:
         raise ValueError("--shard-index must be in [0, --shard-count)")
-    cases = cases[args.shard_index :: args.shard_count]
+    if args.dynamic_queue:
+        if args.queue_root is None:
+            raise ValueError("--queue-root is required with --dynamic-queue")
+    else:
+        cases = cases[args.shard_index :: args.shard_count]
     if args.max_cases is not None:
         if args.max_cases < 1:
             raise ValueError("--max-cases must be positive")
@@ -211,6 +226,26 @@ def _selection(args: argparse.Namespace) -> dict[str, Any]:
     canonical = json.dumps(selection, sort_keys=True, separators=(",", ":"))
     selection["content_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     return selection
+
+
+def _claim_case(queue_root: Path, slug: str, worker_id: str) -> Path | None:
+    """Atomically claim one case on a shared filesystem.
+
+    O_EXCL makes the claim operation one filesystem round trip and prevents two
+    workers from running the same case concurrently. A claim is retained on
+    failure so an operator can inspect it before removing it for retry.
+    """
+
+    claims = queue_root / "claims"
+    claims.mkdir(parents=True, exist_ok=True)
+    claim = claims / f"{slug}.claim"
+    try:
+        descriptor = os.open(claim, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        return None
+    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+        stream.write(json.dumps({"worker_id": worker_id, "claimed_at": _now()}) + "\n")
+    return claim
 
 
 def _prepare_command(
@@ -248,6 +283,10 @@ def main() -> None:
     run_directory = args.run_directory.resolve()
     volume.mkdir(parents=True, exist_ok=True)
     run_directory.mkdir(parents=True, exist_ok=True)
+    if args.dynamic_queue:
+        assert args.queue_root is not None
+        args.queue_root.resolve().mkdir(parents=True, exist_ok=True)
+    worker_id = args.worker_id or f"pid-{os.getpid()}"
     _write_json_atomic(run_directory / "selection_manifest.json", selection)
     status: dict[str, Any] = {
         "schema_version": "cmmt.task07.paired_state_collection_status.v2",
@@ -275,6 +314,35 @@ def main() -> None:
         checksum = cache.with_suffix(".pt.sha256")
         if _cache_checksum_matches(cache):
             state = "skipped_complete"
+        elif args.dynamic_queue:
+            claim = _claim_case(args.queue_root.resolve(), _case_slug(case), worker_id)
+            if claim is None:
+                status["cases"][_case_slug(case)] = {
+                    "state": "claimed_by_other_worker",
+                    "paired_split": case["paired_split"],
+                    "updated_at": _now(),
+                }
+                status["updated_at"] = _now()
+                _write_json_atomic(status_path, status)
+                continue
+            try:
+                subprocess.run(
+                    _prepare_command(
+                        args,
+                        case,
+                        video,
+                        prompt,
+                        cache,
+                        runtime_switch_index=runtime_switch_index,
+                    ),
+                    check=True,
+                )
+                state = "completed"
+            except Exception:
+                # Retain the claim as a failure lease for inspection/retry.
+                raise
+            else:
+                claim.unlink(missing_ok=True)
         else:
             subprocess.run(
                 _prepare_command(
