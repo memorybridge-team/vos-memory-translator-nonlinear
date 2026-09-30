@@ -404,16 +404,12 @@ def main() -> None:
     }
     status_path = run_directory / "collection_status.json"
     for index, case in enumerate(selection["cases"], start=1):
-        video = frames_root / str(case["video_id"])
-        annotations = masks_root / str(case["video_id"])
-        prompt = _numeric_frame(annotations, int(case["first_prompt_frame"]), ".png")
-        if not video.is_dir():
-            raise FileNotFoundError(video)
         manifest_switch_frame = int(case["switch_frame"])
-        runtime_switch_index = _frame_id_to_video_index(video, manifest_switch_frame)
+        runtime_switch_index: int | None = None
         cache = volume / str(case["paired_split"]) / f"{_case_slug(case)}.pt"
         cache.parent.mkdir(parents=True, exist_ok=True)
         checksum = cache.with_suffix(".pt.sha256")
+        claim: Path | None = None
         if _cache_checksum_matches(cache):
             state = "skipped_complete"
         elif args.dynamic_queue:
@@ -433,6 +429,21 @@ def main() -> None:
                 status["updated_at"] = _now()
                 _write_json_atomic(status_path, status)
                 continue
+            state = "claimed"
+        else:
+            state = "pending"
+
+        # Do not touch video directories until this worker owns the case. This
+        # avoids N workers repeatedly listing the same long-video directory.
+        if state != "skipped_complete":
+            video = frames_root / str(case["video_id"])
+            annotations = masks_root / str(case["video_id"])
+            prompt = _numeric_frame(annotations, int(case["first_prompt_frame"]), ".png")
+            if not video.is_dir():
+                raise FileNotFoundError(video)
+            runtime_switch_index = _frame_id_to_video_index(video, manifest_switch_frame)
+
+        if args.dynamic_queue and claim is not None:
             heartbeat_stop = threading.Event()
             heartbeat = threading.Thread(
                 target=_refresh_claim_until_stopped,
@@ -469,7 +480,7 @@ def main() -> None:
                 heartbeat.join(timeout=args.claim_heartbeat_seconds + 1)
             if state == "completed":
                 claim.unlink(missing_ok=True)
-        else:
+        elif state == "pending":
             subprocess.run(
                 _prepare_command(
                     args,
