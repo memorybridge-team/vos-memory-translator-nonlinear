@@ -12,7 +12,7 @@ from torch.utils.flop_counter import FlopCounterMode
 
 from vos_memory_inspector.transformer_translator import (
     SAM21_MEMORY_SPEC,
-    LightweightSpatialMemoryTranslator,
+    SpatialMemoryTranslator,
     ResidualPointerTranslator,
     SpatialSelfAttention,
     SpatialTransformerBlock,
@@ -23,7 +23,7 @@ from vos_memory_inspector.transformer_translator import (
 )
 
 
-def _randomize_alpha(module: LightweightSpatialMemoryTranslator, seed: int = 3) -> None:
+def _randomize_alpha(module: SpatialMemoryTranslator, seed: int = 3) -> None:
     """Make Delta visible in the output (alpha starts at zero)."""
 
     generator = torch.Generator().manual_seed(seed)
@@ -119,13 +119,13 @@ def test_block_keeps_samples_in_a_batch_independent() -> None:
 
 
 # --------------------------------------------------------------------------
-# Task 3: LightweightSpatialMemoryTranslator
+# Task 3: SpatialMemoryTranslator
 # --------------------------------------------------------------------------
 
 
 def test_spatial_translator_shapes_and_identity_at_init() -> None:
     torch.manual_seed(0)
-    module = LightweightSpatialMemoryTranslator()
+    module = SpatialMemoryTranslator()
     frames = torch.randn(3, 64, 64, 64)
     records = torch.randn(1, 2, 3, 64, 64, 64)
     with torch.no_grad():
@@ -136,14 +136,14 @@ def test_spatial_translator_shapes_and_identity_at_init() -> None:
     assert tokens.shape == (3, 256, 64)
     assert tokens_6d.shape == (1, 2, 3, 256, 64)
 
-    local_only = LightweightSpatialMemoryTranslator(SpatialTransformerConfig(spatial_context=False))
+    local_only = SpatialMemoryTranslator(SpatialTransformerConfig(spatial_context=False))
     with torch.no_grad():
         output, tokens = local_only(frames, return_tokens=True)
     assert tokens is None and torch.equal(output, frames)
 
 
 def test_spatial_translator_fails_closed_on_grid_mismatch() -> None:
-    module = LightweightSpatialMemoryTranslator()
+    module = SpatialMemoryTranslator()
     with pytest.raises(ValueError, match="does not match"):
         module(torch.randn(1, 64, 32, 32))
     with pytest.raises(ValueError, match="does not match"):
@@ -153,7 +153,7 @@ def test_spatial_translator_fails_closed_on_grid_mismatch() -> None:
 
 
 def _naive_concat_delta(
-    module: LightweightSpatialMemoryTranslator, memory: torch.Tensor
+    module: SpatialMemoryTranslator, memory: torch.Tensor
 ) -> torch.Tensor:
     """Reference fusion: 1x1 conv on [M || Up(ctx)] at full resolution."""
 
@@ -170,7 +170,7 @@ def _naive_concat_delta(
 @pytest.mark.parametrize("fusion", ["linear", "mlp"])
 def test_efficient_fusion_matches_naive_concat(fusion: str) -> None:
     torch.manual_seed(0)
-    module = LightweightSpatialMemoryTranslator(SpatialTransformerConfig(local_fusion=fusion)).eval()
+    module = SpatialMemoryTranslator(SpatialTransformerConfig(local_fusion=fusion)).eval()
     _randomize_alpha(module)
     memory = torch.randn(2, 64, 64, 64)
     with torch.no_grad():
@@ -181,7 +181,7 @@ def test_efficient_fusion_matches_naive_concat(fusion: str) -> None:
 
 def test_batched_frames_match_per_frame_and_stay_independent() -> None:
     torch.manual_seed(0)
-    module = LightweightSpatialMemoryTranslator().eval()
+    module = SpatialMemoryTranslator().eval()
     _randomize_alpha(module)
     frames = torch.randn(3, 64, 64, 64)
     with torch.no_grad():
@@ -229,7 +229,7 @@ def test_attention_uses_256_tokens_per_frame_for_any_record_count(records: int, 
 
 def test_rezero_gradients_on_a_deterministic_fixture() -> None:
     torch.manual_seed(0)
-    module = LightweightSpatialMemoryTranslator()
+    module = SpatialMemoryTranslator()
     generator = torch.Generator().manual_seed(1)
     memory = torch.randn(2, 64, 64, 64, generator=generator)
     target = torch.randn(2, 64, 64, 64, generator=generator)
@@ -263,7 +263,7 @@ def test_pointer_head_starts_at_identity_and_learns() -> None:
 
 
 def test_base_parameters_and_analytic_macs_match_plan() -> None:
-    module = LightweightSpatialMemoryTranslator()
+    module = SpatialMemoryTranslator()
     assert module.parameter_count() == 194_304
     assert module.macs_breakdown() == {
         "patch_embed": 16_777_216,

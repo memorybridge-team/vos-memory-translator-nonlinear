@@ -250,7 +250,7 @@ class SpatialTransformerBlock(nn.Module):
         return tokens + self.drop(self.fc2(hidden))
 
 
-class LightweightSpatialMemoryTranslator(nn.Module):
+class SpatialMemoryTranslator(nn.Module):
     """``T: [N,C,H,W] -> [N,C,H,W]``, applied independently to each frame.
 
     Context branch: patch embed -> +PE -> Transformer blocks -> LN -> Conv3x3 at
@@ -554,7 +554,7 @@ class TransformerStateTranslator(_LearnedStateTranslator):
                 )
         self.config = config
         self.preset = preset
-        self.spatial = LightweightSpatialMemoryTranslator(config)
+        self.spatial = SpatialMemoryTranslator(config)
         self.pointer = ResidualPointerTranslator(config.pointer_dim, config.pointer_hidden_dim)
 
     def _translate_frames(self, frames: torch.Tensor) -> torch.Tensor:

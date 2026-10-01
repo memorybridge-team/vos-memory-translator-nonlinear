@@ -11,7 +11,7 @@ __all__ = [
     "CanonicalState",
     "ComponentAblationTranslator",
     "DirectCopyTranslator",
-    "LightweightSpatialMemoryTranslator",
+    "SpatialMemoryTranslator",
     "LinearStateTranslator",
     "MomentMatchedCopyTranslator",
     "PRESETS",
@@ -36,9 +36,9 @@ _EXPORTS = {
     "MomentMatchedCopyTranslator": (".translators", "MomentMatchedCopyTranslator"),
     "ResidualMLPStateTranslator": (".translators", "ResidualMLPStateTranslator"),
     "RidgeStateTranslator": (".translators", "RidgeStateTranslator"),
-    "LightweightSpatialMemoryTranslator": (
+    "SpatialMemoryTranslator": (
         ".transformer_translator",
-        "LightweightSpatialMemoryTranslator",
+        "SpatialMemoryTranslator",
     ),
     "PRESETS": (".transformer_translator", "PRESETS"),
     "ResidualPointerTranslator": (".transformer_translator", "ResidualPointerTranslator"),
