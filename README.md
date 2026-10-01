@@ -6,9 +6,9 @@ SAM 2.1 Small이 switch 시점까지 만든 객체별 memory를 translator로 �
 
 ## 모델 구조
 
-기본 모델은 `TransformerStateTranslator`의 `base` 프리셋입니다. 클래스는 두 헤드로 나뉩니다. spatial memory를 다루는 `SpatialMemoryTranslator`와, 객체 포인터를 다루는 `ResidualPointerTranslator`입니다. 두 헤드는 가중치를 공유하지 않습니다.
+클래스는 두 헤드로 나뉩니다. spatial memory를 다루는 `SpatialMemoryTranslator`와, 객체 포인터를 다루는 `ResidualPointerTranslator`입니다. 두 헤드는 가중치를 공유하지 않습니다.
 
-Small과 Base+의 메모리 텐서 크기가 같아서, 모델은 격자를 키우거나 채널을 늘리지 않습니다. 같은 칸의 값을 고칩니다. 학습 전 출력은 입력과 같습니다.
+Small과 Base+의 메모리 텐서 크기가 같아서, 모델은 격자를 키우거나 채널을 늘리지 않습니다. 학습 전 출력은 입력과 같습니다.
 
 ### 입력과 출력
 
@@ -20,7 +20,7 @@ object_pointer   [B, O, K, 256]          obj_ptr, 보통 float32
 validity         [B, O, K]               실제 기록과 패딩을 구분
 ```
 
-`B`는 배치, `O`는 객체 수, `K`는 그 시점까지 쌓인 메모리 기록 수입니다. `K`는 7로 고정되지 않습니다. 프레임 번호, slot 순서, conditioning 여부, validity, object id, switch frame은 학습하지 않고 복사합니다. presence logit은 진단용으로만 남기고 target history에는 넣지 않습니다. 위치 인코딩은 번역하지 않으며, 주입 때 Base+ memory encoder가 64×64 격자로 다시 만듭니다.
+`B`는 배치, `O`는 객체 수, `K`는 그 시점까지 쌓인 메모리 기록 수입니다. `K`는 기본값이 7이지만 (객체에 대해서 7개의 프레임을 저장) 7로 고정되지 않습니다. 메타데이터인 프레임 번호, slot 순서, conditioning 여부, validity, object id, switch frame은 학습하지 않고 복사합니다. presence logit은 진단용으로만 남기고 target history에는 넣지 않습니다. positional encoding은 번역하지 않으며, 주입 때 Base+ memory encoder가 64×64 격자로 다시 만듭니다.
 
 `validity`가 참인 기록만 `[N, ...]`로 펼칩니다. `N`은 유효한 (배치, 객체, 기록)의 개수입니다. 패딩 칸은 forward에 들어가지 않고, 출력에서 source 값을 복사합니다. 모델 안의 계산 dtype은 파라미터 dtype인 float32이고, handoff로 내보낼 때 spatial memory는 source dtype, 포인터도 source dtype으로 되돌립니다.
 
