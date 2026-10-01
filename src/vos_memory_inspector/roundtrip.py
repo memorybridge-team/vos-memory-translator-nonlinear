@@ -22,6 +22,7 @@ from .sam2_state import (
     canonicalize_sam2_inference_state,
     init_sam2_inference_state_without_warmup,
     inject_sam2_canonical_state,
+    select_sam2_active_memory,
 )
 from .upstream import verify_sam2_checkout
 from .translators import DirectCopyTranslator
@@ -270,16 +271,19 @@ def _collect_native(
     capture_masks: bool = True,
     stop_at_switch: bool = False,
     trace: dict | None = None,
+    trim_nonconditioning_keep: int | None = None,
 ) -> tuple[Any, dict[int, torch.Tensor]]:
     stop = switch_frame if stop_at_switch else int(inference_state["num_frames"])-1
     canonical, masks = _collect_case_frames(predictor, inference_state, mask=mask,
         object_id=object_id, switch_frame=switch_frame, prompt_frame_index=prompt_frame_index,
-        stop_frame=stop, capture_masks=capture_masks, trace=trace)
+        stop_frame=stop, capture_masks=capture_masks, trace=trace,
+        trim_nonconditioning_keep=trim_nonconditioning_keep)
     return canonical, {f: m for f, m in masks.items() if f > switch_frame}
 
 
 def _collect_case_frames(predictor, inference_state, *, mask, object_id, switch_frame,
-                         prompt_frame_index=0, stop_frame, capture_masks=True, trace=None):
+                         prompt_frame_index=0, stop_frame, capture_masks=True, trace=None,
+                         trim_nonconditioning_keep=None):
     """Inclusive pinned API 경계를 사용하며 prompt 이전/stop 이후 propagation을 금지한다."""
     if not 0 <= prompt_frame_index <= switch_frame <= stop_frame < int(inference_state["num_frames"]):
         raise ValueError("prompt/switch/stop outside video bounds")
@@ -315,6 +319,8 @@ def _collect_case_frames(predictor, inference_state, *, mask, object_id, switch_
                 canonical = canonicalize_sam2_inference_state(inference_state, switch_frame=switch_frame, strict=True)
             if capture_masks:
                 outputs[frame] = masks.detach().cpu().float()
+            if trim_nonconditioning_keep is not None:
+                _trim_nonconditioning_history(inference_state, keep=trim_nonconditioning_keep)
         if trace["processed_frame_indices"] != list(range(prompt_frame_index, stop_frame+1)):
             raise RuntimeError("propagation did not cover declared interval")
         if canonical is None:
@@ -355,10 +361,32 @@ def _collect_prefix_reference(
     prompt_frame_index: int = 0,
     capture_masks: bool = True,
     trace: dict | None = None,
+    trim_nonconditioning_keep: int | None = None,
 ) -> tuple[Any, dict[int, torch.Tensor]]:
     return _collect_case_frames(predictor, inference_state, mask=mask, object_id=object_id,
             switch_frame=switch_frame, stop_frame=switch_frame, prompt_frame_index=prompt_frame_index,
-            capture_masks=capture_masks, trace=trace)
+            capture_masks=capture_masks, trace=trace,
+            trim_nonconditioning_keep=trim_nonconditioning_keep)
+
+
+def _trim_nonconditioning_history(
+    inference_state: dict[str, Any], *, keep: int
+) -> None:
+    """Bound SAM2's per-object output history during long prefix collection.
+
+    SAM2's memory attention and object-pointer encoder consume only a bounded
+    recent non-conditioning window (the Task 07 contract uses 16).  Keeping
+    every per-frame output makes long videos grow linearly in host memory even
+    when the final state-only cache discards masks.  Conditioning records are
+    never removed.
+    """
+
+    for object_output in inference_state.get("output_dict_per_obj", {}).values():
+        outputs = object_output.get("non_cond_frame_outputs")
+        if not isinstance(outputs, dict) or len(outputs) <= keep:
+            continue
+        for frame in sorted(outputs)[:-keep]:
+            outputs.pop(frame, None)
 
 
 def plan_cached_baseline(
@@ -521,6 +549,9 @@ def prepare_cross_model_case_reference(
                 zip(files, generating["frame_map"])), "VIDEO_CONTENT_MISMATCH")
     if str(sam2_repo) not in sys.path:
         sys.path.insert(0, str(sam2_repo))
+    if not store_masks:
+        from .sam2_lazy_loader import install_sam2_lazy_loader
+        install_sam2_lazy_loader(cache_size=8)
     from sam2.build_sam import build_sam2_video_predictor
 
     started_at = _start_resource_measurement(device)
@@ -540,6 +571,7 @@ def prepare_cross_model_case_reference(
         video_path=str(video_dir),
         offload_video_to_cpu=offload_video_to_cpu,
         offload_state_to_cpu=offload_state_to_cpu,
+        async_loading_frames=not store_masks,
     )
     source_loading_seconds = time.perf_counter() - loading_started
     if not 0 <= switch_frame < int(source_state["num_frames"]) - 1:
@@ -552,6 +584,8 @@ def prepare_cross_model_case_reference(
         object_id=object_id,
         switch_frame=switch_frame,
         prompt_frame_index=prompt_frame_index, capture_masks=store_masks, trace=source_trace,
+        trim_nonconditioning_keep=(max(num_maskmem, max_obj_ptrs_in_encoder)
+                                   if not store_masks and active_memory_only else None),
     )
     num_frames = int(source_state["num_frames"])
     del source_state, source_predictor
@@ -574,6 +608,7 @@ def prepare_cross_model_case_reference(
         video_path=str(video_dir),
         offload_video_to_cpu=offload_video_to_cpu,
         offload_state_to_cpu=offload_state_to_cpu,
+        async_loading_frames=not store_masks,
     )
     target_loading_seconds = time.perf_counter() - loading_started
     require(int(target_state["num_frames"]) == num_frames, "VIDEO_COUNT_MISMATCH")
@@ -586,6 +621,8 @@ def prepare_cross_model_case_reference(
         switch_frame=switch_frame,
         prompt_frame_index=prompt_frame_index, capture_masks=store_masks,
         stop_at_switch=not store_masks, trace=target_trace,
+        trim_nonconditioning_keep=(max(num_maskmem, max_obj_ptrs_in_encoder)
+                                   if not store_masks and active_memory_only else None),
     )
     del target_state, target_predictor
     gc.collect()
@@ -616,6 +653,9 @@ def prepare_cross_model_case_reference(
                                                "target_seconds": target_loading_seconds,
                                                "input_frame_count": num_frames,
                                                "scope": "init_state can load all input frames and warm up frame 0"}},
+        "active_memory_only": active_memory_only,
+        "num_maskmem": num_maskmem if active_memory_only else None,
+        "max_obj_ptrs_in_encoder": max_obj_ptrs_in_encoder if active_memory_only else None,
     }
     if generating is not None:
         metadata["generating"] = generating
@@ -1041,6 +1081,9 @@ def run_same_checkpoint_roundtrip(
     offload_video_to_cpu: bool = True,
     offload_state_to_cpu: bool = True,
     seed: int = 7,
+    active_memory_only: bool = False,
+    num_maskmem: int = 7,
+    max_obj_ptrs_in_encoder: int = 16,
 ) -> dict[str, Any]:
     """Compare native continuation with export→inject continuation."""
 
@@ -1076,6 +1119,13 @@ def run_same_checkpoint_roundtrip(
         object_id=object_id,
         switch_frame=switch_frame,
     )
+    full_record_count = canonical.valid_record_count()
+    if active_memory_only:
+        canonical = select_sam2_active_memory(
+            canonical,
+            num_maskmem=num_maskmem,
+            max_obj_ptrs_in_encoder=max_obj_ptrs_in_encoder,
+        )
     num_frames = int(native_state["num_frames"])
     del native_state, native_predictor
     gc.collect()
@@ -1124,6 +1174,13 @@ def run_same_checkpoint_roundtrip(
         "upstream_commit": commit,
         "video_id": video_dir.name,
         "switch_frame": switch_frame,
+        "active_memory_only": active_memory_only,
+        "num_maskmem": num_maskmem if active_memory_only else None,
+        "max_obj_ptrs_in_encoder": (
+            max_obj_ptrs_in_encoder if active_memory_only else None
+        ),
+        "records_before_selection": full_record_count,
+        "records_injected": canonical.valid_record_count(),
         "future_frames": sorted(injected_future),
         "injection": injection,
         "backbone_calls_before_injection": calls_before_injection,

@@ -1,4 +1,8 @@
-"""Prepare resumable source/target SAM 2 paired-state caches without baselines."""
+"""Legacy DAVIS paired-state collector retained for historical reproduction.
+
+Current MOSEv2/LVOS v2 Task 07 production collection uses
+scripts/task07/prepare_paired_state_dataset.py.
+"""
 
 from __future__ import annotations
 

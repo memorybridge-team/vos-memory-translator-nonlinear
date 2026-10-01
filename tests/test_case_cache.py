@@ -116,6 +116,48 @@ def test_case_cache_rejects_noncontiguous_prefix(tmp_path: Path) -> None:
         )
 
 
+def test_state_only_case_cache_omits_masks_and_roundtrips(tmp_path: Path) -> None:
+    output = tmp_path / "state_only.pt"
+    summary = write_case_cache(
+        output,
+        source_canonical=_state(2, 1.0),
+        target_canonical=_state(2, 2.0),
+        metadata={"video_id": "demo", "cache_mode": "state_only"},
+    )
+
+    assert summary["cache_mode"] == "state_only"
+    assert summary["source_prefix_frames"] == 0
+    restored = load_case_cache(output)
+    assert restored["metadata"]["cache_mode"] == "state_only"
+    assert "source_prefix_masks" not in restored
+    assert "target_oracle_future_masks" not in restored
+    assert restored["source_canonical"].positional_information == {
+        "policy": "regenerate_at_target"
+    }
+    assert "preserved_pred_masks" not in restored["source_canonical"].metadata
+    assert "preserved_pred_masks" not in restored["target_canonical"].metadata
+
+
+def test_mask_containing_cache_retains_diagnostic_predictions(tmp_path: Path) -> None:
+    output = tmp_path / "full.pt"
+    source = _state(1, 1.0)
+    source.metadata["preserved_pred_masks"] = {"record": torch.ones(1, 1, 2, 2)}
+    target = _state(1, 2.0)
+    target.metadata["preserved_pred_masks"] = {"record": torch.ones(1, 1, 2, 2)}
+
+    write_case_cache(
+        output,
+        source_canonical=source,
+        target_canonical=target,
+        source_prefix_masks={0: torch.zeros(1), 1: torch.zeros(1)},
+        target_oracle_future_masks={2: torch.zeros(1)},
+        metadata={},
+    )
+
+    restored = load_case_cache(output)
+    assert "preserved_pred_masks" in restored["source_canonical"].metadata
+
+
 def test_case_cache_detects_file_tampering(tmp_path: Path) -> None:
     output = tmp_path / "case.pt"
     write_case_cache(

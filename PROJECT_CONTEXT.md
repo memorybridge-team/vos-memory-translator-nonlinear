@@ -293,3 +293,10 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[검증]** CPU 전체 `107 passed in 49.08s`; 실제 synthetic audit/import/verify CLI, idempotence, loader·Linear 1 epoch·checkpoint adapter load를 확인했다. MOSE 20,841/LVOS 1,803은 선택 수이며 GPU 성공 결과가 아니다.
 - **[배포 증거]** 현재 endpoint/read-only 승인·worker topology/source/run 기록·실제 cache 소수가 없다. ZIP_ONLY 문제를 실제 worker 결함으로 판정하지 않았다. Production 검사 수 0, 확정 재수집 ID 0, production 완료/unknown 수는 미확인이다.
 - **[남은 gate]** Actual SAM GPU ordinary/late prompt, same-checkpoint full/selected continuation, actual trained checkpoint no-replay rollout 및 persistent-volume restart/동시성은 미완료다. Nonlinear factory/forward 계약의 모델팀 최종 구현과 승인이 필요하다.
+
+## 35. 2026-10-01 — Task 07 collector와 repair 계약 통합
+
+- **[범위]** GitHub `feat/task07-paired-state-collector`의 확인 commit `9492bfcf`를 기준으로 필요한 변경만 로컬 `fix/paired-state-collection-contract`에 반영했다. `main` 병합·원격 push/PR·RunPod worker 변경은 하지 않았다. 기존 미추적 operator guide는 보존했다.
+- **[계약]** 활성 수집은 MOSEv2/LVOS v2 official train의 frozen video-disjoint fit/development만 사용한다. DAVIS는 제외한다. Task 07 entry point가 `cmmt.paired_generating.v1`과 prompt/runtime frame mapping을 구성하고, `--generating-json` 및 `--prompt-frame-index`를 prepared-case subprocess에 전달한다. 미래 GT는 읽거나 제공하지 않는다.
+- **[캐시]** state-only `active_window_v1`, bounded JPEG loader, dynamic claim queue를 선택적으로 통합했다. skip은 파일 SHA와 generating hash가 모두 일치할 때만 허용한다. 기존 불완전/불일치 캐시는 덮어쓰지 않는다. Run identity namespace와 atomic selection/status를 둔다.
+- **[CPU 검증]** 전체 `120 passed in 122.15s`, 최종 Task 07 추가 검증 `11 passed in 8.12s`, MOSEv2/LVOS v2 real frozen manifest dry-run selection 및 compileall 확인. GPU·Network Volume·실제 J&F는 아직 검증하지 않았다. 상세 보고서는 `reports/tasks/07_paired_state_collection/IMPLEMENTATION_REPORT_2026-10-01.md`.

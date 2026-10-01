@@ -56,6 +56,11 @@ def _cpu_state(state: CanonicalState, *, include_masks=True) -> CanonicalState:
     state.validate()
     metadata = _to_cpu(state.metadata)
     if not include_masks:
+        # ``pred_masks`` are diagnostic source-runtime outputs.  A state-only
+        # paired cache has no consumer for them; retaining them here silently
+        # serializes every historical prediction despite omitting top-level
+        # mask payloads.  Preserve only the cache contract metadata needed for
+        # state alignment and checksum validation.
         metadata.pop("preserved_pred_masks", None)
     return CanonicalState(
         spatial_memory=state.spatial_memory.detach().cpu(),
@@ -67,8 +72,15 @@ def _cpu_state(state: CanonicalState, *, include_masks=True) -> CanonicalState:
         validity=state.validity.detach().cpu(),
         object_ids=tuple(state.object_ids),
         switch_frame=state.switch_frame,
-        positional_information=(_to_cpu(state.positional_information) if include_masks
-                                else {"policy": "regenerate_at_target"}),
+        positional_information=(
+            _to_cpu(state.positional_information)
+            if include_masks
+            else {
+                "policy": state.positional_information.get(
+                    "policy", "regenerate_at_target"
+                )
+            }
+        ),
         metadata=metadata,
         schema_version=state.schema_version,
     ).validate()
@@ -160,8 +172,13 @@ def write_case_cache(
     has_masks = source_prefix_masks is not None
     if has_masks != (target_oracle_future_masks is not None):
         raise ValueError("source and target masks must be supplied together")
+    cache_mode = "handoff_full" if has_masks else "state_only"
     stored_metadata = dict(metadata)
-    stored_metadata.setdefault("cache_mode", "handoff_full" if has_masks else "state_only")
+    declared_mode = stored_metadata.setdefault("cache_mode", cache_mode)
+    if declared_mode != cache_mode:
+        raise ValueError(f"metadata cache_mode {declared_mode!r} conflicts with payload")
+    if not has_masks:
+        stored_metadata.setdefault("switch_frame", source_canonical.switch_frame)
     payload = {
         "schema_version": SCHEMA_VERSION,
         "source_canonical": _cpu_state(source_canonical, include_masks=has_masks),
@@ -169,6 +186,8 @@ def write_case_cache(
         "metadata": stored_metadata,
     }
     if has_masks:
+        assert source_prefix_masks is not None
+        assert target_oracle_future_masks is not None
         payload["source_prefix_masks"] = _cpu_masks(source_prefix_masks)
         payload["target_oracle_future_masks"] = _cpu_masks(target_oracle_future_masks)
     validate_case_cache(payload)
@@ -188,7 +207,7 @@ def write_case_cache(
         "path": str(output),
         "sha256": digest,
         "bytes": output.stat().st_size,
-        "cache_mode": stored_metadata["cache_mode"],
+        "cache_mode": cache_mode,
         "source_prefix_frames": len(source_prefix_masks) if source_prefix_masks else 0,
         "target_oracle_future_frames": len(target_oracle_future_masks) if target_oracle_future_masks else 0,
     }
