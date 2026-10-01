@@ -19194,16 +19194,6 @@
       "future_gt_policy": "evaluation_only"
     },
     {
-      "case_id": "m3vos:0374_assemble_machinery_4:obj3:q50",
-      "sequence": "0374_assemble_machinery_4",
-      "object_id": 3,
-      "prompt_frame": "0000205",
-      "switch_frame": "0000206",
-      "switch_quantile": 0.5,
-      "input_policy": "first_nonempty_gt_prompt_only",
-      "future_gt_policy": "evaluation_only"
-    },
-    {
       "case_id": "m3vos:0374_assemble_machinery_4:obj3:q75",
       "sequence": "0374_assemble_machinery_4",
       "object_id": 3,
@@ -22634,5 +22624,5 @@
       "future_gt_policy": "evaluation_only"
     }
   ],
-  "content_sha256": "b71c4af8634b53668ed1e74ef51234d815499d48d7a93ab290b4d0884632b612"
+  "content_sha256": "4982de53ddeb2f88a78e4022225dfa95af8116bd7a1dbf5f23ddc1b4e7593e4f"
 }
