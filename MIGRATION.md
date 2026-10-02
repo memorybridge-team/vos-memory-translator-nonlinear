@@ -1,5 +1,23 @@
 # 기존 저장소에서 v2로 옮긴 범위
 
+## 2026-10-03 LVOS 고정 모델 통합 출처
+
+- `transformer_translator.py`와 `frozen_tensor_api.py`는 모델팀 branch
+  `feat/transformer-adapted-translator`의 `746ea3e7d84c366c2d7ac06159e90a1f684bca56`에서
+  선별 이관했다. 원 commit의 Git author는 `fragile`이다. 이번 pipeline 작업자가 모델 구조를 새로 설계했다고 표시하지 않는다.
+- 모든 architecture class와 tensor API class/function body의 AST 동일성을 확인했다.
+  기존 `translators.py`를 덮어쓰지 않고 tensor base를 별도 module에 연결했다.
+  기존 저장소에 없는 MomentMatched registry import는 해당 registry 선택 분기로 이동했다.
+  LVOS runner는 승인된 `base`만 받으며 다른 preset의 통합을 주장하지 않는다.
+- 원본/이관 파일 SHA와 비교 pin은 `configs/lvos_reference_lock.json`에 기록한다.
+  SAM2 pinned commit과 기존 collector `4a1bb1b`의 출처·변경을 보존한다.
+- Benchmark `feature/best_model_selection`의 `bcf0a0f6a36c4129d487e5e58e151468d7ca714b`
+  (Git author `RohSeongmin`)에서 실제 `best_model.py` 함수를 읽고, 지정된 별도 checkout에서 호출한다.
+  Metric 함수 원저작을 pipeline 기여로 바꾸지 않는다. Baseline generator와 최종 export 수용 계약은 미제공이다.
+- LVOS audit/view/runner/gates/orchestration와 CPU 검증은 이번 task branch의 통합 작업이다.
+  실제 SAM checkpoint GPU 결과와 배포 성공은 아직 없다. 상세 근거는
+  `reports/tasks/07_paired_training/LVOS_PIPELINE_REPORT_2026-10-03.md`에 남긴다.
+
 기준일: 2026-09-18 KST. 원본 저장소: `memorybridge-team/vos-memory-translator-nonlinear`의 당시 `main` 및 로컬의 미커밋 연구 문서.
 
 ## 이관한 것

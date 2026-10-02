@@ -131,5 +131,7 @@ def install_sam2_lazy_loader(*, cache_size: int = 8) -> None:
         )
 
     predictor.load_video_frames = load_video_frames_bounded
+    # no-warmup initializer imports this alias rather than the predictor alias.
+    misc.load_video_frames = load_video_frames_bounded
     if legacy is not None:
         legacy.load_video_frames = load_video_frames_bounded

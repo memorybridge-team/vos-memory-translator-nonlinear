@@ -1,0 +1,13 @@
+{
+  "model_branch": "feat/transformer-adapted-translator",
+  "model_revision": "746ea3e7d84c366c2d7ac06159e90a1f684bca56",
+  "training_revision": "5be4fba5ec2e7df3c95178639f02b3078388b0f3",
+  "collector_base": "4a1bb1b06ec8d676184a8f6e770550e27aafacbd",
+  "benchmark_revision": "bcf0a0f6a36c4129d487e5e58e151468d7ca714b",
+  "original_source_sha256": "1b39719a4f2685e3b392bcbc974088d6d40a1d3a7a85dc3c53cc0cae72a24b40",
+  "original_tensor_api_source_sha256": "4cbb9e8c0bda834573ab2b52994306fe544e0efb857b0864da0e0f82ec0f9b1a",
+  "ported_model_sha256": "60d56b6785e83c10d2dc313986189d93e8d223ebc031cc6054706986b63f4421",
+  "ported_tensor_api_sha256": "6e647775fa96726b26ca6f56e9ac4ef144ccd617c28d334e3baf664e7ad8e0ff",
+  "architecture_ast_unchanged": true,
+  "adaptation": "tensor base import 이관, registry의 미존재 MomentMatched import를 해당 선택 분기로 이동; architecture class AST 동일"
+}

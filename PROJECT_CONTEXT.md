@@ -300,3 +300,12 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[계약]** 활성 수집은 MOSEv2/LVOS v2 official train의 frozen video-disjoint fit/development만 사용한다. DAVIS는 제외한다. Task 07 entry point가 `cmmt.paired_generating.v1`과 prompt/runtime frame mapping을 구성하고, `--generating-json` 및 `--prompt-frame-index`를 prepared-case subprocess에 전달한다. 미래 GT는 읽거나 제공하지 않는다.
 - **[캐시]** state-only `active_window_v1`, bounded JPEG loader, dynamic claim queue를 선택적으로 통합했다. skip은 파일 SHA와 generating hash가 모두 일치할 때만 허용한다. 기존 불완전/불일치 캐시는 덮어쓰지 않는다. Run identity namespace와 atomic selection/status를 둔다.
 - **[CPU 검증]** 전체 `120 passed in 122.15s`, 최종 Task 07 추가 검증 `11 passed in 8.12s`, MOSEv2/LVOS v2 real frozen manifest dry-run selection 및 compileall 확인. GPU·Network Volume·실제 J&F는 아직 검증하지 않았다. 상세 보고서는 `reports/tasks/07_paired_state_collection/IMPLEMENTATION_REPORT_2026-10-01.md`.
+
+## 36. 2026-10-03 — LVOS 고정 모델 local vertical slice
+
+- **[요청/범위]** 사용자의 `2026-10-02_LVOS_final_development_prompt.md`와 10/03 추가 지시를 따른다. Small→Base+ one-way no-replay만 유지한다. 접속 정보는 내일 제공 예정이며 로컬 구현/CPU 검사/로컬 commit까지만 진행한다. 원격 push/PR·Pod 생성/종료·기존 수집·원본 cache/split 변경은 하지 않는다.
+- **[모델]** 모델팀 `746ea3e`의 spatial-context Transformer와 tensor API body를 이관하고 architecture class AST 동일성을 확인했다. 기존 translators와 teammate collector를 보존한다. Base config proposal은 실제 모델팀 freeze 승인 입력 전에는 main 학습에서 사용하지 않는다.
+- **[데이터/학습]** 기존 LVOS train fit/dev membership을 hash로 고정하고, 완료 cache의 원본 보존 audit와 bounded tensor-only view를 구현했다. 완료 paired case 단위 shuffle만 적용하고 내부 frame/slot 순서·valid absent record·record weight를 유지한다. FP32 component MSE/fit-only RMS, AdamW/no-decay group, 실제 record 수 accumulation, epoch-boundary strict resume를 구현했다.
+- **[평가/선택]** Sparse GT coverage를 score 이전에 동결하고 target-only injector와 실제 frame-ID encoder hook을 연결했다. 독립 A/B 및 immutable dev shards/coordinator를 준비했다. State best/monitor best/full-dev shortlist best를 분리하고 complete full-dev와 승인된 adapter가 있어야 export한다. Baseline Job C generator는 benchmark pin에 없어 BLOCKED다.
+- **[검증 근거]** 이번 실행의 전체 CPU 회귀 `151 passed in 307.70s`, 이후 최종 LVOS suite `31 passed`를 별도 log/JUnit/checksum으로 기록한다. Synthetic CPU one-video overfit/다른 dev 영상/strict reload를 실행했다. 실제 checkpoint GPU G1–G5 PASS 또는 실제 VOS 개선으로 해석하지 않는다.
+- **[남은 입력]** 현재 SSH 접근·free UUID·시간/요금, 실제 완료 inventory/생성 이력/weights SHA, model freeze·metric/export 승인과 monitor/Full Replay 결과가 필요하다. Operator guide와 정확한 실행 순서는 `docs/runpod_lvos_training_operator_guide.md`, gate 근거와 현재 단계는 `reports/tasks/07_paired_training/LVOS_PIPELINE_REPORT_2026-10-03.md`.

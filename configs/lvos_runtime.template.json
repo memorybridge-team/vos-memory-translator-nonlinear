@@ -1,0 +1,15 @@
+{
+  "approved_by": null,
+  "sam2_repo": "REQUIRED_SAM2_CHECKOUT",
+  "target_checkpoint": "REQUIRED_BASE_PLUS_CHECKPOINT",
+  "target_config": "configs/sam2.1/sam2.1_hiera_b+.yaml",
+  "ground_truth_format": "palette_object_id_png",
+  "monitor_video_count": 12,
+  "videos": [
+    {
+      "video_id": "REQUIRED_FROZEN_DEV_VIDEO_ID",
+      "video_dir": "REQUIRED_VERIFIED_JPEG_DIRECTORY",
+      "annotation_dir": "REQUIRED_VERIFIED_PNG_DIRECTORY"
+    }
+  ]
+}
