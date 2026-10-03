@@ -14,7 +14,7 @@ import torch
 from vos_memory_inspector.collection_contract import frozen_selection, memory_policy, SEMANTICS, jpeg_map, Rejection
 from vos_memory_inspector.case_cache import write_case_cache
 from vos_memory_inspector.training_data import read_manifest, save_manifest
-from vos_memory_inspector.training_storage import write_json, sha256, content_hash, ExclusiveWriter
+from vos_memory_inspector.training_storage import write_json, sha256, source_sha256, content_hash, ExclusiveWriter
 from vos_memory_inspector.state_schema import CanonicalState
 from vos_memory_inspector.lvos_contract import model_lock, validate_model_lock, load_complete, save_complete, Events, verify_evidence
 from vos_memory_inspector.lvos_snapshot import build_snapshot, record_loader, verify_snapshot
@@ -44,6 +44,8 @@ def fixture_data(tmp_path):
         raw=next(c for c in selection['cases'] if c['case_id']==case_id)
         video_dir=tmp_path/'rgb'/raw['video_id']; video_dir.mkdir(parents=True)
         gt_dir=tmp_path/'gt'/raw['video_id']; gt_dir.mkdir(parents=True)
+        prompt_path=gt_dir/'000001.png'
+        Image.fromarray(np.ones((4,4),dtype=np.uint8)).save(prompt_path)
         for frame in range(1,raw['future_end_frame']+1,5):
             Image.fromarray(np.full((4,4,3),20,dtype=np.uint8)).save(video_dir/f'{frame:06d}.jpg')
         paths,frame_map=jpeg_map(video_dir)
@@ -52,7 +54,7 @@ def fixture_data(tmp_path):
             Image.fromarray(np.ones((4,4),dtype=np.uint8)).save(gt_dir/f"{row['official_id']:06d}.png")
         case={'dataset':'LVOS v2','release':'v2','official_split':'train','video_id':raw['video_id'],
             'object_ids':[1],'switch_frame':switch,'pair_mode':'native_history','prompt_conditions':[{'frame_index':0,'object_id':1,
-                'kind':'mask','sha256':content_hash('synthetic prompt')}], 'preprocessing':{'image_size':4,'scope':'synthetic_cpu_fixture'},
+                'kind':'mask','sha256':sha256(prompt_path)}], 'preprocessing':{'image_size':4,'scope':'synthetic_cpu_fixture'},
             'video_sha256':content_hash(frame_map),'frame_map_sha256':content_hash(frame_map),'num_frames':len(frame_map),'case_id':case_id,
             'official_prompt_frame':1,'official_switch_frame':raw['switch_frame'],'paired_split':raw['paired_split'],
             'source_manifest_content_sha256':selection['source_manifest_content_sha256'],'object_semantics':SEMANTICS,
@@ -89,8 +91,8 @@ def test_frozen_architecture_sources():
     revision='746ea3e7d84c366c2d7ac06159e90a1f684bca56'
     lock=json.loads((ROOT/'configs/lvos_reference_lock.json').read_text(encoding='utf-8'))
     path=ROOT/'src/vos_memory_inspector/transformer_translator.py'
-    assert sha256(path)==lock['ported_model_sha256']
-    assert sha256(path.with_name('frozen_tensor_api.py'))==lock['ported_tensor_api_sha256']
+    assert source_sha256(path)==lock['ported_model_sha256']
+    assert source_sha256(path.with_name('frozen_tensor_api.py'))==lock['ported_tensor_api_sha256']
     assert lock['architecture_ast_unchanged'] and lock['model_revision']==revision
     assert model_lock()['config']['d_model']==64
     assert model_lock()['config']['num_layers']==2
@@ -212,16 +214,16 @@ def test_actual_train_partial_restart_epoch_resume(fixture_snapshot,tmp_path,mon
     config=LVOSConfig(microbatch=1,accumulation=3,max_epochs=2,workers=0,pin_memory=False)
     expected=tmp_path/'continuous'; interrupted=tmp_path/'interrupted'
     train_snapshot(root,lock,expected,config,device='cpu')
-    original_save=training.save_complete
-    def interrupted_save(path,payload):
+    original_save=training.CheckpointStore.publish
+    def interrupted_save(store,payload):
         if payload['epoch']==2:
             raise RuntimeError('Synthetic interrupted before epoch-2 commit')
-        return original_save(path,payload)
-    monkeypatch.setattr(training,'save_complete',interrupted_save)
+        return original_save(store,payload)
+    monkeypatch.setattr(training.CheckpointStore,'publish',interrupted_save)
     with pytest.raises(RuntimeError,match='Synthetic interrupted'):
         train_snapshot(root,lock,interrupted,config,device='cpu')
     assert not (interrupted/'checkpoints/epoch-00002.ckpt').exists()
-    monkeypatch.setattr(training,'save_complete',original_save)
+    monkeypatch.setattr(training.CheckpointStore,'publish',original_save)
     train_snapshot(root,lock,interrupted,config,device='cpu',resume=interrupted/'checkpoints/epoch-00001.ckpt')
     a,_=load_complete(expected/'checkpoints/epoch-00002.ckpt'); b,_=load_complete(interrupted/'checkpoints/epoch-00002.ckpt')
     assert all(torch.equal(v,b['export']['state_dict'][n]) for n,v in a['export']['state_dict'].items())
@@ -231,7 +233,7 @@ def test_actual_train_partial_restart_epoch_resume(fixture_snapshot,tmp_path,mon
     required={'schema_version','timestamp_utc','run_id','task_id','execution_kind','code_sha','model_config_digest','collection_digest',
               'epoch','micro_iteration','optimizer_step','checkpoint_sha','eval_id','metrics','evidence_paths','duration_seconds'}
     assert all(required<=e.keys() for e in events) and all(e['execution_kind']=='cpu_synthetic' for e in events)
-    with pytest.raises(Rejection,match='RESUME_IDENTITY'):
+    with pytest.raises(Rejection,match='FOREIGN_CHECKPOINT'):
         train_snapshot(root,lock,interrupted,replace(config,lr=1e-4),device='cpu',resume=interrupted/'checkpoints/epoch-00002.ckpt')
 
 
@@ -272,7 +274,7 @@ def test_monitor_sparse_protocol_and_unchanged_selection(fixture_snapshot,tmp_pa
     with pytest.raises(Rejection,match='FULL_DEV_REQUIRES_FULL_SNAPSHOT'):
         ev.freeze_protocol(root,ROOT/'manifests/lvosv2_train_v1.json',runtime,tmp_path/'full.json',scope='full_development')
     for p in Path(settings[1]['annotation_dir']).glob('*.png'):
-        p.unlink()
+        if p.name!='000001.png': p.unlink()
     with pytest.raises(Rejection,match='INSUFFICIENT_SCORED_FRAMES'):
         ev.freeze_protocol(root,ROOT/'manifests/lvosv2_train_v1.json',runtime,tmp_path/'empty.json',videos=['1umdNtrE'])
 
@@ -324,17 +326,20 @@ def test_early_stopping_order_once_rawmax_and_delta():
         e.accept(6,.8)
 
 
-def test_async_incomplete_foreign_does_not_increment_patience(tmp_path):
+def test_async_incomplete_foreign_does_not_increment_patience(tmp_path,monkeypatch):
     p,c,paths=evaluation_fixture(tmp_path,epochs=(2,4)); identity={'run_id':'test','code_sha':'synthetic','collection_digest':'fixture_data',
         'model_config_digest':'fixture_model','metric_contract_digest':content_hash(json.loads(c.read_text()))}
     out=tmp_path/'run'; events=Events(out,identity,'cpu_synthetic'); early=ev.EarlyStopping()
     for epoch in (2,4):
         write_json(out/f'evaluation/requests/epoch-{epoch:05d}.json',{'epoch':epoch,'checkpoint':'synthetic','checkpoint_sha':f'sha{epoch}','protocol':str(p)})
+    # Ordering unit fixture; actual immutable-request verification has integration coverage.
+    import vos_memory_inspector.lvos_jobs as jobs
+    monkeypatch.setattr(jobs,'read_request',lambda run,path:(json.loads(path.read_text()),read_manifest(p)))
     assert ev.consume_monitor_results(out,early,identity,events)==2 and not early.consumed
     # Later result cannot jump ahead of epoch 2.
     for epoch,path in zip((2,4),paths):
         dest=out/f'evaluation/results/epoch-{epoch:05d}'; dest.mkdir(parents=True)
-        r=json.loads(path.read_text()); r.update(merged=True,monitor_score=.6)
+        r=json.loads(path.read_text()); r.update(merged=True,monitor_score=.6,code_sha=identity['code_sha'])
         if epoch==2:
             r['collection_digest']='foreign'
         write_json(dest/'result.json',r); write_json(dest/'READY.json',{'sha256':sha256(dest/'result.json')})

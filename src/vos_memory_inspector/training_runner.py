@@ -143,9 +143,10 @@ def code_provenance():
         result = subprocess.run(["git", *args], capture_output=True, text=True, encoding="utf-8",
                                 cwd=Path(__file__).resolve().parents[2])
         return result.stdout.strip() if result.returncode == 0 else "unavailable"
-    source_hashes = {path.name: sha256(path) for path in Path(__file__).parent.glob("*.py")}
+    from .training_storage import source_sha256
+    source_hashes = {path.name: source_sha256(path) for path in Path(__file__).parent.glob("*.py")}
     return {"commit": git("rev-parse", "HEAD"), "tracked_diff_sha256": content_hash(git("diff", "HEAD")),
-            "package_source_sha256": content_hash(source_hashes),
+            "package_source_sha256": content_hash(source_hashes), "source_hash_policy": "utf8_crlf_to_lf_v1",
             "python": platform.python_version(), "torch": str(torch.__version__),
             "numpy": np.__version__, "cuda": torch.version.cuda,
             "gpu_names": [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]

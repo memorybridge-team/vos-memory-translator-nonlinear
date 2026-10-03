@@ -20,6 +20,13 @@ def sha256(path: str | Path) -> str:
     return digest.hexdigest()
 
 
+def source_sha256(path: str | Path) -> str:
+    """UTF-8 source: CRLF만 LF로 정규화. Artifact SHA는 sha256을 그대로 쓴다."""
+    raw = Path(path).read_bytes()
+    raw.decode('utf-8', errors='strict')
+    return hashlib.sha256(raw.replace(b'\r\n', b'\n')).hexdigest()
+
+
 def content_hash(value: Any) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"),
                                     allow_nan=False).encode()).hexdigest()

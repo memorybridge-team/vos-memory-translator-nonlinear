@@ -7,12 +7,13 @@ import os
 import time
 import torch
 
-from .training_storage import sha256, content_hash, write_json, write_tensor_file, read_checked
+from .training_storage import sha256, source_sha256, content_hash, write_json, write_tensor_file, read_checked
 from .collection_contract import Rejection, require
 from .transformer_translator import SAM21_MEMORY_SPEC, TransformerStateTranslator, SpatialTransformerConfig
 
 MODEL_REVISION = '746ea3e7d84c366c2d7ac06159e90a1f684bca56'
 BENCHMARK_REVISION = 'bcf0a0f6a36c4129d487e5e58e151468d7ca714b'
+BASELINE_REVISION = 'dcd335380dbe62f3299dbc5d4456b5ac8a12b4b4'
 PACKAGE = Path(__file__).parent
 
 
@@ -23,20 +24,23 @@ def json_read(path):
 def model_lock(approved_by=None):
     from .transformer_translator import PRESETS
     config = SpatialTransformerConfig(**dict(PRESETS['base'].config)).to_dict()
-    value = {'schema_version': 'cmmt.lvos_model_lock.v1', 'factory':
+    value = {'schema_version': 'cmmt.lvos_model_lock.v2', 'source_hash_policy':'utf8_crlf_to_lf_v1', 'factory':
              'vos_memory_inspector.transformer_translator:TransformerStateTranslator',
              'preset': 'base', 'config': config, 'model_revision': MODEL_REVISION,
-             'approved_by': approved_by, 'source_hashes': {name: sha256(PACKAGE/name) for name in
+             'approved_by': approved_by, 'source_hashes': {name: source_sha256(PACKAGE/name) for name in
                          ('transformer_translator.py', 'frozen_tensor_api.py')}}
     return {**value, 'digest': content_hash(value)}
 
 
 def validate_model_lock(lock, *, require_approval=True):
+    require(lock.get('schema_version')=='cmmt.lvos_model_lock.v2' and
+            lock.get('source_hash_policy')=='utf8_crlf_to_lf_v1', 'MODEL_LOCK_REGENERATION_REQUIRED')
     require(lock['digest'] == content_hash({k:v for k,v in lock.items() if k!='digest'}), 'MODEL_LOCK_HASH')
     require(lock['model_revision']==MODEL_REVISION, 'MODEL_REVISION')
     require(lock['factory']=='vos_memory_inspector.transformer_translator:TransformerStateTranslator', 'MODEL_FACTORY')
     require(lock['preset']=='base' and lock['config']==model_lock()['config'], 'FROZEN_ARCHITECTURE')
-    require(all(sha256(PACKAGE/n)==h for n,h in lock['source_hashes'].items()), 'MODEL_SOURCE_CHANGED')
+    require(set(lock['source_hashes'])=={'transformer_translator.py','frozen_tensor_api.py'} and
+            all(source_sha256(PACKAGE/n)==h for n,h in lock['source_hashes'].items()), 'MODEL_SOURCE_CHANGED')
     if require_approval:
         require(bool(lock.get('approved_by')), 'MODEL_FREEZE_INPUT_MISSING')
     return TransformerStateTranslator(SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC,
@@ -88,6 +92,12 @@ def verify_evidence(items):
     require(bool(items) and all(Path(e['path']).is_file() and sha256(e['path'])==e['sha256'] for e in items), 'EVIDENCE_CHANGED')
 
 
+def safety_suite_hash():
+    root=Path(__file__).resolve().parents[2]
+    return content_hash({name:source_sha256(root/'tests'/name) for name in
+                         ('test_lvos_pipeline.py','test_lvos_integration.py')})
+
+
 def resources():
     import shutil, platform
     available = {'python': platform.python_version(), 'torch': str(torch.__version__),
@@ -114,12 +124,15 @@ def benchmark_module(root, contract):
     root = Path(root)
     revision = subprocess.check_output(['git','rev-parse','HEAD'],cwd=root).decode().strip()
     require(revision==contract['benchmark_revision']==BENCHMARK_REVISION, 'BENCHMARK_REVISION')
-    require(sha256(root/'best_model.py')==contract['evaluator_sha256'], 'EVALUATOR_CHANGED')
+    require(contract.get('source_hash_policy')=='utf8_crlf_to_lf_v1' and
+            source_sha256(root/'best_model.py')==contract['evaluator_sha256'], 'EVALUATOR_CHANGED')
+    pin=json_read(PACKAGE.parents[1]/'configs/lvos_benchmark_reference_lock.json')
+    require(contract['evaluator_sha256']==pin['sources']['metric'], 'METRIC_SOURCE_PIN')
     require(contract.get('approved_by') and contract.get('primary_metric')=='mean_video_retention_three_fractions_percent',
             'METRIC_FREEZE_INPUT_MISSING')
     require(contract['fractions']==[0.25,0.5,0.75] and contract['visible_rule']=='gt_visible_only' and
             contract['undefined_rule']=='null_with_reason' and contract['zero_replay_rule']=='exclude_video_ratio' and
-            contract['monitor_metric']=='macro_video_jf_0_1', 'METRIC_CONTRACT')
+            contract['monitor_metric']=='monitor_jf_proxy' and contract['monitor_scale']==[0,1], 'METRIC_CONTRACT')
     spec = importlib.util.spec_from_file_location('cmmt_frozen_best_model',root/'best_model.py')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

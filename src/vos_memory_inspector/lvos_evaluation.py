@@ -15,6 +15,8 @@ from .training_storage import content_hash, sha256, write_json, ExclusiveWriter
 from .lvos_contract import json_read, load_complete, save_complete, benchmark_module
 from .lvos_snapshot import verify_snapshot
 from .lvos_training import load_model_checkpoint
+from .lvos_budget import Deadline, BudgetStop, check
+from .lvos_metrics import canonical_retention, raw_macro, MONITOR
 
 
 def freeze_protocol(root, source_manifest, runtime, output, *, scope='monitor', videos=None,
@@ -60,6 +62,10 @@ def freeze_protocol(root, source_manifest, runtime, output, *, scope='monitor', 
             end=min(end,case['switch_frame']+64)
         expected=list(range(case['switch_frame']+1,end+1))
         annotations={int(p.stem):p for p in Path(setting['annotation_dir']).glob('*.png') if p.stem.isascii() and p.stem.isdigit()}
+        require(len(case['prompt_conditions'])==1,'REPLAY_SINGLE_INITIAL_PROMPT')
+        prompt_event=case['prompt_conditions'][0]
+        prompt_path=annotations.get(int(case['official_prompt_frame']))
+        require(prompt_path and sha256(prompt_path)==prompt_event['sha256'],'PROTOCOL_PROMPT_CHANGED')
         scored=[]
         for index in expected:
             official=frame_map[index]['official_id']
@@ -72,11 +78,13 @@ def freeze_protocol(root, source_manifest, runtime, output, *, scope='monitor', 
                 'sha256':sha256(path),'visible':bool((mask==case['object_ids'][0]).any())})
         require(scope!='monitor' or sum(s['visible'] for s in scored)>=min_visible_frames, 'INSUFFICIENT_SCORED_FRAMES', case['case_id'])
         rows.append({'case_id':case['case_id'],'video_id':video,'fraction':fraction,'object_id':case['object_ids'][0],
+            'prompt':{'runtime_index':prompt_event['frame_index'],'official_id':int(case['official_prompt_frame']),
+                      'path':str(prompt_path.resolve()),'sha256':sha256(prompt_path)},
             'switch_runtime_index':case['switch_frame'],'video_dir':str(Path(setting['video_dir']).resolve()),
             'expected_runtime_indices':expected,'scored_frames':scored,'frame_map_sha256':case['frame_map_sha256']})
     require(rows and (scope!='monitor' or set(videos)=={r['video_id'] for r in rows}), 'EMPTY_PROTOCOL_VIDEO')
     path=Path(output); require(not path.exists(),'PROTOCOL_EXISTS')
-    save_manifest(path,{'schema_version':'cmmt.lvos_protocol.v1','scope':scope,'source_split':'train',
+    save_manifest(path,{'schema_version':'cmmt.lvos_protocol.v2','scope':scope,'source_split':'train',
         'role':'development','collection_digest':snapshot['content_sha256'],'synthetic':snapshot['synthetic'],
         'models':snapshot['models'],'memory_policy':snapshot['memory_policy'],'runtime':runtime,'cases':rows,
         'frame_policy':'contiguous_runtime_rollout; score only frozen sparse PNG; GT visible only',
@@ -93,13 +101,52 @@ def case_assignments(protocol, count):
     return assignments
 
 
+def validate_protocol_snapshot(snapshot,protocol):
+    """Frozen membership/prompt/switch/window를 runtime 실행 전에 재확인한다."""
+    require(protocol.get('schema_version')=='cmmt.lvos_protocol.v2' and
+            protocol['collection_digest']==snapshot['content_sha256'] and
+            protocol['synthetic']==snapshot['synthetic'] and protocol['role']=='development' and
+            protocol['source_split']=='train','PROTOCOL_SNAPSHOT_CONTRACT')
+    expected={c['case']['case_id']:c for c in snapshot['cases'] if c['split']=='development'}
+    ids=[r['case_id'] for r in protocol['cases']]
+    require(len(ids)==len(set(ids)) and set(ids)<=expected.keys() and ids==protocol['expected_case_ids'],'PROTOCOL_CASE_MEMBERSHIP')
+    if protocol['scope']=='full_development':
+        require(snapshot['state']=='ready' and set(ids)==expected.keys(),'PROTOCOL_FULL_DEV_COVERAGE')
+    else:
+        require(protocol['scope']=='monitor' and all(r['fraction']==.5 for r in protocol['cases']),'PROTOCOL_MONITOR_SCOPE')
+    selection=snapshot['selection']
+    source=read_manifest(Path(__file__).resolve().parents[2]/'manifests/lvosv2_train_v1.json')
+    require(source['content_sha256']==selection['source_manifest_content_sha256'],'PROTOCOL_SOURCE_REVISION')
+    policy=source['selection_policy']
+    raw_by_id={c['case_id']:c for c in selection['cases']}
+    for row in protocol['cases']:
+        item=expected[row['case_id']]; case=item['case']; frames=item['generating']['frame_map']; raw=raw_by_id[row['case_id']]
+        require(row['video_id']==case['video_id'] and row['object_id']==case['object_ids'][0] and
+                row['switch_runtime_index']==case['switch_frame'],'PROTOCOL_CASE_IDENTITY')
+        initial=case['prompt_conditions'][0]
+        require(len(case['prompt_conditions'])==1 and row['prompt']['runtime_index']==initial['frame_index'] and
+                row['prompt']['sha256']==initial['sha256'] and
+                row['prompt']['official_id']==frames[initial['frame_index']]['official_id'],'PROTOCOL_PROMPT_IDENTITY')
+        eligible_ids=[r['official_id'] for r in frames if raw['first_prompt_frame']<=r['official_id']<=raw['future_end_frame']]
+        candidates=list(range(policy['min_prefix_frames']-1,len(eligible_ids)-policy['min_future_frames']))
+        require(row['fraction'] in policy['regular_quantiles'] and eligible_ids[candidates[round(row['fraction']*(len(candidates)-1))]]==
+                raw['switch_frame'],'PROTOCOL_FROZEN_FRACTION')
+        end=max(r['runtime_index'] for r in frames if r['official_id']<=raw['future_end_frame'])
+        if protocol['scope']=='monitor': end=min(end,case['switch_frame']+64)
+        require(row['expected_runtime_indices']==list(range(case['switch_frame']+1,end+1)),'PROTOCOL_FROZEN_WINDOW')
+        scored=row['scored_frames']; numbers=[s['runtime_index'] for s in scored]
+        require(len(numbers)==len(set(numbers)) and set(numbers)<=set(row['expected_runtime_indices']) and
+                all(s['official_id']==frames[s['runtime_index']]['official_id'] for s in scored),'PROTOCOL_SPARSE_GT_MAP')
+    return protocol
+
+
 def target_config_path(sam_root, config):
     from .training_collection import CONFIGS
     require(config==CONFIGS['target'],'PINNED_TARGET_CONFIG')
     return Path(sam_root)/'sam2'/config
 
 
-def reconstruct_source(root, snapshot, index):
+def reconstruct_source(root, snapshot, index, deadline=None):
     """검증된 tensor view만 읽어 원래 K·padding·registry를 재조립한다."""
     from .state_schema import CanonicalState
     item=snapshot['cases'][index]; case=item['case']
@@ -109,6 +156,7 @@ def reconstruct_source(root, snapshot, index):
     frames=torch.tensor(item['original_frames'],dtype=torch.int64); slots=torch.tensor(item['original_slots'],dtype=torch.int64)
     cond=torch.tensor(item['original_conditioning'],dtype=torch.bool); seen=set()
     for entry in snapshot['shards']:
+        check(deadline,'reconstruct_source_shard')
         if entry['split']!=item['split'] or entry['case_index']!=index:
             continue
         payload=None
@@ -142,6 +190,7 @@ def no_replay_case(predictor, source, model, row, *, deadline=None):
     predictor._get_image_feature=get; predictor.forward_image=forward
     try:
         started=time.perf_counter()
+        if isinstance(deadline,Deadline): check(deadline,'handoff_video_load')
         state=init_sam2_inference_state_without_warmup(predictor,video_path=row['video_dir'],
                                                      offload_video_to_cpu=True,offload_state_to_cpu=True)
         moved=replace(source,**{n:getattr(source,n).to(predictor.device) for n in
@@ -152,12 +201,14 @@ def no_replay_case(predictor, source, model, row, *, deadline=None):
         for name in ('validity','frame_indices','slot_order','is_conditioning'):
             require(torch.equal(getattr(source,name),getattr(translated,name).cpu()), 'HANDOFF_METADATA')
         info=inject_sam2_canonical_state(translated,predictor=predictor,inference_state=state)
+        if isinstance(deadline,Deadline): check(deadline,'handoff_injection_complete')
         require(not calls, 'PAST_ENCODER_DURING_HANDOFF')
         handoff_seconds=time.perf_counter()-started
         expected=row['expected_runtime_indices']; predictions={}; observed=[]
         for frame,ids,masks in predictor.propagate_in_video(state,start_frame_idx=expected[0],
                                   max_frame_num_to_track=len(expected)-1,reverse=False):
-            require(deadline is None or time.perf_counter()<deadline,'EVAL_TIME_LIMIT')
+            if isinstance(deadline,Deadline): check(deadline,'no_replay_frame')
+            else: require(deadline is None or time.perf_counter()<deadline,'EVAL_TIME_LIMIT')
             require(list(ids)==list(source.object_ids) and masks.shape[0]==1,'ROLLOUT_REGISTRY')
             require(int(frame) not in observed,'ROLLOUT_DUPLICATE_FRAME'); observed.append(int(frame))
             if int(frame) in {s['runtime_index'] for s in row['scored_frames']}:
@@ -171,32 +222,35 @@ def no_replay_case(predictor, source, model, row, *, deadline=None):
         predictor._get_image_feature=original_get; predictor.forward_image=original_forward
 
 
-def score_predictions(predictions,row,metric):
+def score_predictions(predictions,row,metric,deadline=None):
     require(set(predictions)=={s['runtime_index'] for s in row['scored_frames']}, 'SCORED_FRAME_COVERAGE')
     preds=[]; gts=[]
     for item in row['scored_frames']:
+        check(deadline,'score_gt_frame')
         require(sha256(item['path'])==item['sha256'],'GT_CHANGED')
         gt=np.asarray(Image.open(item['path']))==row['object_id']; pred=predictions[item['runtime_index']]
         require(pred.shape==gt.shape,'PRED_GT_SHAPE'); require(bool(gt.any())==item['visible'],'GT_VISIBILITY_CHANGED')
         preds.append(pred); gts.append(gt)
     visible=[(p,g) for p,g in zip(preds,gts) if g.any()]
     if not visible:
-        return {'j':None,'f':None,'jf':None,'reason':'NO_VISIBLE_GT','visible_frames':0,'absent_frames':len(gts)}
+        return {'j':None,'f':None,'jf':None,'reason':'NO_VISIBLE_GT','visible_frames':0,'absent_frames':len(gts),'undefined_frames':len(gts)}
     j=float(sum(metric.j_score(p,g) for p,g in visible)/len(visible))
     f=float(sum(metric.f_score(p,g) for p,g in visible)/len(visible))
     jf=metric.post_switch_jf(preds,gts)
     require(math.isfinite(jf) and abs(jf-(j+f)/2)<1e-12,'METRIC_FINITE')
-    return {'j':j,'f':f,'jf':jf,'reason':None,'visible_frames':len(visible),'absent_frames':len(gts)-len(visible)}
+    return {'j':j,'f':f,'jf':jf,'reason':None,'visible_frames':len(visible),'absent_frames':len(gts)-len(visible),
+            'undefined_frames':len(gts)-len(visible)}
 
 
 def evaluate(root, protocol_path, checkpoint, metric_contract, benchmark_root, output, *, shard_index=0,
-             shard_count=1, method='learned', device='cuda:0', approved=False,max_wall_seconds=None):
+             shard_count=1, method='learned', device='cuda:0', approved=False,max_wall_seconds=None,deadline=None):
     require(approved and torch.device(device).type=='cuda' and torch.cuda.is_available() and
             torch.cuda.device_count()==1 and __import__('os').environ.get('CUDA_VISIBLE_DEVICES'), 'GPU_EXECUTION_APPROVAL')
     require(max_wall_seconds and max_wall_seconds>0,'EVAL_TIME_LIMIT_REQUIRED')
-    deadline=time.perf_counter()+max_wall_seconds
-    snapshot=verify_snapshot(root); protocol=read_manifest(protocol_path); contract=json_read(metric_contract)
+    budget=deadline or Deadline(max_wall_seconds)
+    snapshot=verify_snapshot(root,deadline=budget); protocol=read_manifest(protocol_path); contract=json_read(metric_contract)
     require(not snapshot['synthetic'] and protocol['collection_digest']==snapshot['content_sha256'],'REAL_EVAL_SNAPSHOT')
+    validate_protocol_snapshot(snapshot,protocol)
     metric=benchmark_module(benchmark_root,contract)
     require(method in {'learned','direct_copy'},'BASELINE_OWNER_REQUIRED')
     model,payload,entry=load_model_checkpoint(checkpoint,device)
@@ -205,44 +259,37 @@ def evaluate(root, protocol_path, checkpoint, metric_contract, benchmark_root, o
         require(payload['epoch']==0,'DIRECT_COPY_EPOCH_ZERO'); model=None
     assignments=case_assignments(protocol,shard_count)
     require(0<=shard_index<shard_count and assignments[shard_index],'EVAL_SHARD_INDEX')
-    runtime=protocol['runtime']; sam_root=Path(runtime['sam2_repo']).resolve()
-    from .upstream import verify_sam2_checkout
-    require(verify_sam2_checkout(sam_root)==snapshot['models']['target']['upstream_commit'],'TARGET_UPSTREAM')
-    import subprocess
-    require(subprocess.run(['git','diff','--exit-code','HEAD','--','sam2'],cwd=sam_root,capture_output=True).returncode==0,'DIRTY_TARGET_SAM_SOURCE')
-    for key,path in (('checkpoint_sha256',runtime['target_checkpoint']),('config_sha256',target_config_path(sam_root,runtime['target_config']))):
-        require(sha256(path)==snapshot['models']['target'][key],'TARGET_HASH')
-    sys.path.insert(0,str(sam_root))
-    from sam2.build_sam import build_sam2_video_predictor
-    from .sam2_lazy_loader import install_sam2_lazy_loader
-    from .training_collection import freeze_model
-    predictor=freeze_model(build_sam2_video_predictor(runtime['target_config'],runtime['target_checkpoint'],device=device))
-    install_sam2_lazy_loader(cache_size=8)
+    from .lvos_benchmark import build_target
+    predictor=build_target(snapshot,protocol,device,budget)
     output=Path(output); by_id={c['case']['case_id']:i for i,c in enumerate(snapshot['cases'])}; rows=[]
     with ExclusiveWriter(output),torch.inference_mode(),torch.autocast('cuda',dtype=torch.bfloat16):
         require(not (output/'result.json').exists(),'EVAL_OUTPUT_EXISTS')
         for row in protocol['cases']:
             if row['case_id'] not in assignments[shard_index]:
                 continue
-            require(time.perf_counter()<deadline,'EVAL_TIME_LIMIT')
+            check(budget,'evaluation_case')
             item=snapshot['cases'][by_id[row['case_id']]]
             require({k:getattr(predictor,k) for k in READ_FIELDS}==item['generating']['effective_model_policy']['target'],'TARGET_READ_POLICY')
-            _,actual=jpeg_map(Path(row['video_dir']))
+            _,actual=jpeg_map(Path(row['video_dir']),deadline=budget)
             require(content_hash(actual)==row['frame_map_sha256'],'EVAL_RGB_CHANGED')
-            source=reconstruct_source(root,snapshot,by_id[row['case_id']]); started=time.perf_counter()
-            predictions,trace=no_replay_case(predictor,source,model,row,deadline=deadline)
-            scores=score_predictions(predictions,row,metric)
-            rows.append({'case_id':row['case_id'],'video':row['video_id'],'fraction':row['fraction'],
+            source=reconstruct_source(root,snapshot,by_id[row['case_id']],budget); started=time.perf_counter()
+            predictions,trace=no_replay_case(predictor,source,model,row,deadline=budget)
+            scores=score_predictions(predictions,row,metric,budget)
+            rows.append({'case_id':row['case_id'],'video':row['video_id'],'fraction':row['fraction'],'object_id':row['object_id'],
                          **scores,'trace':trace,'duration_seconds':time.perf_counter()-started})
             write_json(output/f"cases/{content_hash(row['case_id'])}.json",rows[-1])
             print(f"평가 완료: {row['case_id']}, J&F={scores['jf']}",flush=True)
         result={'schema_version':'cmmt.lvos_evaluation.v1','status':'PASS','execution_kind':'gpu_real_checkpoint',
+            'target_identity_digest':content_hash(snapshot['models']['target']),
+            'target_policy_digest':content_hash(snapshot['cases'][0]['generating']['effective_model_policy']['target']),
+            'code_sha':payload['identity']['code_sha'],
             'collection_digest':snapshot['content_sha256'],'model_config_digest':payload['identity']['model_config_digest'],
             'protocol_digest':protocol['content_sha256'],'scope':protocol['scope'],'metric_contract_digest':content_hash(contract),
             'protocol_path':str(Path(protocol_path).resolve()),
             'checkpoint_sha':entry['sha256'],'checkpoint':str(Path(checkpoint).resolve()),'epoch':payload['epoch'],
             'method':method,'shard_index':shard_index,'shard_count':shard_count,
             'expected_case_ids':assignments[shard_index],'rows':rows}
+        check(budget,'evaluation_finalization')
         write_json(output/'result.json',result); write_json(output/'READY.json',{'sha256':sha256(output/'result.json')})
         return result
 
@@ -274,10 +321,11 @@ def merge_results(paths,protocol_path,metric_contract,benchmark_root,output, *, 
     results=[read_result(p) for p in paths]; require(results,'EVAL_EMPTY_MERGE')
     first=results[0]
     keys=('collection_digest','model_config_digest','checkpoint_sha','protocol_digest','metric_contract_digest','method','epoch','execution_kind','shard_count')
+    keys=keys+tuple(k for k in ('target_identity_digest','target_policy_digest','code_sha','baseline_reference','metric_revision') if k in first)
     assignments=case_assignments(protocol,first['shard_count'])
     require(len(results)==first['shard_count'] and {r['shard_index'] for r in results}==set(range(first['shard_count'])),'EVAL_MISSING_SHARD')
     for r in results:
-        require(all(r[k]==first[k] for k in keys),'EVAL_MIXED_IDENTITY')
+        require(all(r.get(k)==first[k] for k in keys),'EVAL_MIXED_IDENTITY')
         require(r['protocol_digest']==protocol['content_sha256'] and r['collection_digest']==protocol['collection_digest'] and
                 r['metric_contract_digest']==content_hash(contract),'EVAL_DIGEST')
         require(r['expected_case_ids']==assignments[r['shard_index']],'EVAL_ASSIGNMENT'); validate_rows(r,protocol)
@@ -290,6 +338,9 @@ def merge_results(paths,protocol_path,metric_contract,benchmark_root,output, *, 
         'merged':True,'shard_index':None,'monitor_score':sum(sum(v)/len(v) for v in grouped.values())/len(grouped) if grouped else None,
         'undefined_case_count':sum(r['jf'] is None for r in rows),
         'primary_score':None,'primary_reason':'FULL_REPLAY_RESULTS_REQUIRED','source_artifacts':[{'path':str(Path(p).resolve()),'sha256':sha256(p)} for p in paths]}
+    if protocol['scope']!='monitor': merged['monitor_score']=None
+    merged.update(monitor_metric=MONITOR if protocol['scope']=='monitor' else None,
+                  monitor_jf_proxy=merged['monitor_score'],raw_metrics=raw_macro(rows))
     if replay:
         baseline=read_result(replay); validate_rows(baseline,protocol)
         require(baseline.get('merged') and baseline['method']=='full_replay' and baseline['scope']==protocol['scope'] and
@@ -297,13 +348,10 @@ def merge_results(paths,protocol_path,metric_contract,benchmark_root,output, *, 
                 all(baseline[k]==merged[k] for k in ('collection_digest','protocol_digest','metric_contract_digest','execution_kind')),'REPLAY_CONTRACT')
         if protocol['scope']=='full_development':
             # Official implementation performs object -> video -> ratio -> fraction mean.
-            method_rows=[r for r in merged['rows'] if r['jf'] is not None]
-            replay_rows=[r for r in baseline['rows'] if r['jf'] is not None]
-            try:
-                merged['retention']=metric.selection_score(method_rows,replay_rows)
-                merged['primary_score']=merged['retention']['score']; merged['primary_reason']=None
-            except ZeroDivisionError:
-                merged['primary_reason']='NO_DEFINED_NONZERO_REPLAY_VIDEO_FOR_FRACTION'
+            for key in ('target_identity_digest','target_policy_digest'):
+                require(key in baseline and key in merged and baseline[key]==merged[key],'REPLAY_TARGET_IDENTITY')
+            merged['retention']=canonical_retention(metric,merged['rows'],baseline['rows'])
+            merged['primary_score']=merged['retention']['score']; merged['primary_reason']=merged['retention']['reason']
             merged['replay_artifact']={'path':str(Path(replay).resolve()),'sha256':sha256(replay)}
     output=Path(output)
     with ExclusiveWriter(output):
@@ -341,22 +389,25 @@ class EarlyStopping:
 
 
 def consume_monitor_results(output,early,identity,events):
+    from .lvos_jobs import read_request
     output=Path(output)
-    requests=sorted((output/'evaluation/requests').glob('epoch-*.json'))
+    requests=sorted((output/'evaluation/requests').glob('epoch-[0-9][0-9][0-9][0-9][0-9].json'))
+    verified=[(path,*read_request(output,path)) for path in requests]
     processed=0
-    for path in requests:
-        request=json_read(path); epoch=request['epoch']
+    for path,request,protocol in verified:
+        epoch=request['epoch']
         if epoch==0 or epoch in early.consumed:
             continue
         result_path=output/f'evaluation/results/epoch-{epoch:05d}/result.json'
         if not result_path.exists():
             break
         try:
-            result=read_result(result_path); protocol=read_manifest(request['protocol'])
+            result=read_result(result_path)
             validate_rows(result,protocol)
             require(result.get('merged') and result['scope']=='monitor' and result['method']=='learned' and
                 set(result['expected_case_ids'])==set(protocol['expected_case_ids']) and result['epoch']==epoch and
                 result['checkpoint_sha']==request['checkpoint_sha'] and
+                result.get('code_sha')==identity['code_sha'] and
                 result['collection_digest']==identity['collection_digest'] and result['model_config_digest']==identity['model_config_digest'] and
                 result['protocol_digest']==protocol['content_sha256'] and
                 result['metric_contract_digest']==identity['metric_contract_digest'],'MONITOR_RESULT_IDENTITY')
@@ -368,7 +419,7 @@ def consume_monitor_results(output,early,identity,events):
         except (ValueError,KeyError,OSError) as exc:
             events.emit('monitor_rejected',epoch=epoch,status='FAIL',reason_code=getattr(exc,'code','INVALID_MONITOR_RESULT'),evidence_paths=[str(result_path)])
             break  # 수정 대기. 누락 event를 건너뛰어 patience를 진행하지 않는다.
-    return sum(json_read(p)['epoch']!=0 and json_read(p)['epoch'] not in early.consumed for p in requests)
+    return sum(r['epoch']!=0 and r['epoch'] not in early.consumed for _,r,_ in verified)
 
 
 def shortlist(paths,output):
@@ -384,12 +435,13 @@ def shortlist(paths,output):
     trained=[r for r in rows if r['epoch']>0]; trained.sort(key=lambda r:(-r['monitor_score'],r['epoch']))
     require(trained,'SHORTLIST_NO_TRAINED')
     result={'rule':'top_3_distinct_trained_epochs_by_frozen_monitor_score; exhaustive monitor shortlist only',
+            'monitor_metric':MONITOR,'monitor_scale':[0,1],
             'identity':{k:first[k] for k in ('collection_digest','model_config_digest','metric_contract_digest')},
             'candidates':[{k:r[k] for k in ('epoch','checkpoint','checkpoint_sha','monitor_score')} for r in trained[:3]]}
     write_json(output,result); return result
 
 
-def select_best(paths,protocol_path,metric_contract,output, *, shortlist_path):
+def select_best(paths,protocol_path,metric_contract,output, *, shortlist_path,benchmark_root=None):
     protocol=read_manifest(protocol_path); contract=json_read(metric_contract)
     require(protocol['scope']=='full_development' and not protocol['synthetic'],'BEST_REQUIRES_REAL_FULL_DEV')
     require(contract.get('approved_by') and contract.get('export_approved_by') and
@@ -411,6 +463,17 @@ def select_best(paths,protocol_path,metric_contract,output, *, shortlist_path):
             payload['identity']['collection_digest']==r['collection_digest'] and
             payload['identity']['model_config_digest']==r['model_config_digest'],'BEST_CHECKPOINT_IDENTITY')
     best=best_candidate(results)
+    require(benchmark_root,'FINAL_CANONICAL_REDUCER_REQUIRED')
+    metric=benchmark_module(benchmark_root,contract)
+    for result in results:
+        replay=result.get('replay_artifact'); require(replay,'FINAL_REPLAY_EVIDENCE_REQUIRED')
+        require(sha256(replay['path'])==replay['sha256'],'FINAL_REPLAY_CHANGED')
+        denominator=read_result(replay['path']); validate_rows(denominator,protocol)
+        require(denominator.get('merged') and denominator['method']=='full_replay' and
+                all(denominator[k]==result[k] for k in ('protocol_digest','collection_digest','metric_contract_digest',
+                                                     'target_identity_digest','target_policy_digest')),'FINAL_REPLAY_IDENTITY')
+        computed=canonical_retention(metric,result['rows'],denominator['rows'])
+        require(computed['score'] is not None and abs(computed['score']-result['primary_score'])<1e-9,'FINAL_PRIMARY_CHANGED')
     output=Path(output)
     with ExclusiveWriter(output):
         require(not (output/'best_model.pth').exists(),'BEST_ALREADY_PUBLISHED')
@@ -420,7 +483,14 @@ def select_best(paths,protocol_path,metric_contract,output, *, shortlist_path):
         from .lvos_contract import validate_model_lock
         validate_model_lock(payload['model_lock'])
         selection={'rule':'complete frozen full-development shortlist only; tie 1e-6 earlier epoch',
-            'candidates':[{k:r[k] for k in ('epoch','primary_score','checkpoint_sha','checkpoint','monitor_score')} for r in results],
+            'selection_claim':'best among evaluated shortlist; not global best epoch',
+            'execution_kind':'gpu_real_checkpoint','protocol_digest':protocol['content_sha256'],
+            'metric_contract_digest':content_hash(contract),
+            'coverage':{'expected_cases':len(protocol['expected_case_ids']),'completed_cases':len(best['rows']),
+                        'scope':'full_development','evaluated_candidates':len(results)},
+            'candidates':[{**{k:r[k] for k in ('epoch','primary_score','checkpoint_sha','checkpoint')},
+                           'shortlist_monitor_jf_proxy':next(c['monitor_score'] for c in allowed if c['epoch']==r['epoch'])}
+                          for r in results],
             'winner_epoch':best['epoch'],'evidence':[{'path':str(Path(p).resolve()),'sha256':sha256(p)} for p in paths],
             'limitations':'trained-candidate winner; improvement over epoch-0/direct copy requires their actual comparable results'}
         write_json(output/'selection.json',selection)

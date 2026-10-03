@@ -8,9 +8,10 @@ from .collection_contract import require
 from .training_storage import write_json, content_hash, sha256, ExclusiveWriter
 from .training_runner import code_provenance, rng_state, restore_rng
 from .lvos_contract import (model_lock, validate_model_lock, json_read, evidence, verify_evidence,
-                            resources, save_complete, load_complete, Events)
+                            resources, save_complete, load_complete, Events, safety_suite_hash)
 from .lvos_snapshot import verify_snapshot, record_loader
 from .lvos_training import LVOSConfig, component_objective, fit_rms, forward_batch, optimizer_groups, make_scheduler
+from .lvos_budget import Deadline, BudgetStop, check
 
 
 def loss_gate():
@@ -41,14 +42,15 @@ def loss_gate():
             'pointer_element_weight_independent':True,'partial_window_records':3}
 
 
-def connectivity_gate(root,lock,output,device):
-    snapshot=verify_snapshot(root)
+def connectivity_gate(root,lock,output,device,deadline=None):
+    snapshot=verify_snapshot(root,deadline=deadline)
     model=validate_model_lock(lock).to(device); cfg=LVOSConfig(microbatch=1,workers=0,pin_memory=False)
-    scales=fit_rms(root,cfg); batch=next(iter(record_loader(root,'fit',microbatch=1,workers=0,pin_memory=False,shuffle=False)))
+    scales=fit_rms(root,cfg,deadline); batch=next(iter(record_loader(root,'fit',microbatch=1,workers=0,pin_memory=False,shuffle=False,deadline=deadline)))
     optimizer=torch.optim.AdamW(optimizer_groups(model,cfg.weight_decay)[0],lr=cfg.lr)
     trajectory=[]; deltas=[]; initial={n:p.detach().clone() for n,p in model.named_parameters()}
     norms=[]
     for step in range(3):
+        check(deadline,'gate_connectivity_step')
         optimizer.zero_grad(set_to_none=True); _,_,loss=forward_batch(model,batch,device,scales,cfg)
         require(torch.isfinite(loss),'G2_NONFINITE_LOSS'); loss.backward()
         require(all(p.grad is None or torch.isfinite(p.grad).all() for p in model.parameters()),'G2_NONFINITE_GRAD')
@@ -66,11 +68,12 @@ def connectivity_gate(root,lock,output,device):
     return snapshot
 
 
-def roundtrip_gate(root,lock,output,device):
+def roundtrip_gate(root,lock,output,device,deadline=None):
     model=validate_model_lock(lock).to(device); cfg=LVOSConfig(microbatch=1,workers=0,pin_memory=False)
-    scales=fit_rms(root,cfg); batch=next(iter(record_loader(root,'fit',microbatch=1,workers=0,pin_memory=False,shuffle=False)))
+    scales=fit_rms(root,cfg,deadline); batch=next(iter(record_loader(root,'fit',microbatch=1,workers=0,pin_memory=False,shuffle=False,deadline=deadline)))
     opt=torch.optim.AdamW(optimizer_groups(model,cfg.weight_decay)[0],lr=cfg.lr); sched=make_scheduler(opt,cfg,5)
     def step(m,o,s):
+        check(deadline,'gate_roundtrip_step')
         o.zero_grad(set_to_none=True); forward_batch(m,batch,device,scales,cfg)[2].backward(); o.step(); s.step()
     step(model,opt,sched)
     path=Path(output)/'roundtrip.ckpt'
@@ -90,7 +93,8 @@ def roundtrip_gate(root,lock,output,device):
 
 
 def run_gates(output, *, root=None, lock=None, device='cpu', metric_contract=None, handoff_result=None, cpu_test_report=None,
-              max_wall_seconds=None,direct_copy_result=None):
+              max_wall_seconds=None,direct_copy_result=None,deadline=None):
+    deadline = deadline or Deadline(max_wall_seconds)
     output=Path(output); records=[]
     identity={'run_id':output.name,'code_sha':code_provenance()['package_source_sha256'],
               'model_config_digest':lock.get('digest') if lock else None,'collection_digest':None}
@@ -107,9 +111,13 @@ def run_gates(output, *, root=None, lock=None, device='cpu', metric_contract=Non
                 record={'gate_id':gate,'status':'BLOCKED','reason_code':missing,'execution_kind':kind,'evidence':[]}
             else:
                 try:
-                    require(max_wall_seconds is None or time.perf_counter()-started_all<max_wall_seconds,'GATE_TIME_LIMIT')
+                    check(deadline,'gate_'+gate)
                     fn()
+                    check(deadline,'gate_'+gate+'_complete')
                     record={'gate_id':gate,'status':'PASS','reason_code':None,'execution_kind':kind,'evidence':evidence(paths)}
+                except BudgetStop as exc:
+                    path=output/f'{gate}-budget.json'; write_json(path,{'incomplete_stage':exc.stage})
+                    record={'gate_id':gate,'status':'BLOCKED','reason_code':'BUDGET_STOP','execution_kind':kind,'evidence':evidence([path])}
                 except Exception as exc:
                     path=output/f'{gate}-failure.json'; write_json(path,{'detail':str(exc),'reason_code':getattr(exc,'code','GATE_FAILURE')})
                     record={'gate_id':gate,'status':'FAIL','reason_code':getattr(exc,'code','GATE_FAILURE'),'execution_kind':kind,'evidence':evidence([path])}
@@ -122,14 +130,14 @@ def run_gates(output, *, root=None, lock=None, device='cpu', metric_contract=Non
         run('G0',config_gate,[output/'G0.json'],missing='MODEL_AND_METRIC_FREEZE_INPUT_MISSING' if not lock or not lock.get('approved_by') or not metric_contract or not json_read(metric_contract).get('approved_by') else None)
         def audit():
             nonlocal snapshot
-            snapshot=verify_snapshot(root); require(not snapshot['synthetic'] and snapshot['state']=='ready','REAL_FULL_AUDIT_REQUIRED')
+            snapshot=verify_snapshot(root,deadline=deadline); require(not snapshot['synthetic'] and snapshot['state']=='ready','REAL_FULL_AUDIT_REQUIRED')
             write_json(output/'G1.json',{'snapshot_digest':snapshot['content_sha256'],'audit':json_read(Path(root)/'audit.json')})
         run('G1',audit,[output/'G1.json'],'cpu_real_cache',missing='REAL_CACHE_SNAPSHOT_REQUIRED' if not root or not (Path(root)/'snapshot.json').exists() or json_read(Path(root)/'snapshot.json').get('synthetic') else None)
         real_gpu=bool(root and snapshot and not snapshot['synthetic'] and torch.device(device).type=='cuda' and torch.cuda.is_available() and lock and lock.get('approved_by'))
         missing=None if real_gpu else 'REAL_CACHE_APPROVED_MODEL_AND_GPU_REQUIRED'
-        run('G2',lambda:connectivity_gate(root,lock,output/'G2.json',device),[output/'G2.json'],'gpu_real_checkpoint',missing)
+        run('G2',lambda:connectivity_gate(root,lock,output/'G2.json',device,deadline),[output/'G2.json'],'gpu_real_checkpoint',missing)
         run('G3',lambda:write_json(output/'G3.json',loss_gate()),[output/'G3.json'])
-        run('G4',lambda:roundtrip_gate(root,lock,output/'G4',device),[output/'G4/roundtrip.json',output/'G4/roundtrip.ckpt'],'gpu_real_checkpoint',missing)
+        run('G4',lambda:roundtrip_gate(root,lock,output/'G4',device,deadline),[output/'G4/roundtrip.json',output/'G4/roundtrip.ckpt'],'gpu_real_checkpoint',missing)
         def handoff():
             from .lvos_evaluation import read_result, validate_rows
             from .training_data import read_manifest
@@ -156,7 +164,7 @@ def run_gates(output, *, root=None, lock=None, device='cpu', metric_contract=Non
             value=json_read(cpu_test_report)
             verify_evidence(value['evidence']); require(value['exit_code']==0 and value['suite']=='lvos_pipeline' and value['tests']>0,'CPU_TEST_REPORT')
             require(value['tested_source_sha256']==identity['code_sha'] and
-                    value['tested_suite_sha256']==sha256(Path(__file__).resolve().parents[2]/'tests/test_lvos_pipeline.py'),'STALE_CPU_TEST_EVIDENCE')
+                    value['tested_suite_sha256']==safety_suite_hash(),'STALE_CPU_TEST_EVIDENCE')
             write_json(output/'G6.json',value)
         run('G6',safety,[output/'G6.json'],missing='EXECUTED_CPU_SAFETY_TEST_REPORT_REQUIRED' if not cpu_test_report else None)
         report={'schema_version':'cmmt.lvos_gates.v1','identity':identity,'gates':records,'unattended_training_ready':False}

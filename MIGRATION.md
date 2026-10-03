@@ -62,3 +62,10 @@ ZIP와 실제 배포 source가 같다는 증거도 아직 없다. 원본 ZIP 및
 - 기존 원격 `main`과 로컬 checkout의 commit이 일치하며, 원격 branch는 `main` 하나이고 tag는 없다. 원본 이력 백업 `.external/archives/vos-memory-translator-nonlinear-before-v2.bundle`을 만들고 `git bundle verify`로 검증했다. 이 bundle은 기존 로컬 작업공간에만 있다.
 - **기존 GitHub 저장소 삭제는 미완료**다. GitHub REST 삭제 요청은 `403 Must have admin rights to Repository`로 거절됐다. 브라우저 UI 진입도 자동 승인 검토에서 거절돼 우회하지 않았다. 저장소 관리자 계정으로 기존 저장소의 Settings → General → Danger Zone에서 삭제해야 한다. 그전에는 기존 저장소와 Pages가 남아 있다.
 - 기존 로컬 checkout의 `origin`은 해제했다. 코드, 미커밋 변경, Git 이력과 위 bundle은 그대로 보존하며 새 저장소 `v2/`만 새 원격에 연결한다.
+
+## 2026-10-03 LVOS benchmark bridge 출처
+
+- `vos-memory-benchmark`의 `feature/best_model_selection` revision `bcf0a0f6a36c4129d487e5e58e151468d7ca714b` (`best_model.py`, 작성자 RohSeongmin)을 canonical J/F 및 three-fraction `selection_score`의 실행 reference로 사용한다.
+- 별도 `feature/baseline` revision `dcd335380dbe62f3299dbc5d4456b5ac8a12b4b4` (`baseline/no_handoff.py`, `main_metrics.py`, 작성자 RohSeongmin)의 Full Replay entrypoint와 legacy pooled reducer를 확인했다. 원본 repository를 수정하지 않는다.
+- `tests/fixtures/benchmark_metric.py`, `benchmark_full_replay.py`, `benchmark_legacy_metrics.py`는 위 원본 파일을 CPU regression용으로 보존한 사본이다. Canonical source hashes와 pins는 `configs/lvos_benchmark_reference_lock.json`에 둔다. 이 파일들의 설명에서 Full Replay를 상한으로 부르는 원문은 원본 출처이며 이번 연구의 수학적 상한 주장이 아니다.
+- 신규 `lvos_benchmark.py`, `lvos_metrics.py`는 frozen membership/prompt/provenance와 training output 계약에 연결하는 adapter다. 원저작 기여를 이번 commit 작성자의 신규 모델/metric으로 표기하지 않는다. Fixed model revision `746ea3e7d84c366c2d7ac06159e90a1f684bca56`의 architecture body와 frozen split은 이번 repair에서 변경하지 않았다.

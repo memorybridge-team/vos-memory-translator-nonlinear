@@ -1,5 +1,7 @@
 # LVOS 고정 모델 pipeline 로컬 구현·검증 보고
 
+> f77965b 기준의 역사적 보고서다. Full Replay generator와 metric 연결의 최신 정정/구현은 [LVOS integration 보고서](LVOS_INTEGRATION_REPORT_2026-10-03.md)를 따른다. 아래 과거 판단과 검증 기록은 보존한다.
+
 **2026-10-03 KST · READY_AFTER_INPUTS · branch `feat/lvos-training-gates`**
 
 요청한 문서와 당일 추가 지시에 따라 로컬 구현·CPU 검사·로컬 commit까지 수행했다. 실제 LVOS cache/Small·Base+ weights/현재 SSH endpoint는 제공되지 않았다. GPU·원격 배포·push/PR·Pod 변경·기존 수집 변경은 수행하지 않았다. 최종 commit과 patch/source artifact SHA는 공유용 `outputs/LVOS_FINAL_HANDOFF_2026-10-03.json`에 기록한다.

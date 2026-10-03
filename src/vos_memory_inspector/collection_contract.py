@@ -26,7 +26,7 @@ def require(condition, code, detail=""):
         raise Rejection(code, detail)
 
 
-def jpeg_map(video: Path, *, hash_pixels=True):
+def jpeg_map(video: Path, *, hash_pixels=True, deadline=None):
     """JPEG만 numeric 정렬한다. sparse 공식 ID는 연속 runtime index와 다르다."""
     frames = [p for p in Path(video).iterdir() if p.is_file() and p.suffix.lower() in {".jpg", ".jpeg"}]
     require(bool(frames), "NO_JPEG", str(video))
@@ -34,8 +34,11 @@ def jpeg_map(video: Path, *, hash_pixels=True):
     frames.sort(key=lambda p: int(p.stem))
     ids = [int(p.stem) for p in frames]
     require(len(set(ids)) == len(ids), "DUPLICATE_FRAME_ID")
-    records = [{"runtime_index": i, "official_id": int(p.stem), "filename": p.name,
-                **({"sha256": sha256(p)} if hash_pixels else {})} for i, p in enumerate(frames)]
+    records = []
+    for i,p in enumerate(frames):
+        if deadline is not None: deadline.check('rgb_frame_hash')
+        records.append({"runtime_index":i,"official_id":int(p.stem),"filename":p.name,
+                        **({"sha256":sha256(p)} if hash_pixels else {})})
     return frames, records
 
 

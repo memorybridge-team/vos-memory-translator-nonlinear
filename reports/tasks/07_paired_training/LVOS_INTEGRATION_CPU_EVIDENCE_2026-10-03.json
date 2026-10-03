@@ -1,0 +1,109 @@
+{
+  "schema_version": "cmmt.lvos_local_evidence.v1",
+  "date": "2026-10-03",
+  "status": "READY_AFTER_INPUTS",
+  "execution_kind": "cpu_synthetic",
+  "python": "3.14.0",
+  "torch": "2.14.0+cpu",
+  "cuda_available": false,
+  "tested_source_sha256": "00413bbfe9b3421a506a8c550cc577135da49448b939d678b539eef63a096ac3",
+  "tested_suite_sha256": "dc9c2b2c53d2392be074428ada9b1ee7df1d883ff9085a7eddfd6ee3de2836d1",
+  "cpu_tests": 77,
+  "cpu_seconds": 250.01249989995267,
+  "guide_cli_blocks": 29,
+  "help_commands": 24,
+  "cpu_json_helpers": 2,
+  "planner_fixture_jobs": 4,
+  "gates": [
+    {
+      "gate_id": "G0",
+      "status": "BLOCKED",
+      "reason_code": "MODEL_AND_METRIC_FREEZE_INPUT_MISSING",
+      "execution_kind": "cpu_synthetic"
+    },
+    {
+      "gate_id": "G1",
+      "status": "BLOCKED",
+      "reason_code": "REAL_CACHE_SNAPSHOT_REQUIRED",
+      "execution_kind": "cpu_real_cache"
+    },
+    {
+      "gate_id": "G2",
+      "status": "BLOCKED",
+      "reason_code": "REAL_CACHE_APPROVED_MODEL_AND_GPU_REQUIRED",
+      "execution_kind": "gpu_real_checkpoint"
+    },
+    {
+      "gate_id": "G3",
+      "status": "PASS",
+      "reason_code": null,
+      "execution_kind": "cpu_synthetic"
+    },
+    {
+      "gate_id": "G4",
+      "status": "BLOCKED",
+      "reason_code": "REAL_CACHE_APPROVED_MODEL_AND_GPU_REQUIRED",
+      "execution_kind": "gpu_real_checkpoint"
+    },
+    {
+      "gate_id": "G5",
+      "status": "BLOCKED",
+      "reason_code": "REAL_TARGET_IDENTITY_AND_DIRECT_COPY_RESULTS_REQUIRED",
+      "execution_kind": "gpu_real_checkpoint"
+    },
+    {
+      "gate_id": "G6",
+      "status": "PASS",
+      "reason_code": null,
+      "execution_kind": "cpu_synthetic"
+    }
+  ],
+  "artifact_locator": "shared outputs directory; logs/weights/views are not tracked in Git",
+  "artifacts": [
+    {
+      "logical_path": "lvos_integration_full_regression.log",
+      "bytes": 276,
+      "sha256": "44ed2b6ec4d38aa2de1890d0fe8943e1300eee5f84f0902e2ec890f998c0d3bf"
+    },
+    {
+      "logical_path": "lvos_integration_full_regression.xml",
+      "bytes": 24110,
+      "sha256": "541615da94fadc87a831a59d8ed00df52cf3775fb54c6be15a5f456563aeef07"
+    },
+    {
+      "logical_path": "lvos_final_request_checks.log",
+      "bytes": 127,
+      "sha256": "6eb120da298674903a00408b9ef96de0cd7515f91e5e0ac168d1def2709e7a2c"
+    },
+    {
+      "logical_path": "lvos_final_request_checks.xml",
+      "bytes": 1976,
+      "sha256": "c4d93f0a04e3a43c2f3dab1933e3f6c08979d5d33134e2f102de183bd91afbcf"
+    },
+    {
+      "logical_path": "lvos_integration_cpu_verified/report.json",
+      "bytes": 1414,
+      "sha256": "90ba686bbbafb94abd8ae98d4ab0c4e1e10556db4dd8ba08187c5cda0c4776b4"
+    },
+    {
+      "logical_path": "lvos_integration_cpu_verified/pytest.log",
+      "bytes": 194,
+      "sha256": "adb4cd64c1f037fe485b664baca7bca639d0fbfe686032b43463de389cbbca1f"
+    },
+    {
+      "logical_path": "lvos_integration_cpu_verified/junit.xml",
+      "bytes": 9495,
+      "sha256": "82ef311581d6462facd9f04c3529a7c6777f0dfdb72ec227e47f3413b1677a97"
+    },
+    {
+      "logical_path": "lvos_integration_cpu_gates/gates.json",
+      "bytes": 2468,
+      "sha256": "ae40d839f62d34b60c34442f8ddc6697f595d9d0102949bb18a8b5c422873583"
+    },
+    {
+      "logical_path": "lvos_integration_doc_verified/report.json",
+      "bytes": 8344,
+      "sha256": "91360713e2e71ff20fa77721f80755640ff6a50458761fb4c3d5af3b75720ecd"
+    }
+  ]
+}

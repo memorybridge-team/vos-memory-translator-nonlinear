@@ -13,6 +13,7 @@ from .training_data import read_manifest, save_manifest
 from .training_storage import sha256, content_hash, write_json, write_tensor_file, ExclusiveWriter
 from .transformer_translator import SAM21_MEMORY_SPEC
 from .lvos_contract import json_read
+from .lvos_budget import check
 
 FIELDS = ('source_spatial', 'target_spatial', 'source_pointer', 'target_pointer', 'frame', 'slot', 'conditioning')
 
@@ -153,20 +154,24 @@ def build_snapshot(requests, selection, output, *, trusted=False, stable_seconds
         return read_manifest(output/'snapshot.json')
 
 
-def verify_snapshot(root, *, hashes=True):
+def verify_snapshot(root, *, hashes=True, deadline=None):
+    check(deadline,'snapshot_start')
     root = Path(root)
     value = read_manifest(root/'snapshot.json')
     require(value['state'] in {'ready','pilot_ready'} and sha256(root/'audit.json')==value['audit_sha256'], 'SNAPSHOT_AUDIT_CHANGED')
     for entry in value['shards']:
+        check(deadline,'snapshot_shard_hash')
         path = root/entry['path']
         require(stamp(path)==entry['stamp'] and Path(str(path)+'.complete.json').is_file(), 'SNAPSHOT_CHANGED', str(path))
         require(json_read(str(path)+'.complete.json')==entry, 'VIEW_COMPLETION_CHANGED')
         if hashes:
             require(sha256(path)==entry['sha256'], 'VIEW_CHECKSUM', str(path))
     for origin in value['origins']:
+        check(deadline,'snapshot_origin_hash')
         require(stamp(origin['path'])==origin['stamp'], 'ORIGINAL_CHANGED', origin['path'])
         if hashes:
             require(sha256(origin['path'])==origin['sha256'], 'ORIGINAL_CHECKSUM')
+    check(deadline,'snapshot_complete')
     return value
 
 
@@ -188,10 +193,11 @@ def collate_records(rows):
 
 
 class RecordStream(IterableDataset):
-    def __init__(self, root, split, epoch=0, seed=7, shuffle=True):
+    def __init__(self, root, split, epoch=0, seed=7, shuffle=True, deadline=None):
         self.root, self.split, self.seed, self.shuffle = Path(root), split, seed, shuffle
+        self.deadline = deadline
         self.epoch_shared = multiprocessing.Value('q', epoch)
-        self.manifest = verify_snapshot(root, hashes=False)
+        self.manifest = verify_snapshot(root, hashes=False, deadline=deadline)
         self.manifest_hash = sha256(self.root/'snapshot.json')
     @property
     def epoch(self):
@@ -216,9 +222,11 @@ class RecordStream(IterableDataset):
         worker, count = (info.id,info.num_workers) if info else (0,1)
         assigned=[e for group in self.group_order()[worker::count] for e in group]
         for entry in assigned:
+            check(self.deadline,'loader_shard_before')
             path = self.root/entry['path']
             require(stamp(path)==entry['stamp'],'SNAPSHOT_CHANGED',str(path))
             payload = torch.load(path,map_location='cpu',weights_only=True)
+            check(self.deadline,'loader_shard_after')
             require(stamp(path)==entry['stamp'],'SNAPSHOT_CHANGED_DURING_READ')
             for i in range(entry['records']):
                 yield {**{k:payload[k][i] for k in FIELDS},'ref':payload['refs'][i]}
@@ -229,8 +237,8 @@ class RecordStream(IterableDataset):
         return sum(math.ceil(sum(e['records'] for group in groups[i::max(1,workers)] for e in group)/microbatch) for i in range(max(1,workers)))
 
 
-def record_loader(root, split, *, epoch=0, seed=7, microbatch=16, workers=4, prefetch_factor=2, pin_memory=True, shuffle=True):
-    stream = RecordStream(root,split,epoch,seed,shuffle)
+def record_loader(root, split, *, epoch=0, seed=7, microbatch=16, workers=4, prefetch_factor=2, pin_memory=True, shuffle=True, deadline=None):
+    stream = RecordStream(root,split,epoch,seed,shuffle,deadline)
     kwargs = {'num_workers':workers,'pin_memory':pin_memory,'collate_fn':collate_records,'drop_last':False}
     if workers:
         kwargs.update(prefetch_factor=prefetch_factor,persistent_workers=True)

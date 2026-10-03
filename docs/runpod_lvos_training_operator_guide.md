@@ -1,3 +1,5 @@
+> **갱신 2026-10-03:** 이 문서는 `f77965b` 당시의 기록입니다. 현재 integration의 source-lock/worker/budget CLI는 [새 운영 가이드](runpod_lvos_integration_operator_guide.md)를 따릅니다. 아래 과거 GPU 명령은 현재 runtime에 바로 적용하지 않습니다.
+
 # LVOS paired-state → 학습 → no-replay 평가 운영 가이드
 
 - 날짜: **2026-10-03 KST**

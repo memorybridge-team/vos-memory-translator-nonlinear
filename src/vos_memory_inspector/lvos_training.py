@@ -6,6 +6,7 @@ import math
 import time
 import random
 from collections import Counter
+from contextlib import nullcontext
 import torch
 
 from .training_storage import content_hash, write_json, ExclusiveWriter
@@ -13,6 +14,8 @@ from .training_runner import rng_state, restore_rng, code_provenance
 from .lvos_contract import validate_model_lock, save_complete, load_complete, Events, resources, json_read
 from .lvos_snapshot import verify_snapshot, record_loader, RecordStream
 from .collection_contract import require
+from .lvos_budget import Deadline, BudgetStop, check
+from .lvos_checkpoint import CheckpointStore
 
 
 @dataclass
@@ -59,13 +62,15 @@ def component_objective(pred_spatial, pred_pointer, target_spatial, target_point
     return raw, normalized, total
 
 
-def fit_rms(root, config):
+def fit_rms(root, config, deadline=None):
     totals = {'spatial':[0.,0],'pointer':[0.,0]}
-    for batch in record_loader(root,'fit',workers=0,microbatch=config.microbatch,pin_memory=False,shuffle=False):
+    for batch in record_loader(root,'fit',workers=0,microbatch=config.microbatch,pin_memory=False,shuffle=False,deadline=deadline):
+        check(deadline,'fit_rms_batch')
         for name in totals:
             value = batch.tensors['target_'+name].double()
             totals[name][0] += float(value.square().sum()); totals[name][1] += value.numel()
     require(all(n for _,n in totals.values()), 'EMPTY_FIT_STATS')
+    check(deadline,'fit_rms_complete')
     return {k:math.sqrt(total/count) for k,(total,count) in totals.items()}
 
 
@@ -110,14 +115,16 @@ def forward_batch(model, batch, device, scales, config, timing=None, synchronize
     return raw, normalized, loss
 
 
-def state_dev(model, root, device, scales, config):
+def state_dev(model, root, device, scales, config, deadline=None):
     model.eval(); totals = {'spatial_mse':0.,'pointer_mse':0.,'loss':0.}; count = 0
     with torch.no_grad():
-        for batch in record_loader(root,'development',workers=0,microbatch=config.microbatch,pin_memory=False,shuffle=False):
+        for batch in record_loader(root,'development',workers=0,microbatch=config.microbatch,pin_memory=False,shuffle=False,deadline=deadline):
+            check(deadline,'state_dev_batch')
             raw,_,loss = forward_batch(model,batch,device,scales,config)
             for key,value in (('spatial_mse',raw['spatial']),('pointer_mse',raw['pointer']),('loss',loss)):
                 totals[key] += float(value)*len(batch)
             count += len(batch)
+    check(deadline,'state_dev_complete')
     return {k:v/count for k,v in totals.items()}|{'records':count} if count else {'records':0,'loss':None,'reason':'NO_DEVELOPMENT_RECORDS'}
 
 
@@ -135,8 +142,24 @@ def load_model_checkpoint(path, device='cpu'):
     return model.to(device).eval(), payload, entry
 
 
-def train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', mode='train', resume=None,
-                   gates=None, monitor_protocol=None, metric_contract=None):
+def train_snapshot(root, lock, output, config: LVOSConfig, *, deadline=None, **kwargs):
+    deadline = deadline or Deadline(config.max_wall_seconds)
+    output = Path(output)
+    with ExclusiveWriter(output):
+        try:
+            return _train_snapshot(root,lock,output,config,deadline=deadline,**kwargs)
+        except BudgetStop as exc:
+            last = json_read(output/'last.ckpt.json') if (output/'last.ckpt.json').exists() else None
+            value = {'status':'STOPPED','reason':'budget_stop','incomplete_stage':exc.stage,
+                     'training_status':'STOPPED','evaluation_status':'PENDING_OR_NOT_REQUESTED',
+                     'last_complete_checkpoint':last,'duration_seconds':deadline.elapsed(),
+                     'partial_dev_is_complete':False}
+            write_json(output/'STOPPED.json',value); write_json(output/'STATUS.json',value)
+            return []
+
+
+def _train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', mode='train', resume=None,
+                   gates=None, monitor_protocol=None, metric_contract=None, deadline=None, evaluation_callback=None):
     require(config.lr>0 and config.microbatch>0 and config.accumulation>0 and config.max_epochs>0 and config.workers>=0,
             'TRAIN_CONFIG')
     require(config.precision=='fp32' and config.augmentation=='none' and config.lambda_cos==0, 'V1_PRECISION_OR_AUGMENTATION')
@@ -145,12 +168,13 @@ def train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', m
     require(config.monitor_every>0 and config.max_outstanding_evaluations>0 and config.min_lr<=config.lr and
             config.clip_norm>0 and 0<=config.warmup_fraction<1 and config.lambda_spatial>=0 and config.lambda_pointer>=0,'TRAIN_CONFIG')
     require(not monitor_protocol or metric_contract,'METRIC_CONTRACT_REQUIRED')
-    require(mode!='initialize' or resume is None,'INITIALIZE_CANNOT_RESUME')
-    snapshot = verify_snapshot(root,hashes=True)
+    snapshot = verify_snapshot(root,hashes=True,deadline=deadline)
     if mode=='train' and not snapshot['synthetic']:
         from .lvos_gates import authorize_training
         authorize_training(gates,snapshot['content_sha256'],lock['digest'])
         require(snapshot['state']=='ready' and monitor_protocol and metric_contract, 'MAIN_TRAIN_INPUTS')
+        from .lvos_evaluation import validate_protocol_snapshot
+        validate_protocol_snapshot(snapshot,json_read(monitor_protocol))
     if mode=='overfit':
         require(len({c['case']['video_id'] for c in snapshot['cases'] if c['split']=='fit'})==1, 'OVERFIT_ONE_VIDEO')
     if torch.device(device).type=='cuda':
@@ -162,52 +186,63 @@ def train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', m
     model = validate_model_lock(lock).to(device)
     groups,names = optimizer_groups(model,config.weight_decay)
     optimizer = torch.optim.AdamW(groups,lr=config.lr)
-    planned = sum(math.ceil(RecordStream(root,'fit',epoch,config.seed).batch_count(config.microbatch,config.workers)/config.accumulation)
+    planned = sum(math.ceil(RecordStream(root,'fit',epoch,config.seed,deadline=deadline).batch_count(config.microbatch,config.workers)/config.accumulation)
                   for epoch in range(config.max_epochs))
     require(planned>0,'EMPTY_FIT')
     scheduler = make_scheduler(optimizer,config,planned)
     identity = {'run_id':Path(output).name,'code_sha':code_provenance()['package_source_sha256'],
+        'code_revision':code_provenance()['commit'],
         'model_config_digest':lock['digest'],'collection_digest':snapshot['content_sha256'],
         'config':asdict(config),'mode':mode,'planned_updates':planned,
         'monitor_protocol_digest':content_hash(json_read(monitor_protocol)) if monitor_protocol else None,
         'metric_contract_digest':content_hash(json_read(metric_contract)) if metric_contract else None}
     output = Path(output)
-    with ExclusiveWriter(output):
-        require(resume is not None or not (output/'config.json').exists(),'RUN_EXISTS')
+    with nullcontext():  # public wrapper owns the exclusive run lock, including preparation.
+        require(resume is not None or mode=='initialize' or not (output/'config.json').exists(),'RUN_EXISTS')
         events = Events(output,identity,kind)
-        started = time.perf_counter(); last_heartbeat = started
+        started = deadline.started; last_heartbeat = time.perf_counter()
         start_epoch,step,micro,history = 0,0,0,[]
         from .lvos_evaluation import EarlyStopping
         early = EarlyStopping(config.min_epochs,config.patience,config.min_delta)
-        if resume:
-            payload,_ = load_complete(resume)
-            require(payload['identity']==identity and payload['boundary']=='complete_epoch','RESUME_IDENTITY')
-            require((output/'last.ckpt.json').is_file(),'RESUME_RUN_MISSING')
-            last = json_read(output/'last.ckpt.json')
-            require(load_complete(output/last['path'])[0]['epoch']==payload['epoch'],'RESUME_NOT_LATEST')
+        store = CheckpointStore(output,identity)
+        check(deadline,'checkpoint_reconciliation')
+        recovered = store.reconcile() if resume or mode=='initialize' else None
+        if resume or recovered:
+            require(recovered is not None,'RESUME_RUN_MISSING')
+            payload,_ = recovered
+            require(mode!='initialize' or payload['epoch']==0,'INITIALIZE_EXISTING_TRAINED_RUN')
+            if resume and str(resume)!='latest':
+                requested,_ = load_complete(resume)
+                require(requested['identity']==identity and requested['epoch']<=payload['epoch'],'RESUME_IDENTITY')
             model.load_state_dict(payload['export']['state_dict'],strict=True)
             optimizer.load_state_dict(payload['optimizer']); scheduler.load_state_dict(payload['scheduler'])
             restore_rng(payload['rng'])
             scales,history,start_epoch,step = payload['scales'],payload['history'],payload['epoch'],payload['optimizer_step']
             early.restore(payload['early_state'])
-            if (output/'early_stopping.json').is_file():
-                early.restore(json_read(output/'early_stopping.json'))
-            require(start_epoch<config.max_epochs,'RESUME_EPOCH_LIMIT')
+            require(start_epoch<=config.max_epochs,'RESUME_EPOCH_LIMIT')
         else:
-            scales = fit_rms(root,config)
+            scales = fit_rms(root,config,deadline=deadline)
+        check(deadline,'training_setup_complete')
         write_json(output/'config.json', {'identity':identity,'model_lock':lock,'scales':scales,'parameter_groups':names,
             'group_parameter_counts':[sum(p.numel() for p in g['params']) for g in groups],'augmentation':'none'})
         write_json(output/'provenance.json',resources())
-        if not resume:
+        if history:
+            # A completed body may precede metric/pointer side effects at the crash boundary.
+            write_json(output/'metrics/train.json',history)
+            best_row=min(history,key=lambda r:r['dev'].get('loss') if r['dev'].get('loss') is not None else r['fit']['loss'])
+            _,best_entry=load_complete(output/f"checkpoints/epoch-{best_row['epoch']:05d}.ckpt")
+            write_json(output/'best_state_loss.ckpt.json',{k:('checkpoints/'+best_entry[k] if k=='path' else best_entry[k])
+                                                         for k in ('path','sha256','bytes')})
+        if recovered is None:
             init_payload = checkpoint_payload(model,optimizer,scheduler,identity,lock,scales,0,0,[],early.state())
-            init_entry=save_complete(output/'checkpoints/epoch-00000.ckpt',init_payload)
-            init_entry['path']='checkpoints/'+init_entry['path']; write_json(output/'last.ckpt.json',init_entry)
+            init_entry=store.publish(init_payload)
             if monitor_protocol:
-                write_json(output/'evaluation/requests/epoch-00000.json', {'epoch':0,'untrained':True,'checkpoint':str((output/'checkpoints/epoch-00000.ckpt').resolve()),
-                    'protocol':str(Path(monitor_protocol).resolve()),'metric_contract':str(Path(metric_contract).resolve())})
+                from .lvos_jobs import publish_request
+                publish_request(output,output/'checkpoints/epoch-00000.ckpt',monitor_protocol,metric_contract)
         events.emit('run_start',metrics={'resources':resources(),'planned_updates':planned,'scales':scales},evidence_paths=[str(output/'config.json')])
         write_json(output/'STATUS.json',{'status':'RUNNING','execution_kind':kind,'resume_epoch':start_epoch})
         if mode=='initialize':
+            init_entry = json_read(output/'last.ckpt.json')
             write_json(output/'INITIALIZED.json',{'epoch':0,'untrained':True,'execution_kind':kind,'checkpoint':'checkpoints/epoch-00000.ckpt'})
             write_json(output/'STATUS.json',{'status':'INITIALIZED','execution_kind':kind,'complete_epochs':0})
             events.emit('initialization_complete',epoch=0,checkpoint_sha=init_entry['sha256'],evidence_paths=[str(output/'INITIALIZED.json')])
@@ -215,7 +250,7 @@ def train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', m
         best_state = min((r['dev'].get('loss') if r['dev'].get('loss') is not None else r['fit']['loss'] for r in history),default=math.inf)
         reason = 'normal_completion'
         loader = record_loader(root,'fit',seed=config.seed,microbatch=config.microbatch,workers=config.workers,
-                    prefetch_factor=config.prefetch_factor,pin_memory=config.pin_memory)
+                    prefetch_factor=config.prefetch_factor,pin_memory=config.pin_memory,deadline=deadline)
         if torch.device(device).type=='cuda':
             torch.cuda.reset_peak_memory_stats(device)
         try:
@@ -230,9 +265,9 @@ def train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', m
                 events.emit('epoch_start',epoch=epoch+1)
                 previous=time.perf_counter()
                 for batch_index,batch in enumerate(loader):
+                    check(deadline,'training_batch')
                     now=time.perf_counter(); data_wait=now-previous
-                    if (config.max_wall_seconds and now-started>=config.max_wall_seconds) or (
-                        config.max_micro_iterations and micro>=config.max_micro_iterations):
+                    if config.max_micro_iterations and micro>=config.max_micro_iterations:
                         reason='profile_complete' if mode=='profile' else 'budget_stop'; break
                     timing={}
                     raw,norm,loss=forward_batch(model,batch,device,scales,config,timing,synchronize=mode=='profile')
@@ -290,13 +325,14 @@ def train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', m
                 if not complete:
                     require(reason!='normal_completion','EPOCH_COVERAGE_INCOMPLETE')
                     break  # partial epoch는 checkpoint에 완성 epoch로 저장하지 않는다.
-                dev=state_dev(model,root,device,scales,config) if mode=='train' else {'loss':None,'reason':'FIT_ONLY_DIAGNOSTIC'}
+                check(deadline,'state_dev_start')
+                dev=state_dev(model,root,device,scales,config,deadline=deadline) if mode=='train' else {'loss':None,'reason':'FIT_ONLY_DIAGNOSTIC'}
+                check(deadline,'state_dev_complete')
                 row={'epoch':epoch+1,'fit':{k:v/count for k,v in sums.items()},'dev':dev,'records':count,'optimizer_step':step}
                 history.append(row)
                 payload=checkpoint_payload(model,optimizer,scheduler,identity,lock,scales,epoch+1,step,history,early.state())
                 checkpoint_started=time.perf_counter()
-                entry=save_complete(output/f'checkpoints/epoch-{epoch+1:05d}.ckpt',payload)
-                entry['path']='checkpoints/'+entry['path']; write_json(output/'last.ckpt.json',entry)
+                entry=store.publish(payload)
                 events.emit('checkpoint_complete',epoch=epoch+1,optimizer_step=step,checkpoint_sha=entry['sha256'],
                     metrics={'checkpoint_seconds':time.perf_counter()-checkpoint_started},evidence_paths=[str(output/entry['path'])])
                 state_score=dev.get('loss') if dev.get('loss') is not None else row['fit']['loss']
@@ -310,15 +346,21 @@ def train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', m
                 write_json(output/'metrics/case_records.json',{'epoch':epoch+1,'rows':[{'case_id':snapshot['cases'][i]['case']['case_id'],
                             'video_id':snapshot['cases'][i]['case']['video_id'],'records':n} for i,n in sorted(case_counts.items())]})
                 if monitor_protocol and (epoch+1)%config.monitor_every==0:
-                    write_json(output/f'evaluation/requests/epoch-{epoch+1:05d}.json', {'epoch':epoch+1,'untrained':False,
-                        'checkpoint':str((output/entry['path']).resolve()),'checkpoint_sha':entry['sha256'],
-                        'protocol':str(Path(monitor_protocol).resolve()),'metric_contract':str(Path(metric_contract).resolve())})
+                    from .lvos_jobs import publish_request
+                    publish_request(output,output/entry['path'],monitor_protocol,metric_contract)
+                    if evaluation_callback:
+                        saved_rng=rng_state()
+                        try:
+                            check(deadline,'sequential_evaluation_start')
+                            evaluation_callback(output,deadline)
+                            check(deadline,'sequential_evaluation_complete')
+                        finally:
+                            restore_rng(saved_rng)
                     from .lvos_evaluation import consume_monitor_results
                     outstanding=consume_monitor_results(output,early,identity,events)
                     while outstanding>=config.max_outstanding_evaluations:
+                        check(deadline,'evaluation_wait')
                         require(config.max_wall_seconds is not None,'ASYNC_WAIT_REQUIRES_TIME_LIMIT')
-                        if time.perf_counter()-started>=config.max_wall_seconds:
-                            reason='budget_stop'; break
                         time.sleep(1)
                         outstanding=consume_monitor_results(output,early,identity,events)
                         if time.perf_counter()-last_heartbeat>=60:
@@ -331,15 +373,28 @@ def train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', m
                         break
                 if config.max_micro_iterations and micro>=config.max_micro_iterations and mode=='profile':
                     reason='profile_complete'; break
+            check(deadline,'finalization')
+            pending=[]
+            if monitor_protocol:
+                from .lvos_jobs import pending_requests
+                from .lvos_evaluation import consume_monitor_results
+                consume_monitor_results(output,early,identity,events)
+                pending=pending_requests(output)
             marker='COMPLETED.json' if reason=='normal_completion' else 'STOPPED.json'
             write_json(output/marker,{'reason':reason,'complete_epochs':len(history),'optimizer_step':step,
                 'partial_epoch_restart':'last complete epoch; partial optimizer updates are discarded on resume',
                 'duration_seconds':time.perf_counter()-started,'execution_kind':kind})
-            write_json(output/'STATUS.json',{'status':marker.removesuffix('.json'),'reason':reason,'complete_epochs':len(history),'execution_kind':kind})
+            write_json(output/'STATUS.json',{'status':'TRAINING_COMPLETED_EVALUATION_PENDING' if reason=='normal_completion' and pending else marker.removesuffix('.json'),
+                'training_status':'COMPLETED' if reason=='normal_completion' else 'STOPPED',
+                'evaluation_status':'PENDING' if pending else 'COMPLETED' if monitor_protocol else 'NOT_REQUESTED',
+                'pending_requests':pending,'reason':reason,'complete_epochs':len(history),'execution_kind':kind})
             events.emit('run_end',optimizer_step=step,metrics={'reason':reason,'complete_epochs':len(history)},evidence_paths=[str(output/marker)])
             return history
+        except BudgetStop:
+            raise
         except Exception as exc:
             write_json(output/'FAILED.json',{'reason_code':getattr(exc,'code','TRAIN_FAILURE'),'detail':str(exc),'optimizer_step':step})
-            write_json(output/'STATUS.json',{'status':'FAILED','reason_code':getattr(exc,'code','TRAIN_FAILURE'),'execution_kind':kind})
+            write_json(output/'STATUS.json',{'status':'FAILED','training_status':'FAILED','evaluation_status':'PENDING_OR_NOT_REQUESTED',
+                                            'reason_code':getattr(exc,'code','TRAIN_FAILURE'),'execution_kind':kind})
             events.emit('run_failure',status='FAIL',reason_code=getattr(exc,'code','TRAIN_FAILURE'),evidence_paths=[str(output/'FAILED.json')])
             raise

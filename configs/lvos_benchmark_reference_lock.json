@@ -1,0 +1,13 @@
+{
+  "source_hash_policy": "utf8_crlf_to_lf_v1",
+  "metric_revision": "bcf0a0f6a36c4129d487e5e58e151468d7ca714b",
+  "baseline_revision": "dcd335380dbe62f3299dbc5d4456b5ac8a12b4b4",
+  "baseline_author": "RohSeongmin",
+  "archive_revision": "8d0a5cd9f019c9270e4917e3dbe7a479d0cf9276",
+  "sources": {
+    "metric": "0b36097ada0aee58126ad2912cfd40f2f0cafd22d2943f39d6d9ef037ab90367",
+    "full_replay": "150341c252861d9a75bddbafa305536323cbd5356f67922f3385cbfa06948ebf",
+    "legacy_metrics": "c675408bbb26ee9d8f242c3dcef128ea4eb4cf289e446fa55ce6ee97c1c34864"
+  },
+  "fixture_note": "Pinned original functions for CPU-only tests; no real-checkpoint/GPU claims"
+}

@@ -309,3 +309,12 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[평가/선택]** Sparse GT coverage를 score 이전에 동결하고 target-only injector와 실제 frame-ID encoder hook을 연결했다. 독립 A/B 및 immutable dev shards/coordinator를 준비했다. State best/monitor best/full-dev shortlist best를 분리하고 complete full-dev와 승인된 adapter가 있어야 export한다. Baseline Job C generator는 benchmark pin에 없어 BLOCKED다.
 - **[검증 근거]** 이번 실행의 전체 CPU 회귀 `151 passed in 307.70s`, 이후 최종 LVOS suite `31 passed`를 별도 log/JUnit/checksum으로 기록한다. Synthetic CPU one-video overfit/다른 dev 영상/strict reload를 실행했다. 실제 checkpoint GPU G1–G5 PASS 또는 실제 VOS 개선으로 해석하지 않는다.
 - **[남은 입력]** 현재 SSH 접근·free UUID·시간/요금, 실제 완료 inventory/생성 이력/weights SHA, model freeze·metric/export 승인과 monitor/Full Replay 결과가 필요하다. Operator guide와 정확한 실행 순서는 `docs/runpod_lvos_training_operator_guide.md`, gate 근거와 현재 단계는 `reports/tasks/07_paired_training/LVOS_PIPELINE_REPORT_2026-10-03.md`.
+
+## 37. 2026-10-03 — LVOS 운영 복구와 canonical benchmark integration
+
+- **[승인]** 최신 사용자 지시에 따라 `feat/lvos-training-gates`의 기존 변경을 보존하고 로컬 구현·CPU 검증·로컬 commit까지만 진행한다. Push/PR/merge/SSH/GPU/Pod 변경은 별도 승인 전 실행하지 않는다. 팀원의 기존 untracked paired-state 운영 문서는 stage하지 않는다.
+- **[정정]** 36절의 “Full Replay generator 없음”은 metric branch만 본 판단이다. 별도 baseline pin `dcd3353`의 `baseline/no_handoff.py::full_replay`가 실제 존재한다. 이번 bridge는 그 함수만 사용하고 baseline의 MD5 split·switch 재계산·Moment/all-method 실행은 가져오지 않는다. 실제 runtime/checkpoint 접근 및 승인은 여전히 누락되어 있다.
+- **[운영]** UTF-8 source CRLF→LF canonical SHA와 raw artifact SHA를 분리했다. 모델 body/split은 변경하지 않았다. Model-lock v2와 새 source-bound 근거가 필요하다. Checkpoint journal/latest-valid 복구, epoch-0 재개, 전체 deadline, FAIL/BLOCKED exit 의미를 회귀 검사한다. 손상/foreign/orphan 근거를 임의 제거하지 않는다.
+- **[데이터/평가]** 읽기 전용 discovery→audit requests를 구현했다. Full Replay는 frozen original prompt/target/policy/full-dev만 사용한다. 최종 primary는 metric pin `bcf0a0f`의 three-fraction `selection_score`이고 기존 50%/≤64-frame monitor는 `monitor_jf_proxy` [0,1]로 보존한다. Bare baseline row에 없는 provenance를 소급 생성하지 않는다.
+- **[실행]** Explicit dry-run worker, disjoint video shards, immutable requests, verified merge, 순차 학습/평가와 GPU lease를 준비했다. 학습 완료/평가 pending/최종 promotion을 분리한다. CPU fixture는 실제 cache/SAM2/GPU 품질 증거가 아니다.
+- **[근거/남은 값]** 실제 테스트 명령·결과·출처는 `reports/tasks/07_paired_training/LVOS_INTEGRATION_REPORT_2026-10-03.md`와 별도 handoff/log/JUnit에 저장한다. 현재 endpoint/접근 범위·free UUID·시간/요금·완료 cache/evidence·모델/metric/export 승인·weights SHA가 준비되어야 실제 GPU gate를 수행한다. 운영 순서는 `docs/runpod_lvos_integration_operator_guide.md`다.

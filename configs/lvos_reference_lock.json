@@ -9,5 +9,8 @@
   "ported_model_sha256": "60d56b6785e83c10d2dc313986189d93e8d223ebc031cc6054706986b63f4421",
   "ported_tensor_api_sha256": "6e647775fa96726b26ca6f56e9ac4ef144ccd617c28d334e3baf664e7ad8e0ff",
   "architecture_ast_unchanged": true,
-  "adaptation": "tensor base import 이관, registry의 미존재 MomentMatched import를 해당 선택 분기로 이동; architecture class AST 동일"
+  "adaptation": "tensor base import 이관, registry의 미존재 MomentMatched import를 해당 선택 분기로 이동; architecture class AST 동일",
+  "source_hash_policy": "utf8_crlf_to_lf_v1",
+  "original_source_sha256_kind": "historical_raw_git_blob",
+  "original_tensor_api_source_sha256_kind": "historical_raw_git_blob"
 }
