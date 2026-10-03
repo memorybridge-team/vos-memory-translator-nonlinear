@@ -9,7 +9,7 @@ from collections import Counter
 from contextlib import nullcontext
 import torch
 
-from .training_storage import content_hash, write_json, ExclusiveWriter
+from .training_storage import content_hash, write_json, sha256, ExclusiveWriter
 from .training_runner import rng_state, restore_rng, code_provenance
 from .lvos_contract import validate_model_lock, save_complete, load_complete, Events, resources, json_read
 from .lvos_snapshot import verify_snapshot, record_loader, RecordStream
@@ -116,12 +116,13 @@ def forward_batch(model, batch, device, scales, config, timing=None, synchronize
 
 
 def state_dev(model, root, device, scales, config, deadline=None):
-    model.eval(); totals = {'spatial_mse':0.,'pointer_mse':0.,'loss':0.}; count = 0
+    model.eval(); totals = {'spatial_mse':0.,'pointer_mse':0.,'normalized_spatial':0.,'normalized_pointer':0.,'loss':0.}; count = 0
     with torch.no_grad():
         for batch in record_loader(root,'development',workers=0,microbatch=config.microbatch,pin_memory=False,shuffle=False,deadline=deadline):
             check(deadline,'state_dev_batch')
-            raw,_,loss = forward_batch(model,batch,device,scales,config)
-            for key,value in (('spatial_mse',raw['spatial']),('pointer_mse',raw['pointer']),('loss',loss)):
+            raw,norm,loss = forward_batch(model,batch,device,scales,config)
+            for key,value in (('spatial_mse',raw['spatial']),('pointer_mse',raw['pointer']),
+                              ('normalized_spatial',norm['spatial']),('normalized_pointer',norm['pointer']),('loss',loss)):
                 totals[key] += float(value)*len(batch)
             count += len(batch)
     check(deadline,'state_dev_complete')
@@ -142,6 +143,31 @@ def load_model_checkpoint(path, device='cpu'):
     return model.to(device).eval(), payload, entry
 
 
+def publish_state_export(root, payload, checkpoint_entry):
+    """Epoch weights/config/normalization 전달. VOS best_model 선정 기능은 없다."""
+    from .lvos_pilot import equal_state
+    root=Path(root); epoch=payload['epoch']; output=root/f'translator/epoch-{epoch:05d}.pth'
+    if output.exists():
+        existing,entry=load_complete(output)
+        require(equal_state(existing,payload['export']),'STATE_EXPORT_CONFLICT')
+    else:
+        entry=save_complete(output,payload['export'])
+    normalization=root/'translator/normalization.json'
+    record={'schema_version':'cmmt.lvos_state_normalization.v1','scope':'fit_only',
+            'scales':payload['scales'],'collection_digest':payload['identity']['collection_digest'],
+            'model_config_digest':payload['identity']['model_config_digest']}
+    if normalization.exists():
+        require(json_read(normalization)==record,'STATE_NORMALIZATION_CONFLICT')
+    else:
+        write_json(normalization,record)
+    write_json(root/f'translator/epoch-{epoch:05d}.json',{
+        'schema_version':'cmmt.lvos_epoch_state_export.v1','scope':'state_supervised',
+        'epoch':epoch,'selection_role':'unselected_epoch_translator; not VOS best_model',
+        'weights':entry,'checkpoint':checkpoint_entry,'identity':payload['identity'],
+        'model_lock':payload['model_lock'],'normalization_sha256':sha256(normalization),
+        'unattended_training_ready':False})
+
+
 def train_snapshot(root, lock, output, config: LVOSConfig, *, deadline=None, **kwargs):
     deadline = deadline or Deadline(config.max_wall_seconds)
     output = Path(output)
@@ -159,7 +185,12 @@ def train_snapshot(root, lock, output, config: LVOSConfig, *, deadline=None, **k
 
 
 def _train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', mode='train', resume=None,
-                   gates=None, monitor_protocol=None, metric_contract=None, deadline=None, evaluation_callback=None):
+                   gates=None, monitor_protocol=None, metric_contract=None, deadline=None, evaluation_callback=None,
+                   training_scope=None):
+    training_scope=training_scope or ('research_gated' if monitor_protocol or evaluation_callback else 'state_supervised')
+    require(training_scope in {'state_supervised','research_gated'},'TRAINING_SCOPE')
+    if training_scope=='state_supervised':
+        require(not monitor_protocol and not metric_contract and evaluation_callback is None,'STATE_TRAINING_HAS_NO_JF_EVALUATION')
     require(config.lr>0 and config.microbatch>0 and config.accumulation>0 and config.max_epochs>0 and config.workers>=0,
             'TRAIN_CONFIG')
     require(config.precision=='fp32' and config.augmentation=='none' and config.lambda_cos==0, 'V1_PRECISION_OR_AUGMENTATION')
@@ -170,11 +201,16 @@ def _train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', 
     require(not monitor_protocol or metric_contract,'METRIC_CONTRACT_REQUIRED')
     snapshot = verify_snapshot(root,hashes=True,deadline=deadline)
     if mode=='train' and not snapshot['synthetic']:
-        from .lvos_gates import authorize_training
-        authorize_training(gates,snapshot['content_sha256'],lock['digest'])
-        require(snapshot['state']=='ready' and monitor_protocol and metric_contract, 'MAIN_TRAIN_INPUTS')
-        from .lvos_evaluation import validate_protocol_snapshot
-        validate_protocol_snapshot(snapshot,json_read(monitor_protocol))
+        from .lvos_gates import authorize_training, authorize_state_training
+        authorize=(authorize_state_training if training_scope=='state_supervised' else authorize_training)
+        authorize(gates,snapshot['content_sha256'],lock['digest'])
+        require(snapshot['state']=='ready','MAIN_TRAIN_INPUTS')
+        require(snapshot['statistics']['fit']['valid_records']>0 and
+                snapshot['statistics']['development']['valid_records']>0,'FIT_DEV_RECORDS_REQUIRED')
+        if training_scope=='research_gated':
+            require(monitor_protocol and metric_contract,'MAIN_TRAIN_INPUTS')
+            from .lvos_evaluation import validate_protocol_snapshot
+            validate_protocol_snapshot(snapshot,json_read(monitor_protocol))
     if mode=='overfit':
         require(len({c['case']['video_id'] for c in snapshot['cases'] if c['split']=='fit'})==1, 'OVERFIT_ONE_VIDEO')
     if torch.device(device).type=='cuda':
@@ -194,6 +230,7 @@ def _train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', 
         'code_revision':code_provenance()['commit'],
         'model_config_digest':lock['digest'],'collection_digest':snapshot['content_sha256'],
         'config':asdict(config),'mode':mode,'planned_updates':planned,
+        'training_scope':training_scope,
         'monitor_protocol_digest':content_hash(json_read(monitor_protocol)) if monitor_protocol else None,
         'metric_contract_digest':content_hash(json_read(metric_contract)) if metric_contract else None}
     output = Path(output)
@@ -224,7 +261,9 @@ def _train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', 
             scales = fit_rms(root,config,deadline=deadline)
         check(deadline,'training_setup_complete')
         write_json(output/'config.json', {'identity':identity,'model_lock':lock,'scales':scales,'parameter_groups':names,
-            'group_parameter_counts':[sum(p.numel() for p in g['params']) for g in groups],'augmentation':'none'})
+            'group_parameter_counts':[sum(p.numel() for p in g['params']) for g in groups],'augmentation':'none',
+            'stopping_policy':'fixed_epochs_or_budget' if training_scope=='state_supervised' else 'approved_JF_monitor',
+            'JF_early_stopping_applied':bool(monitor_protocol), 'vos_best_model_selection':'external_evaluation_owner'})
         write_json(output/'provenance.json',resources())
         if history:
             # A completed body may precede metric/pointer side effects at the crash boundary.
@@ -233,9 +272,14 @@ def _train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', 
             _,best_entry=load_complete(output/f"checkpoints/epoch-{best_row['epoch']:05d}.ckpt")
             write_json(output/'best_state_loss.ckpt.json',{k:('checkpoints/'+best_entry[k] if k=='path' else best_entry[k])
                                                          for k in ('path','sha256','bytes')})
+            if training_scope=='state_supervised':
+                for completed in range(start_epoch+1):
+                    body,proof=load_complete(output/f'checkpoints/epoch-{completed:05d}.ckpt')
+                    publish_state_export(output,body,{**proof,'path':f'checkpoints/epoch-{completed:05d}.ckpt'})
         if recovered is None:
             init_payload = checkpoint_payload(model,optimizer,scheduler,identity,lock,scales,0,0,[],early.state())
             init_entry=store.publish(init_payload)
+            if training_scope=='state_supervised': publish_state_export(output,init_payload,init_entry)
             if monitor_protocol:
                 from .lvos_jobs import publish_request
                 publish_request(output,output/'checkpoints/epoch-00000.ckpt',monitor_protocol,metric_contract)
@@ -333,6 +377,7 @@ def _train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', 
                 payload=checkpoint_payload(model,optimizer,scheduler,identity,lock,scales,epoch+1,step,history,early.state())
                 checkpoint_started=time.perf_counter()
                 entry=store.publish(payload)
+                if training_scope=='state_supervised': publish_state_export(output,payload,entry)
                 events.emit('checkpoint_complete',epoch=epoch+1,optimizer_step=step,checkpoint_sha=entry['sha256'],
                     metrics={'checkpoint_seconds':time.perf_counter()-checkpoint_started},evidence_paths=[str(output/entry['path'])])
                 state_score=dev.get('loss') if dev.get('loss') is not None else row['fit']['loss']
@@ -340,9 +385,12 @@ def _train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', 
                     best_state=state_score; write_json(output/'best_state_loss.ckpt.json',entry)
                 write_json(output/'metrics/train.json',history)
                 with (output/'metrics/train.csv').open('w',newline='',encoding='utf-8') as f:
-                    writer=csv.DictWriter(f,fieldnames=['epoch','fit_loss','dev_loss','records','optimizer_step']); writer.writeheader()
+                    columns=['epoch','fit_loss','dev_loss','records','optimizer_step']
+                    components=['spatial_mse','pointer_mse','normalized_spatial','normalized_pointer']
+                    writer=csv.DictWriter(f,fieldnames=columns+[role+'_'+name for role in ('fit','dev') for name in components]); writer.writeheader()
                     writer.writerows({'epoch':r['epoch'],'fit_loss':r['fit']['loss'],'dev_loss':r['dev']['loss'],
-                                      'records':r['records'],'optimizer_step':r['optimizer_step']} for r in history)
+                                      'records':r['records'],'optimizer_step':r['optimizer_step'],
+                                      **{role+'_'+name:r[role].get(name) for role in ('fit','dev') for name in components}} for r in history)
                 write_json(output/'metrics/case_records.json',{'epoch':epoch+1,'rows':[{'case_id':snapshot['cases'][i]['case']['case_id'],
                             'video_id':snapshot['cases'][i]['case']['video_id'],'records':n} for i,n in sorted(case_counts.items())]})
                 if monitor_protocol and (epoch+1)%config.monitor_every==0:
@@ -386,6 +434,8 @@ def _train_snapshot(root, lock, output, config: LVOSConfig, *, device='cuda:0', 
                 'duration_seconds':time.perf_counter()-started,'execution_kind':kind})
             write_json(output/'STATUS.json',{'status':'TRAINING_COMPLETED_EVALUATION_PENDING' if reason=='normal_completion' and pending else marker.removesuffix('.json'),
                 'training_status':'COMPLETED' if reason=='normal_completion' else 'STOPPED',
+                'training_scope':training_scope,'JF_early_stopping_applied':bool(monitor_protocol),
+                'unattended_training_ready':False,'vos_best_model_selected':False,
                 'evaluation_status':'PENDING' if pending else 'COMPLETED' if monitor_protocol else 'NOT_REQUESTED',
                 'pending_requests':pending,'reason':reason,'complete_epochs':len(history),'execution_kind':kind})
             events.emit('run_end',optimizer_step=step,metrics={'reason':reason,'complete_epochs':len(history)},evidence_paths=[str(output/marker)])

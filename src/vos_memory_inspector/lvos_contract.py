@@ -95,7 +95,7 @@ def verify_evidence(items):
 def safety_suite_hash():
     root=Path(__file__).resolve().parents[2]
     return content_hash({name:source_sha256(root/'tests'/name) for name in
-                         ('test_lvos_pipeline.py','test_lvos_integration.py')})
+                         ('test_lvos_pipeline.py','test_lvos_integration.py','test_lvos_pilot.py')})
 
 
 def resources():

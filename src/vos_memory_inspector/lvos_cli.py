@@ -50,6 +50,11 @@ def parser():
     item.add_argument('--device',default='cpu'); item.add_argument('--execute-approved',action='store_true')
     item.add_argument('--max-wall-seconds',type=float)
     item.add_argument('--require-ready',action='store_true',help='BLOCKED도 exit 3; FAIL은 항상 exit 2')
+    item=s.add_parser('pilot-preflight',help='fit case 하나의 diagnostic-only 3 update/reload; 공식 gate 승인 불가')
+    for n in ('snapshot','model-lock','output'):
+        item.add_argument('--'+n,required=True,type=Path)
+    item.add_argument('--device',default='cuda:0'); item.add_argument('--execute-approved',action='store_true')
+    item.add_argument('--max-wall-seconds',required=True,type=float)
     item=s.add_parser('freeze-protocol',help='score 보기 전 sparse GT coverage를 검사하여 dev protocol 동결')
     for n in ('snapshot','source-manifest','runtime','output'):
         item.add_argument('--'+n,required=True,type=Path)
@@ -110,12 +115,14 @@ def parser():
     item=s.add_parser('draft-export',help='실제 run/result만 Korean Markdown 표로 내보냄')
     item.add_argument('--run',action='append',type=Path,default=[]); item.add_argument('--result',action='append',type=Path,default=[])
     item.add_argument('--output',required=True,type=Path)
-    for name in ('train','overfit','profile','initialize','gates','evaluate','full-replay','eval-worker'):
+    for name in ('train','overfit','profile','initialize','gates','pilot-preflight','evaluate','full-replay','eval-worker'):
         item=s.choices[name]
         item.add_argument('--lease-root',type=Path); item.add_argument('--host-id')
         item.add_argument('--physical-gpu-uuid'); item.add_argument('--quoted-hourly-rate',type=float)
         item.add_argument('--total-budget',type=float); item.add_argument('--budget-currency',choices=('USD','KRW'))
     item=s.choices['train']
+    item.add_argument('--training-scope',choices=('state_supervised','research_gated'),default='state_supervised',
+                      help='기본 state loss 학습은 G5/J&F 평가 대기와 독립; 전체 연구 ready와 구분')
     item.add_argument('--evaluation-mode',choices=('queue','sequential'),default='queue')
     item.add_argument('--benchmark-root',type=Path)
     return p
@@ -149,7 +156,7 @@ def cpu_test(output,basetemp=None):
     repo=Path(__file__).resolve().parents[2]
     from .training_runner import code_provenance
     source_sha=code_provenance()['package_source_sha256']; tests_sha=safety_suite_hash()
-    command=[sys.executable,'-m','pytest','tests/test_lvos_pipeline.py','tests/test_lvos_integration.py','-q','--junitxml',str(output/'junit.xml'),
+    command=[sys.executable,'-m','pytest','tests/test_lvos_pipeline.py','tests/test_lvos_integration.py','tests/test_lvos_pilot.py','-q','--junitxml',str(output/'junit.xml'),
              '-p','no:cacheprovider','--basetemp',str(basetemp)]
     started=time.perf_counter()
     with (output/'pytest.log').open('w',encoding='utf-8') as log:
@@ -252,6 +259,12 @@ def main(argv=None):
             print(json.dumps({'command':'gates','output':str(args.output),'status':status,
                               'require_ready':args.require_ready,'unattended_training_ready':result['unattended_training_ready']},ensure_ascii=False))
             return 2 if status=='FAIL' else 3 if args.require_ready and not result['unattended_training_ready'] else 0
+        elif args.command=='pilot-preflight':
+            from .lvos_pilot import pilot_preflight
+            with gpu_lease(args):
+                result=pilot_preflight(args.snapshot,json_read(args.model_lock),args.output,device=args.device,
+                    max_wall_seconds=args.max_wall_seconds,deadline=Deadline(args.max_wall_seconds,started=command_started))
+            print(json.dumps(result,ensure_ascii=False))
         elif args.command=='freeze-protocol':
             from .lvos_evaluation import freeze_protocol
             result=freeze_protocol(args.snapshot,args.source_manifest,json_read(args.runtime),args.output,
@@ -266,6 +279,10 @@ def main(argv=None):
             if args.quoted_hourly_rate is not None: cfg.quoted_hourly_rate=args.quoted_hourly_rate
             budget=Deadline(cfg.max_wall_seconds,started=command_started)
             callback=None
+            training_scope=getattr(args,'training_scope',None)
+            if training_scope=='state_supervised':
+                require(not args.monitor_protocol and not args.metric_contract and
+                        getattr(args,'evaluation_mode','queue')=='queue','STATE_TRAINING_HAS_NO_JF_EVALUATION')
             with gpu_lease(args) as lease:
                 if getattr(args,'evaluation_mode',None)=='sequential':
                     require(args.benchmark_root and args.monitor_protocol,'SEQUENTIAL_EVALUATOR_INPUTS')
@@ -276,7 +293,7 @@ def main(argv=None):
                         require(value['status']=='DONE','SEQUENTIAL_EVALUATION_INCOMPLETE')
                 result=train_snapshot(args.snapshot,json_read(args.model_lock),args.output,cfg,device=args.device,mode=args.command,
                     resume=args.resume,gates=args.gates,monitor_protocol=args.monitor_protocol,metric_contract=args.metric_contract,
-                    deadline=budget,evaluation_callback=callback)
+                    deadline=budget,evaluation_callback=callback,training_scope=training_scope)
             run_status=json_read(args.output/'STATUS.json')
             if run_status.get('reason')=='budget_stop':
                 print(json.dumps({'command':args.command,'status':'STOPPED','reason':'budget_stop','output':str(args.output)},ensure_ascii=False))

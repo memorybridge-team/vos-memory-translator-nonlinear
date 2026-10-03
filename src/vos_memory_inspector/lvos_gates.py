@@ -130,11 +130,17 @@ def run_gates(output, *, root=None, lock=None, device='cpu', metric_contract=Non
         run('G0',config_gate,[output/'G0.json'],missing='MODEL_AND_METRIC_FREEZE_INPUT_MISSING' if not lock or not lock.get('approved_by') or not metric_contract or not json_read(metric_contract).get('approved_by') else None)
         def audit():
             nonlocal snapshot
-            snapshot=verify_snapshot(root,deadline=deadline); require(not snapshot['synthetic'] and snapshot['state']=='ready','REAL_FULL_AUDIT_REQUIRED')
+            verified=verify_snapshot(root,deadline=deadline)
+            require(not verified['synthetic'] and verified['state']=='ready','REAL_FULL_AUDIT_REQUIRED')
+            snapshot=verified
             write_json(output/'G1.json',{'snapshot_digest':snapshot['content_sha256'],'audit':json_read(Path(root)/'audit.json')})
         run('G1',audit,[output/'G1.json'],'cpu_real_cache',missing='REAL_CACHE_SNAPSHOT_REQUIRED' if not root or not (Path(root)/'snapshot.json').exists() or json_read(Path(root)/'snapshot.json').get('synthetic') else None)
-        real_gpu=bool(root and snapshot and not snapshot['synthetic'] and torch.device(device).type=='cuda' and torch.cuda.is_available() and lock and lock.get('approved_by'))
-        missing=None if real_gpu else 'REAL_CACHE_APPROVED_MODEL_AND_GPU_REQUIRED'
+        prerequisites=all(any(r['gate_id']==gate and r['status']=='PASS' for r in records) for gate in ('G0','G1'))
+        real_gpu=bool(prerequisites and root and snapshot and not snapshot['synthetic'] and
+                      snapshot['state']=='ready' and torch.device(device).type=='cuda' and
+                      torch.cuda.is_available() and lock and lock.get('approved_by'))
+        missing=None if real_gpu else ('OFFICIAL_G0_G1_PASS_REQUIRED' if not prerequisites else
+                                      'REAL_CACHE_APPROVED_MODEL_AND_GPU_REQUIRED')
         run('G2',lambda:connectivity_gate(root,lock,output/'G2.json',device,deadline),[output/'G2.json'],'gpu_real_checkpoint',missing)
         run('G3',lambda:write_json(output/'G3.json',loss_gate()),[output/'G3.json'])
         run('G4',lambda:roundtrip_gate(root,lock,output/'G4',device,deadline),[output/'G4/roundtrip.json',output/'G4/roundtrip.ckpt'],'gpu_real_checkpoint',missing)
@@ -167,23 +173,42 @@ def run_gates(output, *, root=None, lock=None, device='cpu', metric_contract=Non
                     value['tested_suite_sha256']==safety_suite_hash(),'STALE_CPU_TEST_EVIDENCE')
             write_json(output/'G6.json',value)
         run('G6',safety,[output/'G6.json'],missing='EXECUTED_CPU_SAFETY_TEST_REPORT_REQUIRED' if not cpu_test_report else None)
-        report={'schema_version':'cmmt.lvos_gates.v1','identity':identity,'gates':records,'unattended_training_ready':False}
+        report={'schema_version':'cmmt.lvos_gates.v1','identity':identity,'gates':records,
+                'unattended_training_ready':False,'state_training_ready':False}
         write_json(output/'gates.json',report)
         try:
             authorize_training(output/'gates.json',identity['collection_digest'],identity['model_config_digest'])
             report['unattended_training_ready']=True; write_json(output/'gates.json',report)
         except ValueError:
             pass
+        try:
+            authorize_state_training(output/'gates.json',identity['collection_digest'],identity['model_config_digest'])
+            report['state_training_ready']=True; write_json(output/'gates.json',report)
+        except ValueError:
+            pass
         return report
 
 
-def authorize_training(path, data_digest, model_digest):
+def _authorize(path, data_digest, model_digest, gate_ids):
     require(path,'REAL_GATES_REQUIRED'); report=json_read(path)
+    require(report.get('schema_version')=='cmmt.lvos_gates.v1' and
+            report.get('scope')!='diagnostic_only','DIAGNOSTIC_ARTIFACT_NOT_TRAINING_AUTHORIZATION')
     require(report['identity']['collection_digest']==data_digest and report['identity']['model_config_digest']==model_digest and
             report['identity']['code_sha']==code_provenance()['package_source_sha256'],'GATE_IDENTITY_CHANGED')
     gates={g['gate_id']:g for g in report['gates']}
-    for gate in ('G0','G1','G2','G3','G4','G5','G6'):
+    require(set(gate_ids)<=gates.keys(),'GATE_RECORD_MISSING')
+    for gate in gate_ids:
         require(gates[gate]['status']=='PASS','GATE_NOT_PASSED',gate); verify_evidence(gates[gate]['evidence'])
-    for gate in ('G2','G4','G5'):
+    for gate in set(gate_ids)&{'G2','G4','G5'}:
         require(gates[gate]['execution_kind']=='gpu_real_checkpoint','SYNTHETIC_GATE_CANNOT_AUTHORIZE',gate)
     require(gates['G1']['execution_kind']=='cpu_real_cache','REAL_AUDIT_REQUIRED')
+
+
+def authorize_training(path, data_digest, model_digest):
+    """전체 연구 승인은 기존 G0..G6을 모두 요구한다."""
+    return _authorize(path,data_digest,model_digest,('G0','G1','G2','G3','G4','G5','G6'))
+
+
+def authorize_state_training(path, data_digest, model_digest):
+    """상태 지도 학습 승인: 데이터·모델·실제 GPU 안전 검사 유지, G5 독립."""
+    return _authorize(path,data_digest,model_digest,('G0','G1','G2','G3','G4','G6'))

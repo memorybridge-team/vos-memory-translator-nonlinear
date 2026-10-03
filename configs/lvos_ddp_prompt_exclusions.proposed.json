@@ -1,0 +1,62 @@
+{
+  "schema_version": "cmmt.state_training_exclusions.v1",
+  "scope": "state_supervised_only",
+  "status": "PROPOSED_NOT_APPROVED",
+  "approved_by": null,
+  "recorded_at": null,
+  "source_manifest_digest": "8292b1b4674a2ef34955c908e980826f3d041c518a035b5f5b42ad8fb49df74a",
+  "expected_case_counts": {
+    "original_fit": 1488,
+    "original_development": 315,
+    "proposed_fit": 1479,
+    "proposed_development": 315,
+    "excluded_fit": 9
+  },
+  "cases": [
+    {
+      "case_id": "train:2vt1LoVz:obj2:switch966",
+      "reason": "PENDING_PROMPT_HISTORY_CONFIRMATION",
+      "evidence": "reports/tasks/07_paired_training/LVOS_CACHE_PROMPT_CONFIRMATION_2026-10-03.md"
+    },
+    {
+      "case_id": "train:2vt1LoVz:obj2:switch1886",
+      "reason": "PENDING_PROMPT_HISTORY_CONFIRMATION",
+      "evidence": "reports/tasks/07_paired_training/LVOS_CACHE_PROMPT_CONFIRMATION_2026-10-03.md"
+    },
+    {
+      "case_id": "train:2vt1LoVz:obj2:switch2801",
+      "reason": "PENDING_PROMPT_HISTORY_CONFIRMATION",
+      "evidence": "reports/tasks/07_paired_training/LVOS_CACHE_PROMPT_CONFIRMATION_2026-10-03.md"
+    },
+    {
+      "case_id": "train:8TrHEtoY:obj2:switch1751",
+      "reason": "PENDING_PROMPT_HISTORY_CONFIRMATION",
+      "evidence": "reports/tasks/07_paired_training/LVOS_CACHE_PROMPT_CONFIRMATION_2026-10-03.md"
+    },
+    {
+      "case_id": "train:8TrHEtoY:obj2:switch1991",
+      "reason": "PENDING_PROMPT_HISTORY_CONFIRMATION",
+      "evidence": "reports/tasks/07_paired_training/LVOS_CACHE_PROMPT_CONFIRMATION_2026-10-03.md"
+    },
+    {
+      "case_id": "train:8TrHEtoY:obj2:switch2231",
+      "reason": "PENDING_PROMPT_HISTORY_CONFIRMATION",
+      "evidence": "reports/tasks/07_paired_training/LVOS_CACHE_PROMPT_CONFIRMATION_2026-10-03.md"
+    },
+    {
+      "case_id": "train:XfbRshfV:obj2:switch546",
+      "reason": "PENDING_PROMPT_HISTORY_CONFIRMATION",
+      "evidence": "reports/tasks/07_paired_training/LVOS_CACHE_PROMPT_CONFIRMATION_2026-10-03.md"
+    },
+    {
+      "case_id": "train:XfbRshfV:obj2:switch1021",
+      "reason": "PENDING_PROMPT_HISTORY_CONFIRMATION",
+      "evidence": "reports/tasks/07_paired_training/LVOS_CACHE_PROMPT_CONFIRMATION_2026-10-03.md"
+    },
+    {
+      "case_id": "train:XfbRshfV:obj2:switch1496",
+      "reason": "PENDING_PROMPT_HISTORY_CONFIRMATION",
+      "evidence": "reports/tasks/07_paired_training/LVOS_CACHE_PROMPT_CONFIRMATION_2026-10-03.md"
+    }
+  ]
+}

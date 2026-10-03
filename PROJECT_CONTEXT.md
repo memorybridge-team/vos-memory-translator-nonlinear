@@ -318,3 +318,20 @@ GitHub [연구 보드](https://github.com/orgs/memorybridge-team/projects/2/view
 - **[데이터/평가]** 읽기 전용 discovery→audit requests를 구현했다. Full Replay는 frozen original prompt/target/policy/full-dev만 사용한다. 최종 primary는 metric pin `bcf0a0f`의 three-fraction `selection_score`이고 기존 50%/≤64-frame monitor는 `monitor_jf_proxy` [0,1]로 보존한다. Bare baseline row에 없는 provenance를 소급 생성하지 않는다.
 - **[실행]** Explicit dry-run worker, disjoint video shards, immutable requests, verified merge, 순차 학습/평가와 GPU lease를 준비했다. 학습 완료/평가 pending/최종 promotion을 분리한다. CPU fixture는 실제 cache/SAM2/GPU 품질 증거가 아니다.
 - **[근거/남은 값]** 실제 테스트 명령·결과·출처는 `reports/tasks/07_paired_training/LVOS_INTEGRATION_REPORT_2026-10-03.md`와 별도 handoff/log/JUnit에 저장한다. 현재 endpoint/접근 범위·free UUID·시간/요금·완료 cache/evidence·모델/metric/export 승인·weights SHA가 준비되어야 실제 GPU gate를 수행한다. 운영 순서는 `docs/runpod_lvos_integration_operator_guide.md`다.
+
+## 38. 2026-10-03 — 학습 전용 범위와 diagnostic pilot 분리
+
+- **[최신 범위]** 사용자가 translator 학습 담당으로 한정했다. 다른 팀의 self-injection/Direct Copy/Base+ handoff/trace/J&F를 새로 구현하거나 실행하지 않는다. 신규 pair 생성도 하지 않는다. 실제 GPU 작업은 데이터팀의 verified snapshot과 실행 시간/예산 확정 이후다.
+- **[재현/수정]** f2632d7의 CPU mock에서 G1이 `pilot_ready`를 거부한 뒤 G2/G4 mock 함수가 호출되는 경로를 재현했다. 공식 GPU 함수는 현재 run의 G0/G1 PASS에 의존하고 full `ready`를 유지하도록 수정했다. 실제 GPU 버그 재현으로 기록하지 않는다.
+- **[학습 분리]** `train --training-scope state_supervised`와 G0/G1/G2/G3/G4/G6 기반 state 학습 승인을 추가했다. 기존 전체 연구 G0..G6 요건은 보존한다. J&F 대기/early stopping 없이 고정 한도로 fit/dev state loss와 epoch별 checkpoint·canonical translator export·fit-only normalization을 전달한다. State-loss best와 최종 VOS best를 구분한다.
+- **[pilot]** 독립 `pilot-preflight`는 verified real fit case 하나의 3 update 및 strict reload/다음 update 비교다. 정식 모델 승인 생략은 이 diagnostic 경로에만 한정하고 source/config 검증을 유지한다. 결과의 `scope=diagnostic_only`, 두 학습 ready flag=false. Synthetic CPU 검사는 real GPU PASS가 아니다.
+- **[입력]** 후보 `train:0ClBYzYm:obj1:switch1221`의 RGB 505장, prompt official 1/runtime 0, switch official 1221/runtime 244와 cache/prepare/SHA sidecar 존재를 metadata로 확인했다. 실제 tensor·completion·historical generating binding과 verified view는 미확인이다. 사용자 확인 운영 단가는 Pod 합계 USD 0.744/h이고 Network Volume은 별도다. 접속 정보는 로컬에만 둔다.
+- **[근거]** CPU 재현 실패 log/JUnit과 변경 후 검사·배포 revision/hash는 별도 local outputs 및 실행 보고서로 남긴다. `f2632d7`의 199/77 PASS를 수정 후 코드의 근거로 재사용하지 않는다. 운영 절차는 `docs/runpod_lvos_translator_training_operator_guide.md`다.
+
+## 39. 2026-10-03 — 기존 LVOS cache와 단일 translator DDP
+
+- **[최신 범위]** 하나의 고정 translator를 동일 Pod의 2-GPU DDP로 학습하고 이틀 안에 weights/config/normalization/log를 평가팀에 전달하는 목표다. 16 microbatch × 2 accumulation × 2 ranks = global batch 64. 4 GPU에서는 accumulation 1. A/B·신규 pair·handoff/J&F 확장은 하지 않는다.
+- **[실제 입력]** 기존 completed cache 1,488 fit + 315 development, 총 30,322,070,943 bytes를 CPU로 로딩/SHA/정렬 검사했다. Marker 부재를 미완성으로 취급하지 않는 safe allowlist loader와 derived raw index를 구현했다. 과거 revision/weights/mask history는 UNKNOWN이다. Snapshot/audit는 내부 derived 관리 파일이며 원래 입력이라고 가정하지 않는다.
+- **[9개 확인]** fit 9개는 tensor 정렬/finite는 통과했으나 conditioning runtime 0과 frozen prompt runtime 5/298/10이 다르다. 사용자는 무조건 포함하지 않고 데이터팀 확인을 지시했다. 원본·split 보존. 지연 시 9개 제외안을 제시하며 미승인안으로 본 학습하지 않는다.
+- **[DDP]** 완성 case 순서만 shuffle하고 global batch의 valid record를 rank별로 분할한다. 동기화/accumulation, valid count 가중 gradient, fit-only normalization broadcast, rank 0 atomic 저장/export, 완성 epoch 재개를 구현했다. Mid-epoch exact resume나 GPU 수 변경 후 동일 trajectory는 주장하지 않는다.
+- **[근거]** 최종 Windows CPU 9 tests와 앞선 Linux 실제 cache CPU 2-rank를 구분한다. 실제 2-GPU 자원/단가/한도가 없고 GPU 실행은 0회다. 최종 source의 Linux CPU 재검사는 새 Pod에서 진행한다. 보고서: `reports/tasks/07_paired_training/LVOS_DDP_TRAINING_REPORT_2026-10-03.md`.
