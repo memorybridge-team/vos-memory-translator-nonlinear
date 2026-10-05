@@ -37,3 +37,18 @@ Before removing a public-core file, copy it to its assigned destination,
 verify its SHA-256, remove every public-core import and console entry point,
 then run compile and regression tests.  A large tensor or dataset is never
 committed to any repository.
+
+## 2026-10-05 operational clarification
+
+The dated [training/evaluation pipeline v2](training_evaluation_pipeline_v2.md)
+documents the current RunPod recipe without restoring orchestration code removed
+from this core. The deployed official trainer is a separately pinned local
+snapshot; a new official-validation rollout adapter is being prepared in an
+isolated evaluation workspace. Neither deployment is implied by a documentation
+merge. Pending evaluation work is not labelled as completed benchmark evidence.
+
+The two-GPU training Pod and the two-GPU evaluation Pod have different jobs.
+They share read access to completed artifacts, not a four-rank training process.
+Publishing core documentation never updates the running trainer. Runtime changes
+require their own verification, immutable source binding and, where necessary,
+a checkpoint-boundary continuation receipt.
