@@ -1,8 +1,19 @@
 # vos-memory-translator-nonlinear
 
-SAM 2.1 Small이 switch 시점까지 만든 객체별 memory를 translator로 바꾼 뒤 SAM 2.1 Base+ predictor에 주입해 `switch frame + 1`부터 이어 추적하는 코드입니다. MLP를 사용하여 memory를 변환합니다.
+SAM 2.1 Small이 switch 시점까지 만든 객체별 memory를 translator로 바꾼 뒤 SAM 2.1 Base+ predictor에 주입해 `switch frame + 1`부터 이어 추적하는 runtime core입니다. 이 저장소의 공개 core에는 MLP translator가 포함되어 있습니다.
 
 This repository exports per-object memory from SAM 2.1 Small up to a switch frame, translates it with a translator (including an MLP), injects it into a SAM 2.1 Base+ predictor, and continues tracking from `switch frame + 1`.
+
+## 현재 학습·평가 운영 / Current training and evaluation
+
+2026-10-05 운영은 [학습·평가 파이프라인 v2](docs/training_evaluation_pipeline_v2.md)를 따릅니다. **공개 core의 구현과 별도 RunPod 실행기를 구분합니다.** 현재 공식 run의 spatial Transformer + pointer MLP 학습 실행기와 준비 중인 J&F adapter가 이 `main`에 포함되었다는 뜻은 아닙니다.
+
+- Train: MOSEv2 official train + LVOS v2 official train. 기존 train 내부 `fit/development` cache를 합쳐 사용하며 DAVIS는 제외합니다.
+- Validation/model selection: LVOS v2 official valid. State MSE는 학습·scheduler 진단에, 실제 downstream J&F는 별도 `best_JF` 선정에 사용합니다. **매 epoch J&F 연결은 준비 중이며, 가동·전체 평가 통과가 확인된 상태가 아닙니다.**
+- GPU: 기존 L4 ×2는 학습, 별도 RTX 4000 Ada ×2는 평가용입니다. 하나의 4-GPU 학습으로 합치지 않습니다.
+- External test: VOST valid, PUMaVOS, M³-VOS는 모델 선택에서 제외합니다. 이번 validation 연결 요청은 새로운 test/baseline 실행 승인이 아닙니다.
+
+The operational recipe and dated evidence are documented in [Pipeline v2](docs/training_evaluation_pipeline_v2.md). The public core is not the deployed training controller or the pending per-epoch J&F evaluator. LVOS official validation is now a selection set, not a sealed final-test set. State-loss best and downstream J&F best remain separate.
 
 ## 코드가 하는 일
 
