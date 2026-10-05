@@ -1,6 +1,8 @@
 # CMMT 학습·평가 파이프라인 v2
 
-기준일: **2026-10-05 KST**. 실행 상태 snapshot: **14:50:34 KST**. 날짜가 있는 상태 기록이며 실시간 dashboard가 아니다.
+기준일: **2026-10-05 KST**. 최신 실행 상태 snapshot: **15:09:44 KST**(이전 14:50:34 기록도 보존). 날짜가 있는 상태 기록이며 실시간 dashboard가 아니다.
+
+**최신 상태:** 기존 학습은 35 epochs / step 177,135 뒤 `validation_early_stop`으로 종료됐다. State 전달물 READY는 생성됐으며, 정책 migration/재개와 실제 J&F 완료는 아직 확인하지 않았다. 새 평가 Pod는 SSH·GPU·volume 확인 및 SAM2 import를 통과했고 adapter 검증을 진행 중이다.
 
 이 문서는 현재 학습, 승인된 평가 목표, 아직 구현·검증되지 않은 부분을 구분한다. 공개 runtime core를 현재 RunPod 실행기라고 오해하지 않도록 정리한 운영 설명이다. 데이터·checkpoint·접속 인증값은 Git에 넣지 않는다.
 
@@ -80,9 +82,9 @@ L = mean_valid_record_MSE(spatial) / train_RMS_spatial²
 | 단계 | 내용 | 현재 상태 |
 |---|---|---|
 | A | Index/RMS 검사, 실제 2-GPU smoke, epoch 1 측정 | 완료된 학습 gate |
-| B | 기존 L4 ×2에서 train → state validation → 저장 반복 | 원격 실행 중 |
-| C | 평가 Pod SSH·host key·GPU·volume 확인 | 접속 검증 중 |
-| D | Official checkpoint adapter + 실제 SAM 2 rollout smoke | 미가동/미검증 |
+| B | 기존 L4 ×2에서 train → state validation → 저장 반복 | 35 epochs 후 기존 state early stop; 정책 migration/재개 대기 |
+| C | 평가 Pod SSH·host key·GPU·volume 확인 | 확인됨 |
+| D | Official checkpoint adapter + 실제 SAM 2 rollout smoke | SAM2 import 통과, adapter 검증 중; 실제 rollout 미검증 |
 | E | 전체 validation 1회 실측, coverage·시간·비용 확인 | 미실측 |
 | F | 과거 모든 완료 epoch 소급 및 향후 checkpoint 자동 평가 | 승인 목표; 미가동 |
 | G | Full-coverage J&F 집계, best_JF 갱신 | 미가동 |
@@ -112,7 +114,7 @@ L = mean_valid_record_MSE(spatial) / train_RMS_spatial²
 | 매 epoch state validation·checkpoint/export | 확인 | J&F가 아니라 memory MSE |
 | State-best 기록·LR 조정 | 확인 | J&F-best와 구분 |
 | 학습 자체 시간/비용 제한 | 기존 controller에 있음 | 프로세스 제한은 Pod 과금 중지와 다름 |
-| 종료 뒤 기존 state 전달물 정리 | Watcher 구성·실행 기록 있음 | 새 정책 continuation/J&F 최종물까지 보장하지 않음 |
+| 종료 뒤 기존 state 전달물 정리 | 35-epoch 종료 뒤 최종 READY 생성 확인 | 새 정책 continuation/J&F 최종물까지 보장하지 않음 |
 | 모든 epoch J&F queue·두 GPU 평가·best_JF | 목표 승인, 미가동 | Adapter·실제 smoke·full validation·예산 검증 필요 |
 | State-loss-only stopping 보류 | 변경 요청, 적용 미확인 | Checkpoint-boundary receipt와 상태 보존 검증 필요 |
 | 평가팀 다운로드·로컬 SHA 확인 | 자동 확인 아님 | 수령자가 확인해야 함 |
@@ -126,6 +128,8 @@ L = mean_valid_record_MSE(spatial) / train_RMS_spatial²
 14:24:51 KST 감사에서 완료 epoch 33, state stopping bad checks 6/8, LR 3.75e-5를 확인했다. 이후 14:50:34 조회에서 epoch 34 validation loss는 `0.49403918403036456`이고 state best epoch 27 loss는 `0.49264229066064713`다. 기존 stopping 상태가 그대로라면 개선 없이 epoch 35 완료 뒤 조기 종료할 수 있다.
 
 이 경우 저장된 완성 epoch checkpoint는 보존된다. 정책 migration을 구현·검증한 후 해당 checkpoint의 model/optimizer/scheduler/RNG/epoch/step을 이어받을 수 있으며 epoch 1부터 재학습할 필요는 없다. 아직 그러한 migration 또는 재개가 적용됐다는 증거는 없다. 최대 60/time/USD 상한을 늘리지 않으며 LR scheduler는 임의 변경하지 않는다.
+
+**15:09:44 실제 확인:** 기존 run은 epoch 35 / step 177,135에서 종료됐고 `training/FINAL_READY.json`, `training/STATUS.json`의 reason이 모두 `validation_early_stop`이다. `JF_early_stopping_applied=false`를 유지한다. 새 정책으로 epoch 36 이후 재개하려면 해당 완료 checkpoint와 검증된 continuation receipt가 필요하다. 기존 controller가 자동으로 다시 실행 중이라고 표현하지 않는다.
 
 학습 run이 끝나도 소급 평가를 계속할 수 있다. 반대로 이전 state-only `FINAL_READY`가 생성되어도 `best_JF`가 준비됐다는 뜻은 아니다.
 
@@ -155,6 +159,21 @@ L = mean_valid_record_MSE(spatial) / train_RMS_spatial²
 따라서 두 Pod를 계속 켜 두는 방식이 USD 50 안에 들어간다고 약속하지 않는다. 학습 산출물 완성 확인 후 사용자가 학습 Pod를 중지하고 평가 Pod에서 같은 volume의 전달물을 제공하는 운영은 검토할 수 있다. 이 문서가 Pod 중지 승인이나 자동 중지 구현은 아니다.
 
 ## 8. Snapshot·근거·저장소 경계
+
+### 15:09:44 KST 갱신
+
+| 항목 | 확인값 |
+|---|---|
+| 완료 epochs / optimizer step | 35 / 177,135 |
+| Epoch 35 train / validation state loss | 0.4523357689 / 0.4955730393 |
+| Epoch 35 wall / 마지막 LR | 1,207.16초(약 20.12분) / 3.75e-5 |
+| 종료 이유 | `validation_early_stop` |
+| 기존 controller·torchrun·양 rank | 종료 확인 |
+| State 전달 marker | `DELIVERY_FINAL_READY.json` 생성 |
+| State best / J&F best | Epoch 27 / 아직 없음 |
+| 새 평가 Pod | SSH·GPU·volume 및 SAM2 import 확인; 실제 J&F smoke/full 평가 미확인 |
+
+이는 state 학습 및 state 산출물의 종료다. 모든 checkpoint의 J&F 평가나 공식 iteration 전체 완료를 의미하지 않는다.
 
 ### 14:50:34 KST 실제 SSH 읽기 전용 조회
 

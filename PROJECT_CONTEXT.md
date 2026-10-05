@@ -14,7 +14,8 @@
 ## 구현·운영 상태
 
 - 2026-10-05 14:50:34 KST 읽기 전용 SSH 조회: 34 epochs 완료, epoch 35 / step 174,000, 학습 controller 및 양 rank 존재. State-loss best는 epoch 27이다.
-- 매 epoch 실제 J&F 평가, `best_JF` 갱신, J&F 최종 패키징은 아직 가동 증거가 없다. 새 평가 Pod 접속 및 공개 host-key 확인이 진행 중이다.
+- **15:09:44 KST 갱신:** 35 epochs / step 177,135 완료, 기존 controller·torchrun·rank는 종료됐다. 종료 기록은 `validation_early_stop`, state 전달 `DELIVERY_FINAL_READY.json`은 생성됐다. State-loss best는 epoch 27이며, J&F best는 없다. 60 epochs를 완료한 것이 아니다.
+- 새 평가 Pod는 Web Terminal 원문과 host key 대조 뒤 SSH 접속, 두 GPU·공유 volume 확인, 격리 SAM2 import를 통과했다. 매 epoch 실제 J&F 평가, `best_JF` 갱신, J&F 최종 패키징은 아직 가동 증거가 없다.
 - State-loss stopping을 보류하는 정책 migration은 아직 적용 증거가 없다. 최대 60 epochs는 무조건 60회를 보장하는 값이 아니다.
 - 공식 trainer revision `d152ca8ab1ae16d5b9aff978d2fbcd10722d9efa`는 별도 로컬 실행 snapshot이다. 공개 `main`에 게시된 trainer라고 표현하지 않는다.
 
