@@ -49,8 +49,10 @@ manifests/                  frozen MOSEv2/LVOS v2 and external evaluation splits
 state map                   system archive link below
 ```
 
-Collection, training and evaluation orchestration lives in the team's local
-workspace. Paired-state tensors, checkpoints and prediction artifacts live on
+Collection and evaluation orchestration lives in the team's local workspace.
+The fixed-split state training contract is documented in
+[docs/state_training_r2_operator_guide.md](docs/state_training_r2_operator_guide.md).
+Paired-state tensors, checkpoints and prediction artifacts live on
 the RunPod Network Volume. Completed evidence and benchmark reports are kept
 in the dedicated archive repositories rather than this experiment core.
 
