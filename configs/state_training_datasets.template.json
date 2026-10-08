@@ -1,0 +1,45 @@
+{
+  "datasets": [
+    {
+      "dataset": "MOSEv2",
+      "official_split": "train",
+      "inventory": "/workspace/CMMT-training-contracts/inventories/<SNAPSHOT>/mose_train.json",
+      "case_manifest": "<ISOLATED_CHECKOUT>/manifests/mosev2_train_v1.json",
+      "storage_membership": {
+        "fit": "<ISOLATED_CHECKOUT>/manifests/mosev2_train_v1_fit.json",
+        "development": "<ISOLATED_CHECKOUT>/manifests/mosev2_train_v1_development.json"
+      },
+      "cache_roots": {
+        "fit": "/workspace/CMMT-task07-artifacts/production/mose/cache/fit",
+        "development": "/workspace/CMMT-task07-artifacts/production/mose/cache/development"
+      },
+      "filename_pattern": "mose_{video_id}_obj{object_id}_switch{switch_frame}.pt"
+    },
+    {
+      "dataset": "LVOSv2",
+      "official_split": "train",
+      "inventory": "/workspace/CMMT-training-contracts/inventories/<SNAPSHOT>/lvos_train.json",
+      "case_manifest": "<CONFIRMED_LVOS_TRAIN_CASE_MANIFEST>",
+      "storage_membership": {
+        "fit": "<ISOLATED_CHECKOUT>/manifests/lvosv2_train_v1_fit.json",
+        "development": "<ISOLATED_CHECKOUT>/manifests/lvosv2_train_v1_development.json"
+      },
+      "cache_roots": {
+        "fit": "/workspace/CMMT-task07-artifacts/production/lvos/cache/fit",
+        "development": "/workspace/CMMT-task07-artifacts/production/lvos/cache/development"
+      },
+      "filename_pattern": "lvos_{video_id}_obj{object_id}_switch{switch_frame}.pt"
+    },
+    {
+      "dataset": "LVOSv2",
+      "official_split": "valid",
+      "inventory": "/workspace/CMMT-training-contracts/inventories/<SNAPSHOT>/lvos_valid.json",
+      "case_manifest": "<CONFIRMED_LVOS_VALID_CASE_MANIFEST>",
+      "cache_roots": {
+        "validation": "/workspace/CMMT-task07-artifacts/production/validation/lvos/cache"
+      },
+      "filename_pattern": "lvos_{video_id}_obj{object_id}_switch{switch_frame}.pt"
+    }
+  ],
+  "exclusions": []
+}

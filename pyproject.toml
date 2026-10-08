@@ -17,6 +17,7 @@ dependencies = [
 dev = ["pytest>=8"]
 
 [project.scripts]
+cmmt-state-training = "vos_memory_inspector.state_training.__main__:main"
 sam2-memory-probe = "vos_memory_inspector.cli:probe_main"
 sam2-memory-compare = "vos_memory_inspector.cli:compare_main"
 cmmt-state-inspect = "vos_memory_inspector.cli:state_inspect_main"
