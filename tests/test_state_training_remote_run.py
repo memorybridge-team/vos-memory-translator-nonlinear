@@ -112,3 +112,44 @@ def test_tensor_inspection_cap_blocks_before_read_and_does_not_reset_on_resume(t
         with pytest.raises(PermissionError, match='NEW_TENSOR_INSPECTION_SCOPE_NOT_APPROVED'):
             build_index(cfg, split, output, operator_completed='synthetic fixture', max_new_inspections=1)
         actual_inspect.assert_not_called()
+
+
+def test_delivery_normal_and_partial_markers_remain_distinct(tmp_path):
+    """순수 파일 fixture; 모델/gradient/reload 재검증 없이 종료 산출물 표지만 검사한다."""
+    from vos_memory_inspector.state_training import delivery
+    from vos_memory_inspector.state_training.common import read_json, sha256
+    for partial in (False, True):
+        base = tmp_path / str(partial)
+        run, stats, split = base / 'run', base / 'stats', base / 'split'
+        checkpoint = run / 'checkpoints/epoch-00001.pt'
+        checkpoint.parent.mkdir(parents=True)
+        checkpoint.write_bytes(b'fixture checkpoint')
+        marker = dict(sha256=sha256(checkpoint), path=str(checkpoint))
+        write_json(run / 'last_complete.json', marker)
+        write_json(run / 'best_validation_r2.json', dict(scope='full_validation', epoch=1, score=0.5, checkpoint=marker))
+        write_json(run / 'history.json', [dict(epoch=1, validation=dict(validation_r2_score=0.5))])
+        write_json(run / 'STATUS.json', dict(stop_reason='insufficient_remaining_epoch_budget' if partial else 'max_epochs'))
+        for name in ('RUN.json', 'epochs.jsonl'):
+            write_json(run / name, {})
+        for name in ('normalization.json', 'validation_targets.json'):
+            save_bound(stats / name, {})
+        save_bound(stats / 'r2_spec.json', dict(tie_tolerance=1e-12))
+        index = base / 'index/index.json'
+        save_bound(index, dict(identity=dict(split_root=str(split))))
+        write_json(index.parent / 'used_excluded.json', [])
+        for name in ('original_inventory.json', 'original_inventory.json.sha256', 'split_manifest.json', 'split_manifest.json.sha256', 'split_manifest.sha256', 'SPLIT_FROZEN.json', 'split_report.json'):
+            write_json(split / name, {})
+        payload = dict(epoch=1, optimizer_step=1, export={}, identity={}, model_lock={}, configuration={}, source=dict(revision='fixture'))
+        def publish_fixture(path, weights, verify):
+            path.write_bytes(b'fixture weights')
+            return {}
+        with patch.object(delivery, 'load', return_value=(payload, marker)), \
+             patch.object(delivery, 'publish', side_effect=publish_fixture), \
+             patch.object(delivery, 'load_translator'):
+            delivery.export_delivery(run, index, stats, partial=partial)
+        expected = run / ('PARTIAL_ARCHIVE_READY.json' if partial else 'DELIVERY_ARCHIVE_READY.json')
+        other = run / ('DELIVERY_ARCHIVE_READY.json' if partial else 'PARTIAL_ARCHIVE_READY.json')
+        assert expected.is_file() and not other.exists()
+        ready = read_json(expected)
+        assert ready['training_complete'] is (not partial)
+        assert ready['status'] == ('PARTIAL_ARTIFACTS_READY' if partial else 'DELIVERY_ARTIFACTS_READY')

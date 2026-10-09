@@ -95,10 +95,10 @@ translated_state = translator.translate(source_state)
     load_translator(root)
     archive = run / ("translator_validation_r2_partial.tar.gz" if partial else "translator_validation_r2_delivery.tar.gz")
     require(not archive.exists(), "ARCHIVE_EXISTS")
-    partial = Path(str(archive) + ".partial")
-    with tarfile.open(partial, "w:gz") as tar:
+    temporary_archive = Path(str(archive) + ".partial")
+    with tarfile.open(temporary_archive, "w:gz") as tar:
         tar.add(root, arcname=root.name)
-    partial.replace(archive)
+    temporary_archive.replace(archive)
     atomic(str(archive) + ".sha256", (sha256(archive) + "  " + archive.name + "\n").encode(), immutable=True)
     write_json(run / ("PARTIAL_ARCHIVE_READY.json" if partial else "DELIVERY_ARCHIVE_READY.json"), dict(status="PARTIAL_ARTIFACTS_READY" if partial else "DELIVERY_ARTIFACTS_READY", training_complete=not partial, archive=str(archive),
                sha256=sha256(archive), bytes=archive.stat().st_size, directory=str(root)), immutable=True)

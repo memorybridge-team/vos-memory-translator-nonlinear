@@ -315,6 +315,8 @@ CUDA_VISIBLE_DEVICES="" python -m pytest -q tests/test_state_training_statistics
 CPU 장치에서 작은 fixture와 자기가 생성한 임시 process group만 검사한다.
 근거: 실행 폴더 `runs/r2-20261009T043718Z/CPU_CHECKS.json` 및 `cpu_check_0.log`.
 CLI help 3개도 exit 0이다. 이는 실제 GPU smoke나 공식 학습의 통과 증거가 아니다.
+전달 archive의 정상/부분 완료 marker 구분은 추가 파일 fixture 1개로 검사했고 `1 passed in 11.99s`, exit 0이다.
+이는 모델 재검사가 아니다. 현재 전체 해당 파일 묶음은 통계6+운영7=13개이며, 기존12와 추가1을 각각 실행했다.
 
 2. RunPod에서 CLI 계약을 확인한다. 아직 학습을 시작하는 명령이 아니다.
 
