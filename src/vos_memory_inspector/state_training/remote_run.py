@@ -9,7 +9,7 @@ import sys
 import tarfile
 import time
 
-from .common import require, read_json, write_json, sha256, atomic, writer, reject_placeholders
+from .common import require, read_json, write_json, sha256, atomic, writer, reject_placeholders, canonical_gpu_uuid
 from .limits import limits, timestamp, utc
 
 MODULE = 'vos_memory_inspector.state_training.remote_run'
@@ -19,6 +19,25 @@ def smoke_limit(cfg):
     value = float(cfg.get('smoke_seconds', 600))
     require(0 < value <= 600, 'SMOKE_LIMIT_MUST_BE_WITHIN_600_SECONDS')
     return value
+
+
+def communication_environment(cfg):
+    """작은 통신 검사에서 통과한 두 옵션만 해당 자식 프로세스에 허용한다."""
+    env = cfg.get('communication_env', {})
+    require(set(env) <= {'NCCL_DEBUG', 'NCCL_P2P_DISABLE'} and
+            all(value == ('INFO' if key == 'NCCL_DEBUG' else '1') for key, value in env.items()),
+            'UNAPPROVED_NCCL_ENVIRONMENT')
+    if env:
+        path = cfg['communication_evidence']
+        require(sha256(path) == cfg['communication_evidence_sha256'], 'COMMUNICATION_EVIDENCE_CHANGED')
+        evidence = read_json(path)
+        require(evidence['status'] == 'CUDA_COMMUNICATION_PASS' and evidence['selected_env'] == env,
+                'COMMUNICATION_ENVIRONMENT_NOT_VERIFIED')
+        rows = sorted(evidence['rank_results'], key=lambda row: row['rank'])
+        require(len(rows) == 2 and all(row['rank'] == row['local_rank'] == row['current_device'] == rank
+                and row['all_reduce_sum'] == 3.0 and canonical_gpu_uuid(row['physical_uuid']) == canonical_gpu_uuid(cfg['gpu_uuids'][rank])
+                for rank, row in enumerate(rows)), 'COMMUNICATION_RANK_UUID_MAPPING')
+    return env
 
 
 def process_identity(pid):
@@ -126,6 +145,7 @@ def validate_config(path):
     require(cfg['pod_hourly_rate'] == 1.16 and cfg['budget_usd'] == 30 and cfg['max_hours'] == 12, 'THIS_APPROVAL_LIMITS_REQUIRED')
     require(len(cfg['gpu_uuids']) == len(set(cfg['gpu_uuids'])) == 2, 'APPROVED_TWO_GPU_UUIDS_REQUIRED')
     smoke_limit(cfg)
+    communication_environment(cfg)
     root = Path(cfg['operation_root']).resolve()
     require(root.is_relative_to(Path('/workspace')) and root.name.startswith('r2-'), 'ISOLATED_OPERATION_ROOT_REQUIRED')
     for key in ('python', 'index', 'statistics', 'config', 'source_root'):
@@ -164,6 +184,8 @@ def controller(config_path):
     cfg, root = validate_config(config_path)
     env = dict(os.environ, CUDA_VISIBLE_DEVICES=','.join(cfg['gpu_uuids']),
                CUBLAS_WORKSPACE_CONFIG=':4096:8', OMP_NUM_THREADS='1', MKL_NUM_THREADS='1', PYTHONUNBUFFERED='1')
+    env.pop('NCCL_P2P_DISABLE', None)
+    env.update(communication_environment(cfg))
     # controller와 rank별 독립 group을 외부 실행기가 자식 관계로 추적한다.
     require(os.getpid() == os.getpgrp(), 'CONTROLLER_MUST_OWN_PROCESS_GROUP')
     query = subprocess.run(['nvidia-smi', '--query-compute-apps=gpu_uuid,pid,process_name', '--format=csv,noheader'],

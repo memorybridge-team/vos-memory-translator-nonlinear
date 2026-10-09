@@ -123,11 +123,12 @@ def train(args):
                         rate=args.pod_hourly_rate, budget=args.budget_usd)
     require(not cuda or deadline.started is not None, "CUDA_SERVER_COST_LIMIT_REQUIRED")
     torch.set_num_threads(1)
-    dist.init_process_group("nccl" if cuda else "gloo", timeout=timedelta(seconds=180))
+    dist.init_process_group("nccl" if cuda else "gloo", timeout=timedelta(seconds=180),
+                            **({"device_id": device} if cuda else {}))
     try:
         # rank 0이 writer lock을 획득한 뒤 나머지를 진행시킨다.
         with writer(output) if rank == 0 else nullcontext():
-            dist.barrier()
+            dist.barrier(**({"device_ids": [device.index]} if cuda else {}))
             return run(args, output, cfg, device, rank, world, deadline, index)
     except Exception as exc:
         if rank == 0:
@@ -149,7 +150,8 @@ def run(args, output, cfg, device, rank, world, deadline, index):
     identity = dict(contract=CONTRACT, **bindings, normalization_sha256=sha256(Path(args.statistics) / "normalization.json"),
                     validation_targets_sha256=sha256(Path(args.statistics) / "validation_targets.json"),
                     model_digest=model_lock["digest"], configuration=cfg.logical(), source_package_sha256=source["package_source_sha256"], world_size=world,
-                    environment=dict(torch=str(torch.__version__), python=platform.python_version(), cuda=torch.version.cuda, device=device.type))
+                    environment=dict(torch=str(torch.__version__), python=platform.python_version(), cuda=torch.version.cuda, device=device.type,
+                                     nccl={key: os.environ.get(key) for key in ("NCCL_DEBUG", "NCCL_P2P_DISABLE")}))
     if args.mode == "train":
         require(device.type == "cuda" and not index["synthetic_declared"] and args.smoke_evidence, "OFFICIAL_TRAIN_REQUIRES_REAL_BOUND_SMOKE")
         smoke = read_json(args.smoke_evidence)
@@ -334,7 +336,7 @@ def run(args, output, cfg, device, rank, world, deadline, index):
             print(json.dumps(dict(event="EPOCH_COMPLETE", **row), ensure_ascii=False, allow_nan=False), flush=True)
         # rank 0의 verification은 RNG를 소비한다. 저장한 epoch boundary로 모두 복원한다.
         restore_rng(rank_rng[rank])
-        dist.barrier()
+        dist.barrier(**({"device_ids": [device.index]} if device.type == "cuda" else {}))
         if stop:
             reason = "validation_r2_early_stopping"
             break
@@ -354,4 +356,4 @@ def run(args, output, cfg, device, rank, world, deadline, index):
             from .delivery import export_delivery
             export_delivery(output, args.index, args.statistics, partial=partial)
         write_json(output / "LIVE_STATUS.json", status)
-    dist.barrier()
+    dist.barrier(**({"device_ids": [device.index]} if device.type == "cuda" else {}))
