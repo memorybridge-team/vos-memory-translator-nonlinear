@@ -15,6 +15,12 @@ from .limits import limits, timestamp, utc
 MODULE = 'vos_memory_inspector.state_training.remote_run'
 
 
+def smoke_limit(cfg):
+    value = float(cfg.get('smoke_seconds', 600))
+    require(0 < value <= 600, 'SMOKE_LIMIT_MUST_BE_WITHIN_600_SECONDS')
+    return value
+
+
 def process_identity(pid):
     try:
         text = Path(f"/proc/{pid}/stat").read_text()
@@ -119,6 +125,7 @@ def validate_config(path):
     require(os.name == 'posix' and sys.platform == 'linux', 'RUNPOD_LINUX_ONLY')
     require(cfg['pod_hourly_rate'] == 1.16 and cfg['budget_usd'] == 30 and cfg['max_hours'] == 12, 'THIS_APPROVAL_LIMITS_REQUIRED')
     require(len(cfg['gpu_uuids']) == len(set(cfg['gpu_uuids'])) == 2, 'APPROVED_TWO_GPU_UUIDS_REQUIRED')
+    smoke_limit(cfg)
     root = Path(cfg['operation_root']).resolve()
     require(root.is_relative_to(Path('/workspace')) and root.name.startswith('r2-'), 'ISOLATED_OPERATION_ROOT_REQUIRED')
     for key in ('python', 'index', 'statistics', 'config', 'source_root'):
@@ -142,7 +149,7 @@ def command(cfg, mode):
             '--max_restarts=0', '-m', 'vos_memory_inspector.state_training', 'train',
             '--mode', mode, '--device', 'cuda', '--index', cfg['index'], '--statistics', cfg['statistics'],
             '--config', cfg['config'], '--output', str(root / ('smoke' if mode == 'smoke' else 'training')),
-            '--max-wall-seconds', str(600 if mode == 'smoke' else max(1, timestamp(time_limit['training_deadline_utc']) - time.time())),
+            '--max-wall-seconds', str(smoke_limit(cfg) if mode == 'smoke' else max(1, timestamp(time_limit['training_deadline_utc']) - time.time())),
             '--execute-approved', '--deadline-utc', time_limit['training_deadline_utc'],
             '--approval-start-utc', cfg['approval_start_utc'], '--pod-hourly-rate', str(cfg['pod_hourly_rate']),
             '--budget-usd', str(cfg['budget_usd'])]
@@ -165,20 +172,20 @@ def controller(config_path):
     require(not rows, 'APPROVED_GPU_ALREADY_IN_USE_DO_NOT_TERMINATE_OTHER_WORK')
     for mode in ('smoke', 'train'):
         timing = limits(cfg)
-        require(time.time() + (660 if mode == 'smoke' else 60) < timestamp(timing['training_deadline_utc']), 'INSUFFICIENT_REMAINING_APPROVAL')
+        require(time.time() + (smoke_limit(cfg) + 60 if mode == 'smoke' else 60) < timestamp(timing['training_deadline_utc']), 'INSUFFICIENT_REMAINING_APPROVAL')
         state = dict(status='SMOKE_RUNNING' if mode == 'smoke' else 'OFFICIAL_TRAIN_RUNNING',
                      stage=mode, controller=process_identity(os.getpid()), limits=timing, time_utc=utc())
         write_json(root / 'OPERATION_STATUS.json', state)
         with (root / (mode + '.log')).open('x', encoding='utf-8') as log:
-            smoke_guard = spawn_guard(cfg['python'], process_identity(os.getpid()), min(time.time() + 600, timestamp(timing['training_deadline_utc'])), process_identity(os.getppid())) if mode == 'smoke' else None
+            smoke_guard = spawn_guard(cfg['python'], process_identity(os.getpid()), min(time.time() + smoke_limit(cfg), timestamp(timing['training_deadline_utc'])), process_identity(os.getppid())) if mode == 'smoke' else None
             process = subprocess.Popen(command(cfg, mode), cwd=cfg['source_root'], env=env, stdout=log, stderr=subprocess.STDOUT)
             state['torchrun'] = process_identity(process.pid)
             write_json(root / 'OPERATION_STATUS.json', state)
             try:
-                code = process.wait(timeout=min(600, timestamp(timing['training_deadline_utc']) - time.time()) if mode == 'smoke' else None)
+                code = process.wait(timeout=min(smoke_limit(cfg), timestamp(timing['training_deadline_utc']) - time.time()) if mode == 'smoke' else None)
             except subprocess.TimeoutExpired:
                 # watchdog이 이 group의 모든 rank를 회수한다. controller는 재시도하지 않는다.
-                raise RuntimeError('SMOKE_EXTERNAL_600_SECOND_TIMEOUT')
+                raise RuntimeError('SMOKE_EXTERNAL_DEADLINE_TIMEOUT')
             finally:
                 if smoke_guard is not None:
                     if smoke_guard.poll() is None:

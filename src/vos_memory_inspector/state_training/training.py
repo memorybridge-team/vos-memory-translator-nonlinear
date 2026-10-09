@@ -15,7 +15,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 
 from . import CONTRACT
-from .common import require, sha256, digest, read_json, write_json, writer, outside_originals
+from .common import require, sha256, digest, read_json, write_json, writer, outside_originals, canonical_gpu_uuid
 from .checkpoint import SCHEMA, publish, latest, rng_state, restore_rng, equal
 from .index import read_index
 from .statistics import read_statistics
@@ -115,7 +115,7 @@ def train(args):
         require(torch.cuda.is_available() and torch.cuda.device_count() == world, "SAME_HOST_VISIBLE_GPU_COUNT")
         torch.cuda.set_device(local)
         device = torch.device("cuda", local)
-        require(str(torch.cuda.get_device_properties(device).uuid) == args.gpu_uuid[local], "GPU_UUID_MAPPING")
+        require(canonical_gpu_uuid(torch.cuda.get_device_properties(device).uuid) == canonical_gpu_uuid(args.gpu_uuid[local]), "GPU_UUID_MAPPING")
     else:
         require(os.environ.get("CUDA_VISIBLE_DEVICES") == "", "CPU_TEST_MUST_HIDE_CUDA")
         device = torch.device("cpu")

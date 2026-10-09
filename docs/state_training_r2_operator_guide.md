@@ -317,6 +317,8 @@ CPU 장치에서 작은 fixture와 자기가 생성한 임시 process group만 �
 CLI help 3개도 exit 0이다. 이는 실제 GPU smoke나 공식 학습의 통과 증거가 아니다.
 전달 archive의 정상/부분 완료 marker 구분은 추가 파일 fixture 1개로 검사했고 `1 passed in 11.99s`, exit 0이다.
 이는 모델 재검사가 아니다. 현재 전체 해당 파일 묶음은 통계6+운영7=13개이며, 기존12와 추가1을 각각 실행했다.
+이후 실제 Pod의 Torch 2.8 UUID가 `GPU-` 없는 문자열을 반환함을 확인했다. 물리 UUID의 128비트 값은 유지하며 접두사만 정규화한다.
+다른 GPU 및 잘못된 UUID 거부와 남은 smoke 시간 제한은 별도 CPU fixture1개로 검사한다. 첫 실패 시도의 소요 시간도 600초 smoke 한도와 최초 승인 비용에 포함한다.
 
 2. RunPod에서 CLI 계약을 확인한다. 아직 학습을 시작하는 명령이 아니다.
 

@@ -12,6 +12,13 @@ def require(condition, code):
         raise ValueError(code)
 
 
+def canonical_gpu_uuid(value):
+    """Torch 2.8의 bare UUID와 nvidia-smi의 GPU- prefix만 동일 표기로 대조한다."""
+    import uuid
+    text = str(value)
+    return 'GPU-' + str(uuid.UUID(text.removeprefix('GPU-')))
+
+
 def encoded(value):
     return (json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False,
                        separators=(",", ":")) + "\n").encode("utf-8")

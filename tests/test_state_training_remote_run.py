@@ -9,6 +9,8 @@ from pathlib import Path
 
 from vos_memory_inspector.state_training.limits import limits, timestamp, epoch_forecast
 from vos_memory_inspector.state_training.remote_run import process_identity, stop_owned_group, spawn_guard
+from vos_memory_inspector.state_training.remote_run import smoke_limit, command
+from vos_memory_inspector.state_training.common import canonical_gpu_uuid
 from vos_memory_inspector.state_training.common import write_json, save_bound, stamp
 from vos_memory_inspector.state_training.index import inspection_plan, build_index
 
@@ -23,6 +25,22 @@ def test_limit_clock_does_not_reset_after_preparation_or_resume():
     assert b['remaining_seconds'] == 10 * 3600
     budget_first = limits(dict(cfg, budget_usd=1.16), start)
     assert timestamp(budget_first['hard_deadline_utc']) == start + 3600
+
+
+def test_cuda_uuid_prefix_preserves_physical_identity_and_remaining_smoke_limit():
+    bare = 'a891f407-b755-67eb-4727-a9da5d0c0730'
+    assert canonical_gpu_uuid(bare) == canonical_gpu_uuid('GPU-' + bare)
+    assert canonical_gpu_uuid(bare) != canonical_gpu_uuid('56cadeba-6178-8504-350e-1d8d9c2a9a99')
+    with pytest.raises(ValueError):
+        canonical_gpu_uuid('MIG-not-a-whole-device')
+    cfg = dict(approval_start_utc='2026-10-09T04:37:18Z', deadline_utc='2026-10-09T16:37:18Z',
+               pod_hourly_rate=1.16, budget_usd=30, max_hours=12, artifact_reserve_seconds=600,
+               operation_root='/fixture/r2-run', python='/fixture/python', index='/fixture/index',
+               statistics='/fixture/statistics', config='/fixture/config', gpu_uuids=['GPU-' + bare], smoke_seconds=460)
+    args = command(cfg, 'smoke')
+    assert float(args[args.index('--max-wall-seconds') + 1]) == 460
+    with pytest.raises(ValueError, match='SMOKE_LIMIT_MUST_BE_WITHIN_600_SECONDS'):
+        smoke_limit(dict(cfg, smoke_seconds=601))
 
 
 def test_first_epoch_forecast_includes_validation_and_checkpoint_and_reserves_slowdown():
