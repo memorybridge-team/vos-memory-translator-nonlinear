@@ -1,0 +1,23 @@
+{
+  "operation_root": "/workspace/CMMT-training-contracts/runs/r2-<RUN_ID>",
+  "python": "<ISOLATED_VENV>/bin/python",
+  "source_root": "<VERIFIED_ISOLATED_SOURCE_ROOT>",
+  "source_revision": "<VERIFIED_REVISION>",
+  "package_source_sha256": "<VERIFIED_PACKAGE_SOURCE_SHA256>",
+  "index": "<NEW_INDEX>/index.json",
+  "index_sha256": "<VERIFIED_INDEX_SHA256>",
+  "statistics": "<NEW_STATISTICS>",
+  "statistics_ready_sha256": "<VERIFIED_STATISTICS_READY_SHA256>",
+  "config": "<VERIFIED_SOURCE>/configs/state_training_r2.json",
+  "config_sha256": "<VERIFIED_CONFIG_SHA256>",
+  "gpu_uuids": [
+    "GPU-a891f407-b755-67eb-4727-a9da5d0c0730",
+    "GPU-56cadeba-6178-8504-350e-1d8d9c2a9a99"
+  ],
+  "approval_start_utc": "2026-10-09T04:37:18Z",
+  "deadline_utc": "2026-10-09T16:37:18Z",
+  "pod_hourly_rate": 1.16,
+  "budget_usd": 30,
+  "max_hours": 12,
+  "artifact_reserve_seconds": 600
+}

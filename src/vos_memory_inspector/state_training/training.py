@@ -25,6 +25,7 @@ from .loader import loader
 from .r2 import SPEC, DATASETS
 from .schedule import schedule
 from .evaluation import objective, evaluate, verify_coverage
+from .limits import epoch_forecast, utc
 
 
 class LimitReached(RuntimeError):
@@ -219,6 +220,14 @@ def run(args, output, cfg, device, rank, world, deadline):
         effective_max = start - 1
         reason = "validation_r2_early_stopping_already_satisfied"
     for epoch in range(start, effective_max + 1):
+        if args.mode == 'train' and history:
+            decision = [None]
+            if rank == 0:
+                decision[0] = epoch_forecast(history, effective_max, time.time(), deadline.end, deadline.rate)
+            dist.broadcast_object_list(decision, src=0)
+            if not decision[0]['can_start_next_epoch']:
+                reason = 'insufficient_remaining_epoch_budget'
+                break
         deadline.collective(device, "epoch_start")
         epoch_start = time.perf_counter()
         if device.type == "cuda":
@@ -309,6 +318,15 @@ def run(args, output, cfg, device, rank, world, deadline):
                            scope="diagnostic_subset" if args.mode == "smoke" else "full_validation", selection_metric="validation_r2_score"))
             write_json(output / "history.json", history)
             append_log(output / "epochs.jsonl", row)
+            if args.mode == 'train':
+                forecast = dict(epoch_forecast(history, effective_max, time.time(), deadline.end, deadline.rate),
+                                measured_train_full_validation_checkpoint=True, time_utc=utc(),
+                                approved_cost_usd=deadline.cost(), training_deadline_utc=utc(deadline.end),
+                                fit_records_per_second=row['fit_records_per_second'],
+                                optimizer_updates_per_second=row['optimizer_updates_per_second'])
+                write_json(output / 'ETA.json', forecast)
+                if epoch == 1:
+                    write_json(output / 'FIRST_EPOCH_ETA.json', forecast, immutable=True)
             remaining_seconds = (effective_max - epoch) * sum(h["wall_seconds_including_checkpoint"] for h in history if "wall_seconds_including_checkpoint" in h) / max(1, sum("wall_seconds_including_checkpoint" in h for h in history))
             write_json(output / "LIVE_STATUS.json", dict(status="EPOCH_COMPLETE", complete_epochs=epoch, optimizer_step=step,
                 last=row, latest_complete=last_entry, best_epoch=selection.best_epoch, best_validation_r2=selection.best_score,
@@ -324,14 +342,16 @@ def run(args, output, cfg, device, rank, world, deadline):
             reason = "operator_epoch_boundary_stop"
             break
     if rank == 0:
-        status = dict(status=("REAL_R2_DDP_SMOKE_PASS" if device.type == "cuda" else "CPU_SYNTHETIC_R2_SMOKE_PASS" if index["synthetic_declared"] else "CPU_REAL_CACHE_R2_SMOKE_PASS") if args.mode == "smoke" else "TRAINING_STOPPED_AT_COMPLETE_EPOCH",
+        partial = reason == 'insufficient_remaining_epoch_budget'
+        status = dict(status=("REAL_R2_DDP_SMOKE_PASS" if device.type == "cuda" else "CPU_SYNTHETIC_R2_SMOKE_PASS" if index["synthetic_declared"] else "CPU_REAL_CACHE_R2_SMOKE_PASS") if args.mode == "smoke" else ("LIMIT_STOPPED_AT_COMPLETE_EPOCH" if partial else "TRAINING_STOPPED_AT_COMPLETE_EPOCH"),
                       identity=identity, complete_epochs=selection.last_epoch, optimizer_step=step, stop_reason=reason,
                       best_epoch=selection.best_epoch, best_validation_r2=selection.best_score, both_branches_updated=True,
                       strict_reload=True, rank_parameter_max_difference=0, seconds=time.perf_counter() - started,
-                      approved_cost_usd=deadline.cost(), research_gates_passed=False, JF_evaluation=False, SAM2_updated=False)
+                      approved_cost_usd=deadline.cost(), training_complete=args.mode == 'train' and reason in ('max_epochs', 'validation_r2_early_stopping', 'validation_r2_early_stopping_already_satisfied'),
+                      research_gates_passed=False, JF_evaluation=False, SAM2_updated=False)
         write_json(output / "STATUS.json", status)
         if args.mode == "train" and reason != "operator_epoch_boundary_stop" and not (output / "DELIVERY_ARCHIVE_READY.json").exists():
             from .delivery import export_delivery
-            export_delivery(output, args.index, args.statistics)
+            export_delivery(output, args.index, args.statistics, partial=partial)
         write_json(output / "LIVE_STATUS.json", status)
     dist.barrier()

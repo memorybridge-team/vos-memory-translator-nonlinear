@@ -36,7 +36,7 @@
       "inventory": "/workspace/CMMT-training-contracts/inventories/<SNAPSHOT>/lvos_valid.json",
       "case_manifest": "<CONFIRMED_LVOS_VALID_CASE_MANIFEST>",
       "cache_roots": {
-        "validation": "/workspace/CMMT-task07-artifacts/production/validation/lvos/cache"
+        "validation": "/workspace/CMMT-task07-artifacts/production/validation/lvos/cache/validation"
       },
       "filename_pattern": "lvos_{video_id}_obj{object_id}_switch{switch_frame}.pt"
     }

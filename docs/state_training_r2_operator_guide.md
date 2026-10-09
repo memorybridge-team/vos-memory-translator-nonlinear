@@ -1,35 +1,41 @@
 # 고정 split · validation state R² 학습 운영 안내
 
-날짜: 2026-10-09. 상태: **READY_AFTER_INPUTS / Draft — tensor 연결 미검증**.
+날짜: 2026-10-09. 상태: **NOT_READY / Draft — 새 입력·원격 실행기 검증 전**.
 base: `55b117d`; 작업 branch: `feat/frozen-split-validation-r2`.
 정확한 변경 revision은 PR commit과 `git rev-parse HEAD`로 확인한다.
 이번 작업에서 공식 GPU 학습은 시작하지 않았다.
+
+최신 승인: 같은 Pod의 L4 2개, Pod 전체 USD 1.16/hour, 승인 시작부터 12시간·USD30.
+기존 USD50과 별도다. 정확한 endpoint·지문·승인 시작/deadline은 Git 밖의
+로컬 운영 기록에 보관한다. 이번 승인에는 준비→10분 smoke→fresh 공식 학습이 포함된다.
+기존 split은 완료됐으므로 재생성하지 않는다. 원격 trust 확인 전에는 접속하지 않는다.
 
 ## 1. 검증 경계
 
 |구분|근거|적용 범위|
 |---|---|---|
 |기존 증빙 재사용|2026-10-05 `POST_DELIVERY_LOAD_CHECK.json`, `BOUNDARY_STOP_EVIDENCE.json`, model lock|동일 frozen model/API 입출력·양 branch 갱신·strict model reload·rank 차이 0. 새 split/R² runner 검증으로 확대하지 않음|
-|신규 실행|중간 구현의 stdlib synthetic/metadata fixture 32 tests, 최종 AST/CLI help|split 불변성·role mapping·numeric R²/Chan·exact record schedule·best/early/resume 상태. 실제 split/data/tensor 아님. 이후 prior-index 재사용·batch 기본값 보존 수정은 정적 검사만 수행|
-|미실행|RunPod 접근·CPU 실행 승인 대기|최종 revision의 stdlib 재검사, 실제 inventory/split SHA/count, 새 index 연결, train-only RMS, 6개 작은 tensor/statistics/metadata tests, 변경된 trainer 통합|
-|이번 범위 밖|명시적 미승인|공식 GPU 학습, 수집·J&F·baseline·external benchmark|
+|기존 split 증빙 재사용|사용자 제공 RunPod 실행 기록: revision4fb807b, seed7, metadata32 PASS, 3300/183/183, 영상 교집합0, 동일 재실행SHA|해당 frozen split의 증빙. 같은 검사를 반복하지 않는다. 원본 계보 전체 확인을 의미하지 않음|
+|신규 검사 대상|작은 tensor/statistics tests6 + 신규 운영 안전검사6|RunPod에서 CUDA를 숨겨 실행 예정. 노트북 실행 없음|
+|미실행|host-key 독립 확인 대기|새 index 연결, train-only RMS·validation 통계, CPU6/운영6, 실제 새 2-GPU smoke/공식 학습|
+|이번 범위 밖|명시적 미승인|신규 수집·J&F·baseline·external benchmark·Pod 변경·Jupyter 변경|
 
 기존 모델 revision은 `746ea3e7d84c366c2d7ac06159e90a1f684bca56`,
 `base` config다. 모델팀 body 파일 SHA는 `MIGRATION.md`에 있다.
 기존 검증은 새 index/selection/checkpoint metadata의 실행 증빙이 아니다.
 
-## 2. 내일 필요한 입력과 승인
+## 2. 현재 운영 입력과 확인 상태
 
 |입력/승인|담당|현재 상태|
 |---|---|---|
-|현재 SSH host/port/user, host-key fingerprint, 기존 개인키 경로|운영자|새 endpoint 미제공. 과거 endpoint 재사용 금지|
-|같은 `new` volume 연결, CPU/RAM/가용 디스크, 실행 시간·Pod 전체 USD/hour·CPU 작업 예산|운영자|`j700qtcgrg / EUR-IS-1 / /workspace`는 사용자 제공값. 현재 Pod 실측 대기|
-|CPU fixture 검사·소수 cache record 연결·inventory/split/index/statistics 파일 생성 승인|사용자|대기. 노트북 대체 실행 없음|
-|MOSE official train **전체 원본 영상 목록**과 해당 RGB 영상 directory root|데이터팀|미확인. case manifest/cache 목록으로 전체 목록을 대신 만들지 않음|
-|LVOS official train/valid 전체 영상 목록과 RGB root, actual case manifest 경로|데이터팀|미확인. 원본 extracted root까지만 제공됨|
+|현재 SSH endpoint·GPU UUID|운영자|제공 완료. 공개 host-key 원문은 독립 확인 대기. 상세값은 로컬 운영 기록|
+|같은 `new` volume 연결, CPU/RAM/가용 디스크, Pod 단가·한도|운영자|사용자 제공값 확인. 원격 실측 대기. host RAM 수치를 전용 할당으로 사용하지 않음|
+|CPU6·최소 record 연결·inventory/index/statistics 준비|사용자|승인. 전체 신규 tensor audit 필요 시 범위 별도 승인. 노트북 대체 실행 없음|
+|MOSE official train **전체 원본 영상 목록**과 RGB root|데이터팀|제공 완료: 고정 split·목록은 재사용. case/cache 목록으로 전체 목록을 대신 만들지 않음|
+|LVOS official train/valid 전체 영상 목록과 RGB root, actual case manifest 경로|데이터팀|원본 meta/RGB 제공 완료. RunPod에서 표준 목록 생성·실제 case manifest 연결 확인 예정|
 |원본 clip 그룹 mapping 및 확인 범위|데이터팀|선택 입력. 없으면 `UNKNOWN_SINGLE_VIDEO_GROUP`으로 보고|
 |교체 cache 완료 확인, writer 상태, 파일명 pattern, 제외 case+사유|데이터팀|현재 snapshot 미확인. 수정 fit 9개 자동 제외 없음; 정상 검사 통과 시 포함|
-|공식 GPU 학습 별도 승인 및 UUID/시간/예산|사용자|이번 요청에 포함하지 않음|
+|공식 GPU 학습·UUID·시간·예산|사용자|이번 승인에 포함. 필수 trust/CPU/index/statistics/new smoke 통과 후 실행|
 
 known 원본 root: `/workspace/CMMT/data/MOSEv2/extracted/`,
 `/workspace/CMMT/data/LVOSv2/extracted/`.
@@ -127,15 +133,11 @@ CUDA_VISIBLE_DEVICES="" python -m vos_memory_inspector.state_training --help
 ```
 
 ```bash
-CUDA_VISIBLE_DEVICES="" python -m unittest discover -s tests -p test_state_training_contract.py -v
-```
-
-```bash
 CUDA_VISIBLE_DEVICES="" python -m pytest -q tests/test_state_training_statistics.py
 ```
 
-예상: stdlib 32 tests, 새 작은 tensor/statistics/metadata tests 6개.
-후자는 현재 **미실행**이다. 기존 모델 forward/gradient/reload 검사를 반복하지 않는다.
+기존 stdlib32/split 증빙은 재사용한다. 새 작은 tensor/statistics/metadata tests6은 현재 **미실행**이다.
+신규 외부 실행기·검사 상한의 안전6 검사는 8절에 있다. 기존 모델 forward/gradient/reload 검사를 반복하지 않는다.
 실패하면 최초 traceback·revision·Python/Torch와 해당 fixture만 공유한다.
 
 ### 5.3 Original inventories
@@ -143,9 +145,8 @@ CUDA_VISIBLE_DEVICES="" python -m pytest -q tests/test_state_training_statistics
 `official-list`는 영상 ID 한 줄씩인 authoritative txt 또는 dataset/split/videos
 JSON이다. cases에서 video 목록을 유추하지 않는다. `--groups`는 확인된 JSON만 선택 제공한다.
 
-```bash
-CUDA_VISIBLE_DEVICES="" python -m vos_memory_inspector.state_training inventory --dataset MOSEv2 --official-split train --video-root '<MOSE_OFFICIAL_TRAIN_RGB_VIDEO_ROOT>' --official-list '<MOSE_FULL_OFFICIAL_TRAIN_VIDEO_LIST>' --output '/workspace/CMMT-training-contracts/inventories/<SNAPSHOT>/mose_train.json'
-```
+MOSE inventory는 고정 split의 `original_inventory.json(.sha256)`을 재사용한다.
+기존 원본 목록·split SHA를 확인하며 이 단계에서 재생성하지 않는다.
 
 ```bash
 CUDA_VISIBLE_DEVICES="" python -m vos_memory_inspector.state_training inventory --dataset LVOSv2 --official-split train --video-root '<LVOS_TRAIN_RGB_VIDEO_ROOT>' --official-list '<LVOS_FULL_TRAIN_VIDEO_LIST>' --output '/workspace/CMMT-training-contracts/inventories/<SNAPSHOT>/lvos_train.json'
@@ -158,13 +159,13 @@ CUDA_VISIBLE_DEVICES="" python -m vos_memory_inspector.state_training inventory 
 성공: `.json`과 `.json.sha256`; 목록/directory 불일치는 중단한다.
 데이터팀 원본 목록·하위 root를 확인하며 임의 제외로 통과시키지 않는다.
 
-### 5.4 Permanent split
+### 5.4 기존 Permanent split 읽기 전용 검증
 
 ```bash
-CUDA_VISIBLE_DEVICES="" python -m vos_memory_inspector.state_training freeze --inventory '/workspace/CMMT-training-contracts/inventories/<SNAPSHOT>/mose_train.json' --output /workspace/CMMT-training-contracts/splits/mosev2_90_05_05_v1 --seed 7
+CUDA_VISIBLE_DEVICES="" python -c "from vos_memory_inspector.state_training.splits import read_split; s=read_split('/workspace/CMMT-training-contracts/splits/mosev2_90_05_05_v1'); print(s['video_counts'])"
 ```
 
-성공: `SPLIT_FROZEN.json`, 그룹 overlap0, SHA 일치. 기존 frozen 입력이 다르면
+성공: 기존 frozen marker·SHA 검사가 통과하고 3300/183/183을 출력한다. 기존 frozen 입력이 다르면
 새 seed로 재분할하지 않고 중단 근거를 공유한다.
 
 ### 5.5 역할 plan / 실제 index
@@ -192,6 +193,15 @@ plan은 tensor PASS가 아니다. source별 역할·경로·unknown IDs를 먼�
 소수 검사 helper는 Python `state_training.cache.inspect(case,path,rgb_root)`이며 CLI subset 옵션은 없다.
 
 ```bash
+CUDA_VISIBLE_DEVICES="" python -m vos_memory_inspector.state_training inspection-plan --datasets '<DATASETS_JSON>' --split /workspace/CMMT-training-contracts/splits/mosev2_90_05_05_v1 --output '<NEW_INDEX_ROOT>/inspection_scope.json'
+```
+
+이 명령은 tensor를 읽지 않는다. 신규 tensor 검사 후보가 전체 규모라면 보고 후 승인을 받는다.
+index의 `--max-new-inspections` 기본값은0이다. 소수 실제 연결을 포함해 승인된 범위만
+해당 숫자로 명시한다. 재개에서도 같은 index에 완료된 신규 검사 수를 누적한다.
+이 범위를 넘으면 `INSPECTION_SCOPE_BLOCKED.json`을 남기고 중단한다.
+
+```bash
 CUDA_VISIBLE_DEVICES="" python -m vos_memory_inspector.state_training index --datasets '<DATASETS_JSON>' --split /workspace/CMMT-training-contracts/splits/mosev2_90_05_05_v1 --output '/workspace/CMMT-training-contracts/indices/<SNAPSHOT>' --operator-completed '<ACTUAL_DATA_TEAM_COMPLETION_CONFIRMATION>' --stable-seconds 60
 ```
 
@@ -208,11 +218,11 @@ CUDA_VISIBLE_DEVICES="" python -m vos_memory_inspector.state_training statistics
 
 성공: `normalization.json`, `validation_targets.json`, `r2_spec.json`, 각 SHA와
 `STATISTICS_READY.json`. missing/changed binding은 중단한다. 부분 stats는 덮어쓰지 않고
-새 namespace에서 재시도한다. 실제 작업 시간/storage 비용은 내일 측정하며 현재 미측정이다.
+새 namespace에서 재시도한다. 실제 작업 시간/storage 비용은 원격 실행에서 측정하며 현재 미측정이다.
 
-## 6. 향후 별도 GPU 승인 후 학습·재개 명령
+## 6. 승인 한도 안의 학습·재개 명령
 
-**아래를 이번 작업에서 실행하지 않는다.** 새 contract의 fresh init만 허용한다.
+**이번 자율 run은 8절 controller로 실행한다. 아래는 CLI 계약 설명이다.** 새 contract의 fresh init만 허용한다.
 이전 모델은 MOSE 새 valid/test 영상에 노출됐을 수 있어 warm-start 금지다.
 모델팀 body 검증을 반복하려는 명령이 아니라 새 input/DDP 연결의 실제 실행 gate다.
 값과 budget을 채운 RunPod bash에서 GPU 가용성·UUID 순서를 operator가 확인한다.
@@ -241,8 +251,9 @@ CUDA_VISIBLE_DEVICES='<GPU_UUID_0>,<GPU_UUID_1>' CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 원 approval start/budget을 재개 때 초기화하지 않는다. 준비/idle도 포함한다.
 Python 종료는 Pod 과금 종료가 아니다. Pod 자동 Stop 기능은 없다.
-budget/deadline은 cooperative batch/window 경계에서 확인하며 OS 수준 즉시 종료 보장은 없다.
-보수적 여유를 둔 외부 `timeout`/운영 controller 한도를 operator가 준비한다.
+trainer의 cooperative 검사와 별도로 8절의 외부 guard를 사용한다.
+외부 guard는 Network Volume을 읽지 않고 이번 controller와 자식 rank의 process group만 종료한다.
+커널의 중단 불가능 I/O 상태라면 프로세스 회수 지연이 가능하므로 Pod 청구액 강제 제한으로 해석하지 않는다.
 서로 다른 contract/source/환경/world의 resume는 차단한다. world-size 변경 resume와
 mid-epoch exact resume는 지원한다고 주장하지 않는다.
 마지막 **완료 epoch**만 재개하며 optimizer/scheduler/RNG/history/early 상태를 복원한다.
@@ -284,3 +295,78 @@ single-object 학습 cache는 joint multi-object 동등성의 증거가 아니�
 본 모델은 validation state R² 기준으로 선정되었으며,
 J&F 및 외부 benchmark 평가는 별도 담당자가 수행한다.
 이 문구는 향후 실제 모델 선정 후 전달 보고서에 기록한다. 현재 새 모델은 학습하지 않았다.
+
+## 8. 이번 승인용 원격 독립 실행기 — CPU 안전장치 검증 완료, 실제 학습은 별도 gate
+
+구현: `vos_memory_inspector.state_training.remote_run`.
+`configs/state_training_remote_run.template.json`은 **실행 불가 placeholder 템플릿**이다.
+검증된 격리 checkout/venv, 새 index/statistics SHA, revision/package SHA로 채운
+`OPERATION_CONFIG.input.json`을 원본 밖 새 `r2-<RUN_ID>` 폴더에 저장한다.
+준비·idle을 포함한 최초 승인 시작과 deadline은 그대로 유지한다.
+
+1. RunPod CPU에서 신규 통계6과 운영 안전6만 검사한다. 기존 split32/모델 검사는 반복하지 않는다.
+
+```bash
+CUDA_VISIBLE_DEVICES="" python -m pytest -q tests/test_state_training_statistics.py tests/test_state_training_remote_run.py
+```
+
+성공 기준: 12 passed, 실패/skip 없음. 2026-10-09 승인 Pod의 격리 Python 3.12.11 / Torch 2.8.0+cu128에서 `12 passed in 23.09s`, exit 0을 확인했다.
+CPU 장치에서 작은 fixture와 자기가 생성한 임시 process group만 검사한다.
+근거: 실행 폴더 `runs/r2-20261009T043718Z/CPU_CHECKS.json` 및 `cpu_check_0.log`.
+CLI help 3개도 exit 0이다. 이는 실제 GPU smoke나 공식 학습의 통과 증거가 아니다.
+
+2. RunPod에서 CLI 계약을 확인한다. 아직 학습을 시작하는 명령이 아니다.
+
+```bash
+CUDA_VISIBLE_DEVICES="" python -m vos_memory_inspector.state_training.remote_run --help
+```
+
+3. **아래 명령은 미입력 예시다.** 실제 원격 실행 전에 모든 placeholder를 검증된 값으로 대체한다.
+`HARD_REMAINING_SECONDS`는 절대 deadline에서 현재 UTC를 뺀 값이다. 기존 12시간을 다시 넣지 않는다.
+
+```bash
+tmux new-session -d -s '<RUN_TMUX>' 'exec timeout --signal=TERM --kill-after=35s <HARD_REMAINING_SECONDS>s <ISOLATED_VENV>/bin/python -m vos_memory_inspector.state_training.remote_run watchdog --config <RUN_ROOT>/OPERATION_CONFIG.input.json > <RUN_ROOT>/watchdog.log 2>&1'
+```
+
+watchdog→분리 process group의 controller→torchrun/ranks 구조다.
+[PyTorch 2.8 구현](https://raw.githubusercontent.com/pytorch/pytorch/v2.8.0/torch/distributed/elastic/multiprocessing/subprocess_handler/subprocess_handler.py)은
+rank마다 새 session을 만든다. 따라서 controller group 하나만 종료하지 않는다.
+watchdog의 child-subreaper와 `/proc` PID 시작 시각·자식 관계 추적으로 이번 run의
+rank별 group과 orphan rank까지 식별한다. 인자 전체·환경변수는 읽지 않는다.
+별도 no-volume guard가 deadline에 해당 트리를 종료하고 smoke에도 600초 guard를 둔다.
+guard는 다른 run의 group을 종료하지 않는다. 자동 retry/새 Pod/Pod Stop은 없다.
+정상 경로는 smoke PASS 후 동일 source/config/index/statistics로 본 학습을 한 번 시작하며
+첫 epoch에서 멈추지 않는다. trainer는 매 완료 epoch 이후 다음 epoch의 시간 여유를 확인한다.
+optimizer·scheduler·RNG를 초기화하는 epoch별 재실행은 하지 않는다.
+
+4. 사용자는 필요할 때 읽기 전용으로 확인한다. 주기적 Codex 조회/automation은 없다.
+
+```bash
+cat '<RUN_ROOT>/OPERATION_STATUS.json'
+```
+
+```bash
+cat '<RUN_ROOT>/training/LIVE_STATUS.json'
+```
+
+```bash
+cat '<RUN_ROOT>/training/FIRST_EPOCH_ETA.json'
+```
+
+첫 전체 epoch ETA는 train+full validation+checkpoint 포함 실측이다.
+평균 ETA와 최근 최대 epoch×1.25+60초의 보수적 ETA를 함께 기록한다.
+최대60 완료 예측을 초과해도 승인 한도를 늘리지 않고 다음 epoch가 들어갈 때만 계속한다.
+마무리 예약은 템플릿 기본600초이며 학습 deadline을 전체 deadline보다 그만큼 앞당긴다.
+
+정상 종료: `OPERATION_STATUS.json.status=TRAINING_COMPLETED`,
+`training/DELIVERY_ARCHIVE_READY.json`과 `training_complete=true`를 함께 확인한다.
+한도 경계 중단: `LIMIT_STOPPED_AT_COMPLETE_EPOCH`, `training/PARTIAL_ARCHIVE_READY.json`,
+`training/translator_validation_r2_partial.tar.gz`; 정상 학습 완료가 아니다.
+외부 timeout/오류: `LIMIT_STOPPED`/`ERROR_STOPPED`,
+`PARTIAL_EVIDENCE_READY.json`, `partial_evidence.tar.gz`; 모델 export READY와 구분한다.
+`WATCHDOG_EXIT.json.cleanup.remaining=[]`는 해당 group 회수 결과다.
+중단 불가능 I/O나 강제 종료로 marker가 없으면 완료로 추정하지 않는다.
+
+archive 다운로드 후 `.sha256`을 대조하고, 해당 controller/ranks 종료를 확인한 뒤
+사용자가 Dashboard에서 Pod를 수동 Stop한다. Network Volume은 삭제하지 않는다.
+프로세스 종료 이후에도 Pod Stop 전까지 idle 과금은 계속된다.

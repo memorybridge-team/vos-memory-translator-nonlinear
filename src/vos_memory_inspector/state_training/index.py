@@ -75,6 +75,37 @@ def prior_entries(config):
     return entries, dict(path=source["path"], sha256=source["sha256"], status="OLD_INSPECTION_EVIDENCE_NOT_NEW_R2_CONTRACT")
 
 
+def inspection_plan(config_path, split_root):
+    """실제 tensor를 읽기 전에 신규 검사 범위를 운영자에게 제시한다."""
+    config = read_json(config_path)
+    items, _, _ = plan(config, read_split(split_root))
+    prior, binding = prior_entries(config)
+    excluded = {e['case_id'] for e in config.get('exclusions', [])}
+    candidates, reusable, missing, sealed = [], 0, 0, 0
+    for item in items:
+        c, path = item['case'], item['path']
+        if c['training_role'] == 'internal-test':
+            sealed += 1
+            continue
+        if c['case_id'] in excluded:
+            continue
+        if not Path(path).is_file():
+            missing += 1
+            continue
+        old = prior.get(path)
+        sidecar = Path(path + '.sha256')
+        unchanged = old is not None and stamp(path) == old['stamp'] and sidecar.is_file() and sidecar.read_text().split()[:1] == [old['sha256']]
+        if unchanged:
+            reusable += 1
+        else:
+            candidates.append(dict(case_id=c['case_id'], path=path,
+                                   reason='PRIOR_INSPECTION_ABSENT' if old is None else 'FILE_OR_SIDECAR_CHANGED'))
+    return dict(status='METADATA_SCOPE_ONLY_NOT_TENSOR_PASS', prior_index=binding,
+                potential_prior_reuse=reusable, new_tensor_candidate_count=len(candidates),
+                new_tensor_candidates=candidates, missing_caches=missing, sealed_cases=sealed,
+                semantic_and_rgb_reuse_checks_still_required=True, original_modified=False)
+
+
 def reuse_prior(prior, item):
     """content/semantic binding이 같을 때 역할만 새 manifest에서 적용한다."""
     c, old = item["case"], prior["case"]
@@ -118,11 +149,12 @@ def assert_roles(entries, membership):
         seen.add((key, c["training_role"]))
 
 
-def build_index(config_path, split_root, output, *, operator_completed, stable_seconds=60):
+def build_index(config_path, split_root, output, *, operator_completed, stable_seconds=60, max_new_inspections=0):
     from .cache import inspect
     import torch
     torch.set_num_threads(1)
     require(bool(operator_completed), "OPERATOR_COMPLETION_CONFIRMATION_REQUIRED")
+    require(max_new_inspections >= 0, 'NEW_TENSOR_INSPECTION_LIMIT_REQUIRED')
     config = read_json(config_path)
     split = read_split(split_root)
     items, sources, originals = plan(config, split)
@@ -145,6 +177,9 @@ def build_index(config_path, split_root, output, *, operator_completed, stable_s
         if (output / "index.json").exists():
             return read_index(output / "index.json")
         entries, inventory, failures = [], [], []
+        # 같은 index의 재개에서도 승인 검사 상한을 초기화하지 않는다.
+        new_inspections = sum(read_bound(p).get('inspection_evidence') != 'PRIOR_TENSOR_INSPECTION_REUSED'
+                              for p in (output / 'cases').glob('*.json'))
         for i, item in enumerate(items):
             c = item["case"]
             reason = "INTERNAL_TEST_SEALED" if c["training_role"] == "internal-test" else excluded.get(c["case_id"])
@@ -164,11 +199,20 @@ def build_index(config_path, split_root, output, *, operator_completed, stable_s
                         if item["path"] in prior and stamp(item["path"]) == prior[item["path"]]["stamp"] and Path(item["path"] + ".sha256").read_text().split()[0] == prior[item["path"]]["sha256"]:
                             e = reuse_prior(prior[item["path"]], item)
                         else:
+                            if new_inspections >= max_new_inspections:
+                                write_json(output / 'INSPECTION_SCOPE_BLOCKED.json', dict(status='BLOCKED_NEW_TENSOR_SCOPE',
+                                           case_id=c['case_id'], completed_new_inspections=new_inspections,
+                                           approved_max_new_inspections=max_new_inspections,
+                                           action='inspect metadata scope; obtain approval for larger tensor inspection'))
+                                raise PermissionError('NEW_TENSOR_INSPECTION_SCOPE_NOT_APPROVED')
+                            new_inspections += 1
                             e = inspect(c, item["path"], item["rgb_root"], stable_seconds=stable_seconds)
                         save_bound(journal, e)
                     entries.append(e)
                     row["included"] = True
                     row["records"] = e["records"]
+                except PermissionError:
+                    raise
                 except (ValueError, KeyError, TypeError, RuntimeError, OSError) as exc:
                     row["reason"] = str(exc)
                     failures.append(row)
@@ -176,7 +220,8 @@ def build_index(config_path, split_root, output, *, operator_completed, stable_s
             if (i + 1) % 50 == 0:
                 print(f"CPU cache 검사 {i + 1}/{len(items)}; valid_cases={len(entries)}; failures={len(failures)}", flush=True)
         write_json(output / "INSPECTION.json", dict(status="FAIL" if failures else "TENSOR_INDEXED", failures=failures,
-                   original_modified=False, historical_provenance="SEE_CASE_KNOWN_UNKNOWN_SEPARATELY"))
+                   original_modified=False, approved_max_new_inspections=max_new_inspections,
+                   completed_new_inspections=new_inspections, historical_provenance="SEE_CASE_KNOWN_UNKNOWN_SEPARATELY"))
         write_json(output / "used_excluded.json", inventory)
         require(not failures, "CACHE_ALIGNMENT_FAILURES_SEE_INSPECTION")
         assert_roles(entries, split)

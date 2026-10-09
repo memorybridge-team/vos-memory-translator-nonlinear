@@ -23,12 +23,17 @@ def parser():
     q.add_argument("--datasets", required=True, type=Path)
     q.add_argument("--split", required=True, type=Path)
     q.add_argument("--output", required=True, type=Path)
+    q = sub.add_parser("inspection-plan", help="tensor를 읽지 않고 prior 검사 재사용 후보·신규 tensor 검사 필요 범위 출력")
+    q.add_argument("--datasets", required=True, type=Path)
+    q.add_argument("--split", required=True, type=Path)
+    q.add_argument("--output", required=True, type=Path)
     q = sub.add_parser("index", help="RunPod CPU에서 실제 tensor·SHA·시간/객체/slot 대응 검사; 원본 수정 없음")
     q.add_argument("--datasets", required=True, type=Path)
     q.add_argument("--split", required=True, type=Path)
     q.add_argument("--output", required=True, type=Path)
     q.add_argument("--operator-completed", required=True)
     q.add_argument("--stable-seconds", default=60, type=float)
+    q.add_argument("--max-new-inspections", default=0, type=int, help="승인된 신규 tensor 검사 상한; 기본0=prior 증빙 재사용만")
     q = sub.add_parser("statistics", help="RunPod CPU streaming: train-only RMS와 validation target 통계 한 번 계산")
     q.add_argument("--index", required=True, type=Path)
     q.add_argument("--output", required=True, type=Path)
@@ -73,10 +78,15 @@ def main(argv=None):
             items, sources, _ = plan(read_json(args.datasets), read_split(args.split))
             value = dict(status="DRY_RUN_NOT_TENSOR_PASS", cases=items, sources=sources)
             write_json(args.output, value, immutable=True)
+        elif args.command == 'inspection-plan':
+            from .index import inspection_plan
+            value = inspection_plan(args.datasets, args.split)
+            write_json(args.output, value, immutable=True)
         elif args.command == "index":
             require(__import__("os").environ.get("CUDA_VISIBLE_DEVICES") == "", "CPU_INDEX_MUST_HIDE_CUDA")
             from .index import build_index
-            value = build_index(args.datasets, args.split, args.output, operator_completed=args.operator_completed, stable_seconds=args.stable_seconds)
+            value = build_index(args.datasets, args.split, args.output, operator_completed=args.operator_completed, stable_seconds=args.stable_seconds,
+                                max_new_inspections=args.max_new_inspections)
         elif args.command == "statistics":
             require(__import__("os").environ.get("CUDA_VISIBLE_DEVICES") == "", "CPU_STATS_MUST_HIDE_CUDA")
             from .statistics import prepare
