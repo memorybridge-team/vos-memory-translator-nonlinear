@@ -104,7 +104,8 @@ def train(args):
     cfg = Config(**read_json(args.config))
     cfg.validate(world)
     output = Path(args.output).resolve()
-    outside_originals(output, read_index(args.index))
+    index = read_index(args.index)
+    outside_originals(output, index)
     require(args.resume or not (output / "RUN.json").exists(), "FRESH_RUN_OUTPUT_EXISTS")
     cuda = args.device == "cuda"
     if cuda:
@@ -127,7 +128,7 @@ def train(args):
         # rank 0이 writer lock을 획득한 뒤 나머지를 진행시킨다.
         with writer(output) if rank == 0 else nullcontext():
             dist.barrier()
-            return run(args, output, cfg, device, rank, world, deadline)
+            return run(args, output, cfg, device, rank, world, deadline, index)
     except Exception as exc:
         if rank == 0:
             last = read_json(output / "last_complete.json") if (output / "last_complete.json").exists() else None
@@ -139,8 +140,7 @@ def train(args):
         dist.destroy_process_group()
 
 
-def run(args, output, cfg, device, rank, world, deadline):
-    index = read_index(args.index)
+def run(args, output, cfg, device, rank, world, deadline, index):
     outside_originals(output, index)
     require(not output.is_relative_to(Path(args.index).parent), "RUN_MUST_BE_SEPARATE_FROM_INDEX")
     bindings = dict(index_sha256=sha256(args.index), split_sha256=index["identity"]["split_sha256"], r2_spec_sha256=digest(SPEC))

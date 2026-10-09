@@ -16,8 +16,8 @@ base: `55b117d`; 작업 branch: `feat/frozen-split-validation-r2`.
 |---|---|---|
 |기존 증빙 재사용|2026-10-05 `POST_DELIVERY_LOAD_CHECK.json`, `BOUNDARY_STOP_EVIDENCE.json`, model lock|동일 frozen model/API 입출력·양 branch 갱신·strict model reload·rank 차이 0. 새 split/R² runner 검증으로 확대하지 않음|
 |기존 split 증빙 재사용|사용자 제공 RunPod 실행 기록: revision4fb807b, seed7, metadata32 PASS, 3300/183/183, 영상 교집합0, 동일 재실행SHA|해당 frozen split의 증빙. 같은 검사를 반복하지 않는다. 원본 계보 전체 확인을 의미하지 않음|
-|신규 검사 대상|작은 tensor/statistics tests6 + 신규 운영 안전검사6|RunPod에서 CUDA를 숨겨 실행 예정. 노트북 실행 없음|
-|미실행|host-key 독립 확인 대기|새 index 연결, train-only RMS·validation 통계, CPU6/운영6, 실제 새 2-GPU smoke/공식 학습|
+|신규 검사 완료|작은 tensor/statistics tests6 + 신규 운영 안전검사6|승인 Pod CPU에서 12 PASS / exit 0. 노트북 실행 없음|
+|미실행 또는 진행 중|새 입력 준비 gate|새 index 연결, train-only RMS·validation 통계, 실제 새 2-GPU smoke/공식 학습; run별 실제 상태 파일 우선|
 |이번 범위 밖|명시적 미승인|신규 수집·J&F·baseline·external benchmark·Pod 변경·Jupyter 변경|
 
 기존 모델 revision은 `746ea3e7d84c366c2d7ac06159e90a1f684bca56`,
@@ -28,8 +28,8 @@ base: `55b117d`; 작업 branch: `feat/frozen-split-validation-r2`.
 
 |입력/승인|담당|현재 상태|
 |---|---|---|
-|현재 SSH endpoint·GPU UUID|운영자|제공 완료. 공개 host-key 원문은 독립 확인 대기. 상세값은 로컬 운영 기록|
-|같은 `new` volume 연결, CPU/RAM/가용 디스크, Pod 단가·한도|운영자|사용자 제공값 확인. 원격 실측 대기. host RAM 수치를 전용 할당으로 사용하지 않음|
+|현재 SSH endpoint·GPU UUID|운영자|공개 host-key 독립 대조·SSH 인증·L4 두 UUID 실측 완료. 상세값은 로컬 운영 기록|
+|같은 `new` volume 연결, CPU/RAM/가용 디스크, Pod 단가·한도|운영자|볼륨 확인. cgroup CPU quota 30.6개·RAM 약133GiB; host RAM 수치를 전용 할당으로 사용하지 않음|
 |CPU6·최소 record 연결·inventory/index/statistics 준비|사용자|승인. 전체 신규 tensor audit 필요 시 범위 별도 승인. 노트북 대체 실행 없음|
 |MOSE official train **전체 원본 영상 목록**과 RGB root|데이터팀|제공 완료: 고정 split·목록은 재사용. case/cache 목록으로 전체 목록을 대신 만들지 않음|
 |LVOS official train/valid 전체 영상 목록과 RGB root, actual case manifest 경로|데이터팀|원본 meta/RGB 제공 완료. RunPod에서 표준 목록 생성·실제 case manifest 연결 확인 예정|
@@ -39,7 +39,7 @@ base: `55b117d`; 작업 branch: `feat/frozen-split-validation-r2`.
 
 known 원본 root: `/workspace/CMMT/data/MOSEv2/extracted/`,
 `/workspace/CMMT/data/LVOSv2/extracted/`.
-그 아래 RGB·official list의 실제 구조는 확인 전이다.
+원본 metadata의 전체 영상 key와 RGB directory를 대조해 LVOS train420/valid140 목록을 생성한다.
 `<...>`는 모두 **미입력 placeholder**이며 실행 전에 바꿔야 한다.
 host-key 검증을 끄지 않고 키 내용·token을 로그/Git에 기록하지 않는다.
 
@@ -253,6 +253,7 @@ CUDA_VISIBLE_DEVICES='<GPU_UUID_0>,<GPU_UUID_1>' CUBLAS_WORKSPACE_CONFIG=:4096:8
 Python 종료는 Pod 과금 종료가 아니다. Pod 자동 Stop 기능은 없다.
 trainer의 cooperative 검사와 별도로 8절의 외부 guard를 사용한다.
 외부 guard는 Network Volume을 읽지 않고 이번 controller와 자식 rank의 process group만 종료한다.
+학습 진입 시 index metadata를 한 번 검증한 객체를 내부 run에 전달한다. loader의 실제 파일 SHA·stamp·slot/validity 검사는 유지한다.
 커널의 중단 불가능 I/O 상태라면 프로세스 회수 지연이 가능하므로 Pod 청구액 강제 제한으로 해석하지 않는다.
 서로 다른 contract/source/환경/world의 resume는 차단한다. world-size 변경 resume와
 mid-epoch exact resume는 지원한다고 주장하지 않는다.
