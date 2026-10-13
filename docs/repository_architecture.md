@@ -19,6 +19,11 @@ dataset-specific evaluation orchestration.
 역할을 결정하지 않는다. MOSE official train의 새 90/5/5 membership은 별도
 immutable manifest로 고정한다.
 
+2026-10-13 게시 검토에서는 이 경로에 필요한 변경만 선별했다.
+collector·이전 LVOS/official 학습 및 J&F 운영 branch 전체를 가져오지 않았다.
+기존 runtime/manifest와 모델팀의 frozen body는 보존했다. 검토 및 실제 CPU/GPU
+증거의 범위는 [학습 PR 검토 기록](../reports/training_r2/REVIEW_AND_RUNTIME_2026-10-13_KO.md)을 따른다.
+
 ## Local Task 07/09 workspace
 
 `CMMT/scripts/task07/` is the operational home for paired-state collection and

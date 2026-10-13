@@ -1,0 +1,195 @@
+{
+  "schema_version": "cmmt.training_runtime_evidence_summary.v1",
+  "observed_utc": "2026-10-09T07:57:42Z",
+  "runtime_source_revision": "165d81aad15f1ab7a05d319d1da975a1e7322093",
+  "runtime_package_sha256": "097c7ba52d2fb51f1b04080cd1ff00aa3a4fa3916ca32bea18eaa2f6e23c9724",
+  "CPU": {
+    "environment": {
+      "python": "3.12.11",
+      "torch": "2.8.0+cu128",
+      "CUDA_VISIBLE_DEVICES": ""
+    },
+    "executions": [
+      {
+        "scope": "statistics_and_operations",
+        "source": "d9568c6",
+        "command": "CUDA_VISIBLE_DEVICES=\"\" python -m pytest -q tests/test_state_training_statistics.py tests/test_state_training_remote_run.py",
+        "count": 12,
+        "exit_code": 0,
+        "stdout": "............                                                             [100%]\n12 passed in 23.09s"
+      },
+      {
+        "scope": "delivery_markers",
+        "source": "d9568c6",
+        "command": "CUDA_VISIBLE_DEVICES=\"\" python -m pytest -q tests/test_state_training_remote_run.py::test_delivery_normal_and_partial_markers_remain_distinct",
+        "count": 1,
+        "exit_code": 0,
+        "stdout": ".                                                                        [100%]\n1 passed in 11.99s"
+      },
+      {
+        "scope": "UUID_and_smoke_limit",
+        "source": "040ca88",
+        "command": "CUDA_VISIBLE_DEVICES=\"\" python -m pytest -q tests/test_state_training_remote_run.py::test_cuda_uuid_prefix_preserves_physical_identity_and_remaining_smoke_limit",
+        "count": 1,
+        "exit_code": 0,
+        "stdout": ".                                                                        [100%]\n1 passed in 0.31s"
+      },
+      {
+        "scope": "communication_binding",
+        "source": "165d81a",
+        "command": "CUDA_VISIBLE_DEVICES=\"\" python -m pytest -q tests/test_nccl_recovery_binding.py",
+        "count": 1,
+        "exit_code": 0,
+        "stdout": ".                                                                        [100%]\n1 passed in 0.25s"
+      }
+    ],
+    "passed_total": 15,
+    "not_one_full_regression_run": true
+  },
+  "existing_evidence_reused": {
+    "split_metadata_tests": 32,
+    "model_revision": "746ea3e7d84c366c2d7ac06159e90a1f684bca56",
+    "prior_tensor_inspections": 22248,
+    "minimal_real_cache_CPU_checks": 4
+  },
+  "actual_inputs": {
+    "index_sha256": "473bc4d8087461f8cacd682bf7d14a9dccd1b01e33869f97b11b9e38118297bf",
+    "split_sha256": "9899ed2b3486c393b8f5981a13f57134c383b96da299973f022dddc310035f09",
+    "normalization_sha256": "c7cd07ba3bfbf5ca6c575b496de48287fc66303bdc527239afdf95763caeb0c8",
+    "validation_targets_sha256": "d8d39f51af412ec2749954b7cc240ba7d674629ec4ddaf4e1718c3f00d5246ae",
+    "r2_spec_sha256": "c11169572bf4172707b937396875c37a0f1b44fc950410a30adaf64a0cc76e57",
+    "corrected_fit9_included": true,
+    "statistics": {
+      "LVOSv2/internal-test": {
+        "available_cases": 0,
+        "available_videos": 0,
+        "exclusion_counts": {},
+        "expected_cases": 0,
+        "missing_cache": 0,
+        "original_groups": 0,
+        "original_videos": 0,
+        "used_cases": 0,
+        "used_videos": 0,
+        "valid_records": 0,
+        "videos_without_available_cache": 0,
+        "videos_without_selected_cases": 0
+      },
+      "LVOSv2/train": {
+        "available_cases": 1803,
+        "available_videos": 420,
+        "exclusion_counts": {},
+        "expected_cases": 1803,
+        "missing_cache": 0,
+        "original_groups": 420,
+        "original_videos": 420,
+        "used_cases": 1803,
+        "used_videos": 420,
+        "valid_records": 28848,
+        "videos_without_available_cache": 0,
+        "videos_without_selected_cases": 0
+      },
+      "LVOSv2/validation": {
+        "available_cases": 714,
+        "available_videos": 140,
+        "exclusion_counts": {},
+        "expected_cases": 714,
+        "missing_cache": 0,
+        "original_groups": 140,
+        "original_videos": 140,
+        "used_cases": 714,
+        "used_videos": 140,
+        "valid_records": 11424,
+        "videos_without_available_cache": 0,
+        "videos_without_selected_cases": 0
+      },
+      "MOSEv2/internal-test": {
+        "available_cases": 1110,
+        "available_videos": 166,
+        "exclusion_counts": {
+          "INTERNAL_TEST_SEALED": 1110
+        },
+        "expected_cases": 1110,
+        "missing_cache": 0,
+        "original_groups": 183,
+        "original_videos": 183,
+        "used_cases": 0,
+        "used_videos": 0,
+        "valid_records": 0,
+        "videos_without_available_cache": 17,
+        "videos_without_selected_cases": 17
+      },
+      "MOSEv2/train": {
+        "available_cases": 18738,
+        "available_videos": 2963,
+        "exclusion_counts": {},
+        "expected_cases": 18738,
+        "missing_cache": 0,
+        "original_groups": 3300,
+        "original_videos": 3300,
+        "used_cases": 18738,
+        "used_videos": 2963,
+        "valid_records": 265945,
+        "videos_without_available_cache": 337,
+        "videos_without_selected_cases": 337
+      },
+      "MOSEv2/validation": {
+        "available_cases": 993,
+        "available_videos": 166,
+        "exclusion_counts": {},
+        "expected_cases": 993,
+        "missing_cache": 0,
+        "original_groups": 183,
+        "original_videos": 183,
+        "used_cases": 993,
+        "used_videos": 166,
+        "valid_records": 13887,
+        "videos_without_available_cache": 17,
+        "videos_without_selected_cases": 17
+      }
+    }
+  },
+  "GPU_smoke": {
+    "status": "REAL_R2_DDP_SMOKE_PASS",
+    "subset_scope": true,
+    "complete_epochs": 2,
+    "optimizer_step": 2,
+    "strict_reload": true,
+    "both_branches_updated": {
+      "pointer": true,
+      "spatial": true
+    },
+    "rank_parameter_max_difference": 0,
+    "model_stage_seconds": 46.730660791974515,
+    "train": {
+      "loss": 4.4801740856731636,
+      "normalized_pointer": 1.812374192125657,
+      "normalized_spatial": 2.6677998935475067,
+      "pointer_mse": 0.7269620836949816,
+      "spatial_mse": 1.7256824105393653
+    },
+    "gradient_norm": {
+      "pointer": 0.9702692360101586,
+      "spatial": 0.16282009082708587
+    },
+    "checkpoint_sha256": "84bec386b22066755866b598435ac5bbf5719afa77dc21a9011a3e4ccf4648ef",
+    "communication_environment": {
+      "NCCL_DEBUG": "INFO",
+      "NCCL_P2P_DISABLE": "1"
+    }
+  },
+  "official_start": {
+    "status": "OFFICIAL_TRAIN_RUNNING",
+    "epoch": 1,
+    "before_utc": "2026-10-09T07:57:21Z",
+    "after_utc": "2026-10-09T07:57:42Z",
+    "step_before": 900,
+    "step_after": 1040,
+    "fresh_initialization": true,
+    "SSH_disconnect_reconnect_verified": true,
+    "same_controller_watchdog_guard_torchrun_rank_PID_start_ticks": true
+  },
+  "final_training_completion_verified": false,
+  "final_delivery_verified": false,
+  "VOS_quality_or_JF_claimed": false,
+  "source_of_observations": "developer workspace outputs/r2_remote_20261009T043718Z; redacted selected evidence, no new runtime execution"
+}

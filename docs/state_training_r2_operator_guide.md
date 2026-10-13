@@ -1,14 +1,19 @@
 # 고정 split · validation state R² 학습 운영 안내
 
-날짜: 2026-10-09. 상태: **NOT_READY / Draft — 새 입력·원격 실행기 검증 전**.
+갱신: 2026-10-13. 상태: **READY_AFTER_INPUTS — 코드·입력 연결·실제 smoke/시작 검증 완료, 새 실행은 별도 입력·승인 필요**.
 base: `55b117d`; 작업 branch: `feat/frozen-split-validation-r2`.
 정확한 변경 revision은 PR commit과 `git rev-parse HEAD`로 확인한다.
-이번 작업에서 공식 GPU 학습은 시작하지 않았다.
+2026-10-09 source `165d81a`에서 실제 2-GPU smoke와 공식 학습 시작을 확인했다.
+SSH 종료·재접속 사이 epoch1 step900→1040과 동일 PID/start ticks를 확인했다.
+이것은 과거 실행 증거다. 2026-10-13 현재 Pod/학습 상태·최종 완료·최종 weights는
+조회하지 않았다. [실행 증거와 PR 검토](../reports/training_r2/REVIEW_AND_RUNTIME_2026-10-13_KO.md)를 따른다.
 
-최신 승인: 같은 Pod의 L4 2개, Pod 전체 USD 1.16/hour, 승인 시작부터 12시간·USD30.
+역사적 2026-10-09 승인: 같은 Pod의 L4 2개, Pod 전체 USD 1.16/hour, 승인 시작부터 12시간·USD30.
 기존 USD50과 별도다. 정확한 endpoint·지문·승인 시작/deadline은 Git 밖의
 로컬 운영 기록에 보관한다. 이번 승인에는 준비→10분 smoke→fresh 공식 학습이 포함된다.
-기존 split은 완료됐으므로 재생성하지 않는다. 원격 trust 확인 전에는 접속하지 않는다.
+기존 split/index/statistics-v2는 완료됐으므로 binding·SHA가 같으면 재사용한다.
+해당 승인은 이미 만료됐다. 이 문서나 템플릿은 새 원격/GPU 실행 승인이 아니다.
+원격 trust 확인 전에는 접속하지 않는다. 새 실행의 endpoint·GPU UUID·단가·절대 deadline·예산을 확인한다.
 
 ## 1. 검증 경계
 
@@ -17,8 +22,10 @@ base: `55b117d`; 작업 branch: `feat/frozen-split-validation-r2`.
 |기존 증빙 재사용|2026-10-05 `POST_DELIVERY_LOAD_CHECK.json`, `BOUNDARY_STOP_EVIDENCE.json`, model lock|동일 frozen model/API 입출력·양 branch 갱신·strict model reload·rank 차이 0. 새 split/R² runner 검증으로 확대하지 않음|
 |기존 split 증빙 재사용|사용자 제공 RunPod 실행 기록: revision4fb807b, seed7, metadata32 PASS, 3300/183/183, 영상 교집합0, 동일 재실행SHA|해당 frozen split의 증빙. 같은 검사를 반복하지 않는다. 원본 계보 전체 확인을 의미하지 않음|
 |신규 검사 완료|작은 tensor/statistics tests6 + 신규 운영 안전검사6|승인 Pod CPU에서 12 PASS / exit 0. 노트북 실행 없음|
-|미실행 또는 진행 중|새 입력 준비 gate|새 index 연결, train-only RMS·validation 통계, 실제 새 2-GPU smoke/공식 학습; run별 실제 상태 파일 우선|
-|이번 범위 밖|명시적 미승인|신규 수집·J&F·baseline·external benchmark·Pod 변경·Jupyter 변경|
+|신규 실제 입력 검증 완료|2026-10-09 snapshot|실제 cache 최소4개 CPU 연결, index 22248cases, train-only RMS·validation target 통계 완료. 수정 fit9 포함|
+|신규 실제 GPU 검증 완료|source165d81a|2-GPU smoke PASS, 두 branch 갱신/strict reload/rank 차이0; 공식 학습 epoch1 step900→1040·SSH 독립 실행|
+|미확인|최종 완료 gate|최종 history·종료 사유·R² best·정상 전달 archive는 아직 수집하지 않음|
+|이번 PR 범위 밖|새 실행 없음|신규 수집·J&F·baseline·external benchmark·Pod 변경. Jupyter는 과거 별도 승인으로 복구했고 이번 PR에서 변경하지 않음|
 
 기존 모델 revision은 `746ea3e7d84c366c2d7ac06159e90a1f684bca56`,
 `base` config다. 모델팀 body 파일 SHA는 `MIGRATION.md`에 있다.
@@ -30,12 +37,12 @@ base: `55b117d`; 작업 branch: `feat/frozen-split-validation-r2`.
 |---|---|---|
 |현재 SSH endpoint·GPU UUID|운영자|공개 host-key 독립 대조·SSH 인증·L4 두 UUID 실측 완료. 상세값은 로컬 운영 기록|
 |같은 `new` volume 연결, CPU/RAM/가용 디스크, Pod 단가·한도|운영자|볼륨 확인. cgroup CPU quota 30.6개·RAM 약133GiB; host RAM 수치를 전용 할당으로 사용하지 않음|
-|CPU6·최소 record 연결·inventory/index/statistics 준비|사용자|승인. 전체 신규 tensor audit 필요 시 범위 별도 승인. 노트북 대체 실행 없음|
+|CPU6·최소 record 연결·inventory/index/statistics 준비|사용자|과거 승인 실행 완료. 기존 증빙 재사용. 노트북 대체 실행 없음|
 |MOSE official train **전체 원본 영상 목록**과 RGB root|데이터팀|제공 완료: 고정 split·목록은 재사용. case/cache 목록으로 전체 목록을 대신 만들지 않음|
-|LVOS official train/valid 전체 영상 목록과 RGB root, actual case manifest 경로|데이터팀|원본 meta/RGB 제공 완료. RunPod에서 표준 목록 생성·실제 case manifest 연결 확인 예정|
+|LVOS official train/valid 전체 영상 목록과 RGB root, actual case manifest 경로|데이터팀|원본 meta/RGB 대조·표준 inventory 생성·actual manifest 연결 완료|
 |원본 clip 그룹 mapping 및 확인 범위|데이터팀|선택 입력. 없으면 `UNKNOWN_SINGLE_VIDEO_GROUP`으로 보고|
-|교체 cache 완료 확인, writer 상태, 파일명 pattern, 제외 case+사유|데이터팀|현재 snapshot 미확인. 수정 fit 9개 자동 제외 없음; 정상 검사 통과 시 포함|
-|공식 GPU 학습·UUID·시간·예산|사용자|이번 승인에 포함. 필수 trust/CPU/index/statistics/new smoke 통과 후 실행|
+|교체 cache 완료 확인, writer 상태, 파일명 pattern, 제외 case+사유|데이터팀|2026-10-09 snapshot에서 수정 fit9 전부 포함, expected case cache 누락0. 현재 writer 여부는 새 실행 전 확인 필요|
+|공식 GPU 학습·UUID·시간·예산|사용자|과거 승인 실행은 시작까지 검증. 새 GPU 실행 승인 없음|
 
 known 원본 root: `/workspace/CMMT/data/MOSEv2/extracted/`,
 `/workspace/CMMT/data/LVOSv2/extracted/`.
@@ -107,7 +114,8 @@ early: min_epochs15 이후 meaningful improvement 없는 8 full-validation check
 
 ## 5. 승인 후 RunPod CPU 순서
 
-아래는 **구현된 CLI**다. help만 실행 검증됐고 실제 데이터 명령은 아직 미실행이다.
+아래는 **구현된 CLI의 입력 템플릿**이다. help와 과거 실제 index/statistics/smoke/학습 시작을 검증했다.
+placeholder 명령 자체를 실행한 것으로 표시하지 않는다. 기존 완료 입력은 재생성하지 않는다.
 모든 데이터 처리·tensor 검사·정규화는 RunPod bash에서 수행한다.
 운영 중 checkout/environment에는 설치하지 않는다. 격리 checkout과 기존 Torch의 별도
 환경을 운영자가 준비한 후 프로젝트 root에서 실행한다. 전역 Torch/CUDA 교체 없음.
@@ -136,7 +144,7 @@ CUDA_VISIBLE_DEVICES="" python -m vos_memory_inspector.state_training --help
 CUDA_VISIBLE_DEVICES="" python -m pytest -q tests/test_state_training_statistics.py
 ```
 
-기존 stdlib32/split 증빙은 재사용한다. 새 작은 tensor/statistics/metadata tests6은 현재 **미실행**이다.
+기존 stdlib32/split 증빙은 재사용한다. 작은 tensor/statistics tests6은 RunPod CPU에서 운영 안전6과 함께 PASS했다.
 신규 외부 실행기·검사 상한의 안전6 검사는 8절에 있다. 기존 모델 forward/gradient/reload 검사를 반복하지 않는다.
 실패하면 최초 traceback·revision·Python/Torch와 해당 fixture만 공유한다.
 
@@ -218,7 +226,8 @@ CUDA_VISIBLE_DEVICES="" python -m vos_memory_inspector.state_training statistics
 
 성공: `normalization.json`, `validation_targets.json`, `r2_spec.json`, 각 SHA와
 `STATISTICS_READY.json`. missing/changed binding은 중단한다. 부분 stats는 덮어쓰지 않고
-새 namespace에서 재시도한다. 실제 작업 시간/storage 비용은 원격 실행에서 측정하며 현재 미측정이다.
+새 namespace에서 재시도한다. 과거 index1078.67초/statistics1535.37초를 측정했다.
+이 값은 해당 Network Volume·입력 snapshot의 실측이며 새 환경 처리량 보장이 아니다.
 
 ## 6. 승인 한도 안의 학습·재개 명령
 
@@ -228,19 +237,22 @@ CUDA_VISIBLE_DEVICES="" python -m vos_memory_inspector.state_training statistics
 값과 budget을 채운 RunPod bash에서 GPU 가용성·UUID 순서를 operator가 확인한다.
 
 ```bash
-CUDA_VISIBLE_DEVICES='<GPU_UUID_0>,<GPU_UUID_1>' CUBLAS_WORKSPACE_CONFIG=:4096:8 torchrun --standalone --nproc-per-node=2 -m vos_memory_inspector.state_training train --mode smoke --device cuda --index '<NEW_INDEX_JSON>' --statistics '<NEW_STATISTICS_ROOT>' --config configs/state_training_r2.json --output '<NEW_SMOKE_ROOT>' --max-wall-seconds 600 --execute-approved --gpu-uuid '<GPU_UUID_0>' --gpu-uuid '<GPU_UUID_1>' --approval-start-utc '<APPROVAL_UTC>' --deadline-utc '<DEADLINE_UTC>' --pod-hourly-rate '<WHOLE_POD_USD_PER_HOUR>' --budget-usd '<APPROVED_REMAINING_USD>'
+CUDA_VISIBLE_DEVICES='<GPU_UUID_0>,<GPU_UUID_1>' CUBLAS_WORKSPACE_CONFIG=:4096:8 torchrun --standalone --nproc-per-node=2 -m vos_memory_inspector.state_training train --mode smoke --device cuda --index '<NEW_INDEX_JSON>' --statistics '<NEW_STATISTICS_ROOT>' --config configs/state_training_r2.json --output '<NEW_SMOKE_ROOT>' --max-wall-seconds 600 --execute-approved --gpu-uuid '<GPU_UUID_0>' --gpu-uuid '<GPU_UUID_1>' --approval-start-utc '<ORIGINAL_APPROVAL_UTC>' --deadline-utc '<ORIGINAL_DEADLINE_UTC>' --pod-hourly-rate '<WHOLE_POD_USD_PER_HOUR>' --budget-usd '<ORIGINAL_APPROVED_USD>'
 ```
 
 smoke subset score는 diagnostic이며 공식 best가 아니다. CPU smoke를 GPU PASS로 쓰지 않는다.
 새 index/source/world/normalization binding의 실제 `REAL_R2_DDP_SMOKE_PASS`가 본 학습 조건이다.
 
 ```bash
-CUDA_VISIBLE_DEVICES='<GPU_UUID_0>,<GPU_UUID_1>' CUBLAS_WORKSPACE_CONFIG=:4096:8 torchrun --standalone --nproc-per-node=2 -m vos_memory_inspector.state_training train --mode train --device cuda --index '<NEW_INDEX_JSON>' --statistics '<NEW_STATISTICS_ROOT>' --config configs/state_training_r2.json --output '<NEW_RUN_ROOT>' --smoke-evidence '<NEW_SMOKE_ROOT>/STATUS.json' --max-wall-seconds '<APPROVED_SECONDS>' --execute-approved --gpu-uuid '<GPU_UUID_0>' --gpu-uuid '<GPU_UUID_1>' --approval-start-utc '<APPROVAL_UTC>' --deadline-utc '<DEADLINE_UTC>' --pod-hourly-rate '<WHOLE_POD_USD_PER_HOUR>' --budget-usd '<APPROVED_REMAINING_USD>'
+CUDA_VISIBLE_DEVICES='<GPU_UUID_0>,<GPU_UUID_1>' CUBLAS_WORKSPACE_CONFIG=:4096:8 torchrun --standalone --nproc-per-node=2 -m vos_memory_inspector.state_training train --mode train --device cuda --index '<NEW_INDEX_JSON>' --statistics '<NEW_STATISTICS_ROOT>' --config configs/state_training_r2.json --output '<NEW_RUN_ROOT>' --smoke-evidence '<NEW_SMOKE_ROOT>/STATUS.json' --max-wall-seconds '<APPROVED_SECONDS>' --execute-approved --gpu-uuid '<GPU_UUID_0>' --gpu-uuid '<GPU_UUID_1>' --approval-start-utc '<ORIGINAL_APPROVAL_UTC>' --deadline-utc '<ORIGINAL_DEADLINE_UTC>' --pod-hourly-rate '<WHOLE_POD_USD_PER_HOUR>' --budget-usd '<ORIGINAL_APPROVED_USD>'
 ```
 
 첫 epoch 경계 점검이 별도 승인되면 위 명령에 `--stop-after-epoch 1`을 추가한다.
 기본 명령은 최대60 또는 R² early stop까지 이어진다. tmux에서 실행하면 SSH 종료와
-무관하게 진행한다. tmux/controller 생성은 현재 실행하지 않았다.
+무관하게 진행한다. 과거 실제 tmux/controller 독립 실행은 step 증가로 검증했다.
+`budget-usd`에는 최초 총승인 예산을 넣는다. 최초 승인 시각부터 사용분을 코드가
+계산하므로 잔여 예산을 넣으면 준비/idle 비용이 이중 차감된다.
+통신 옵션은 먼저 검증하고 smoke와 train에서 동일하게 유지한다(9절).
 4 ranks는 같은 code, microbatch16을 명시한 새 config와
 `--nproc-per-node=4`, GPU UUID 네 개를 사용한다. 다른 batch config로 resume하지 않는다.
 GPU당 visible local index는 재매핑되므로 물리 index를 직접 가정하지 않는다.
@@ -273,7 +285,9 @@ checkpoint는 save→checksum→strict model/optimizer/scheduler/output reload �
 
 `docs/state_training_readonly_monitor.ipynb`은 JSON 조회만 한다. cell에 train/kill/resume 없음.
 Jupyter root가 `/workspace`라면 `<NEW_RUN_ROOT>`의 해당 상대 폴더를 연다.
-이번 작업은 Jupyter 설치/인증/서비스 변경을 하지 않는다.
+과거 Jupyter 복구는 별도 사용자 승인으로 수행했고 인증200/미인증403 및 실제
+notebook 접근200을 확인했다. 이번 PR은 인증값·서비스 시작 도구를 포함하지 않는다.
+현재 서비스 가용성은 미확인이다. 인증값은 Git/로그/전달 archive에 넣지 않는다.
 
 자동 전달 폴더: `<NEW_RUN_ROOT>/delivery-final-validation-r2`.
 파일: `best_validation_r2_weights.pth`, `model_config.json`, `normalization.json`,
@@ -285,7 +299,7 @@ archive: `<NEW_RUN_ROOT>/translator_validation_r2_delivery.tar.gz`, `.sha256`,
 
 ```python
 from vos_memory_inspector.state_training.delivery import load_translator
-translator = load_translator('/workspace/<NEW_RUN>/delivery-final-validation-r2')
+translator = load_translator('/workspace/<NEW_RUN>/delivery-final-validation-r2').eval()
 translated_state = translator.translate(source_state)
 ```
 
@@ -295,15 +309,19 @@ single-object 학습 cache는 joint multi-object 동등성의 증거가 아니�
 
 본 모델은 validation state R² 기준으로 선정되었으며,
 J&F 및 외부 benchmark 평가는 별도 담당자가 수행한다.
-이 문구는 향후 실제 모델 선정 후 전달 보고서에 기록한다. 현재 새 모델은 학습하지 않았다.
+이 문구는 실제 모델 선정 후 전달 보고서에 기록한다. 새 공식 학습 시작까지 확인했으며
+최종 R² best와 완료 전달물은 아직 이 개발방에서 검증하지 않았다.
 
-## 8. 이번 승인용 원격 독립 실행기 — CPU 안전장치 검증 완료, 실제 학습은 별도 gate
+## 8. 원격 독립 실행기 — 과거 승인 run의 실행 검증과 새 입력 경계
 
 구현: `vos_memory_inspector.state_training.remote_run`.
 `configs/state_training_remote_run.template.json`은 **실행 불가 placeholder 템플릿**이다.
 검증된 격리 checkout/venv, 새 index/statistics SHA, revision/package SHA로 채운
 `OPERATION_CONFIG.input.json`을 원본 밖 새 `r2-<RUN_ID>` 폴더에 저장한다.
 준비·idle을 포함한 최초 승인 시작과 deadline은 그대로 유지한다.
+이 controller의 `validate_config()`는 기존 승인값1.16/hour·12시간·USD30·2GPU를
+명시적으로 요구한다. 임의 새 단가/예산용 범용 실행기로 해석하지 않는다.
+새 승인값이 다르면 해당 검사를 우회하지 말고 별도 수정·검증 범위를 정한다.
 
 1. RunPod CPU에서 신규 통계6과 운영 안전6만 검사한다. 기존 split32/모델 검사는 반복하지 않는다.
 
@@ -311,14 +329,19 @@ J&F 및 외부 benchmark 평가는 별도 담당자가 수행한다.
 CUDA_VISIBLE_DEVICES="" python -m pytest -q tests/test_state_training_statistics.py tests/test_state_training_remote_run.py
 ```
 
-성공 기준: 12 passed, 실패/skip 없음. 2026-10-09 승인 Pod의 격리 Python 3.12.11 / Torch 2.8.0+cu128에서 `12 passed in 23.09s`, exit 0을 확인했다.
+과거 실행 결과: 당시 tests12개가 `12 passed in 23.09s`, exit0이었다.
+이후 테스트가 추가돼 현재 파일 전체 실행 수는 다를 수 있다. 현재 test 개수를 과거
+실행 결과로 대체하지 않는다. 환경은 격리 Python3.12.11 / Torch2.8.0+cu128이었다.
 CPU 장치에서 작은 fixture와 자기가 생성한 임시 process group만 검사한다.
 근거: 실행 폴더 `runs/r2-20261009T043718Z/CPU_CHECKS.json` 및 `cpu_check_0.log`.
 CLI help 3개도 exit 0이다. 이는 실제 GPU smoke나 공식 학습의 통과 증거가 아니다.
 전달 archive의 정상/부분 완료 marker 구분은 추가 파일 fixture 1개로 검사했고 `1 passed in 11.99s`, exit 0이다.
-이는 모델 재검사가 아니다. 현재 전체 해당 파일 묶음은 통계6+운영7=13개이며, 기존12와 추가1을 각각 실행했다.
+이는 모델 재검사가 아니다. 통계/운영12와 추가 marker1, UUID1, 통신 binding1을
+각각 실행해 총15개 PASS 증거가 있다. 한 번의 전체15개 재실행으로 표시하지 않는다.
 이후 실제 Pod의 Torch 2.8 UUID가 `GPU-` 없는 문자열을 반환함을 확인했다. 물리 UUID의 128비트 값은 유지하며 접두사만 정규화한다.
-다른 GPU 및 잘못된 UUID 거부와 남은 smoke 시간 제한은 별도 CPU fixture1개로 검사한다. 첫 실패 시도의 소요 시간도 600초 smoke 한도와 최초 승인 비용에 포함한다.
+다른 GPU/잘못된 UUID 거부와 남은 smoke 제한은 별도 CPU fixture1개 PASS/0.31초다.
+첫 실패 사용분을 보존했고, 이후 사용자에게 추가 통신 진단30분 및 새 smoke600초를
+승인받았다. 기존 전체 시작/deadline/비용은 초기화하지 않았다.
 
 2. RunPod에서 CLI 계약을 확인한다. 아직 학습을 시작하는 명령이 아니다.
 
@@ -330,7 +353,7 @@ CUDA_VISIBLE_DEVICES="" python -m vos_memory_inspector.state_training.remote_run
 `HARD_REMAINING_SECONDS`는 절대 deadline에서 현재 UTC를 뺀 값이다. 기존 12시간을 다시 넣지 않는다.
 
 ```bash
-tmux new-session -d -s '<RUN_TMUX>' 'exec timeout --signal=TERM --kill-after=35s <HARD_REMAINING_SECONDS>s <ISOLATED_VENV>/bin/python -m vos_memory_inspector.state_training.remote_run watchdog --config <RUN_ROOT>/OPERATION_CONFIG.input.json > <RUN_ROOT>/watchdog.log 2>&1'
+tmux new-session -d -s '<RUN_TMUX>' 'exec env PYTHONPATH=<VERIFIED_ISOLATED_SOURCE_ROOT>/src timeout --signal=TERM --kill-after=35s <HARD_REMAINING_SECONDS>s <ISOLATED_VENV>/bin/python -m vos_memory_inspector.state_training.remote_run watchdog --config <RUN_ROOT>/OPERATION_CONFIG.input.json > <RUN_ROOT>/watchdog.log 2>&1'
 ```
 
 watchdog→분리 process group의 controller→torchrun/ranks 구조다.
@@ -375,3 +398,42 @@ cat '<RUN_ROOT>/training/FIRST_EPOCH_ETA.json'
 archive 다운로드 후 `.sha256`을 대조하고, 해당 controller/ranks 종료를 확인한 뒤
 사용자가 Dashboard에서 Pod를 수동 Stop한다. Network Volume은 삭제하지 않는다.
 프로세스 종료 이후에도 Pod Stop 전까지 idle 과금은 계속된다.
+
+## 9. NCCL 진단 결과와 통신 evidence 계약
+
+2026-10-09 작은 2-rank CUDA 검사에서 `init_process_group(device_id=device)`와
+`barrier(device_ids=[LOCAL_RANK])`를 명시했다. 기본 P2P 경로는35초 timeout,
+해당 검사에만 `NCCL_P2P_DISABLE=1`을 적용한 비교는 양 rank `all_reduce=3.0`으로
+통과했다. 검사별 외부 timeout100초와 PID/start ticks 기반 회수, INFO 로그를 보존했다.
+하드웨어/드라이버 원인까지 확정한 것은 아니다. 시스템 설정은 변경하지 않았다.
+
+source165d81a의 실제 smoke와 공식 학습은 `NCCL_DEBUG=INFO`,
+`NCCL_P2P_DISABLE=1`을 동일하게 사용했다. `training/RUN.json.identity.environment.nccl`
+값이 smoke와 다르면 공식 학습을 거부한다. 다른 Pod에서도 무조건 P2P를 끄라는 권고가 아니다.
+
+controller 템플릿의 `communication_env`는 해당 Pod의 **실제 통신 PASS**와 같게 입력한다.
+`communication_evidence` 및 SHA는 실제 검사 기록을 가리켜야 한다. validator는 다음을 확인한다.
+
+|필드|필수 실제 값|
+|---|---|
+|status|`CUDA_COMMUNICATION_PASS`|
+|selected_env|`communication_env`와 동일; 허용 키는 NCCL_DEBUG=INFO, 선택적으로 NCCL_P2P_DISABLE=1|
+|rank_results|정확히2행; rank/local_rank/current_device가 각각0,1|
+|physical_uuid|각 rank에 승인한 서로 다른 GPU의 실제 UUID; GPU- 접두사만 정규화|
+|all_reduce_sum|양 rank 모두3.0|
+
+이 PR에는 작업별 SSH/tmux 진단 wrapper나 범용 통신 진단 CLI를 추가하지 않았다.
+기존 검사를 재사용할 수 없다면 운영자가 데이터·모델을 읽지 않는 위 검사를 별도
+승인 범위에서 실행해 실제 JSON을 받아야 한다. 실행하지 않은 결과를 작성하거나
+evidence 검사/UUID 검사를 우회하지 않는다. 필요한 별도 helper의 요구사항은
+rank별 device binding·승인 UUID 검증·작은 all_reduce·짧은 PG/외부 timeout·소유 PID 회수·
+비밀값 없는 INFO 로그·정확한 JSON/SHA 저장이다. 존재하지 않는 실행 명령은 제공하지 않는다.
+
+## 10. PR revision과 기존 run 재개
+
+실제 검증한 학습 source는 `165d81aad15f1ab7a05d319d1da975a1e7322093`이다.
+2026-10-13 게시 정리에서는 미참조 helper `group_members()`만 제거했고 실행 함수의
+AST가 동일함을 정적으로 대조했다. 모델 body·trainer·loss·scheduler·split은 변경하지 않았다.
+그래도 package/source SHA는 달라진다. 기존 run의 학습 중 소스를 새 PR HEAD로
+덮어쓰거나 새 HEAD로 checkpoint를 강제 resume하지 않는다. 재개 시에는 해당 run의
+source165d81a와 같은 config/index/statistics/통신 환경을 사용한다. 이 commit은 PR 이력에 보존한다.

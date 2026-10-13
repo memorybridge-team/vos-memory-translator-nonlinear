@@ -49,11 +49,6 @@ def process_identity(pid):
         return None
 
 
-def group_members(pgid):
-    return [value for p in Path('/proc').iterdir() if p.name.isdigit()
-            and (value := process_identity(int(p.name))) and value['pgid'] == pgid and value['state'] != 'Z']
-
-
 def owned_processes(owner, adopter=None, exclude=(), tracked=None):
     """PID 시작 시각과 자식 관계로만 추적한다. process 인자/환경변수는 읽지 않는다."""
     all_processes = {int(p.name): value for p in Path('/proc').iterdir() if p.name.isdigit()

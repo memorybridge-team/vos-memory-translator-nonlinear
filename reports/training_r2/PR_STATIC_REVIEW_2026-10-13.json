@@ -1,0 +1,99 @@
+{
+  "status": "STATIC_PASS_RUNTIME_EVIDENCE_REUSED",
+  "date": "2026-10-13",
+  "base": "55b117dcae4a0102b92382ed06cbee4f1fc3956c",
+  "runtime_source_revision": "165d81aad15f1ab7a05d319d1da975a1e7322093",
+  "runtime_package_sha256": "097c7ba52d2fb51f1b04080cd1ff00aa3a4fa3916ca32bea18eaa2f6e23c9724",
+  "reviewed_package_sha256": "7a79c4c94d726a26d5f8259a2f6c1f8746d47add24223fac33129b121bee9935",
+  "runtime_code_change": "remove unreferenced group_members only",
+  "executed_function_AST_unchanged": true,
+  "unused_helper_references": [],
+  "python_AST_count": 43,
+  "CLI_help": [
+    {
+      "module": "vos_memory_inspector.state_training",
+      "command": null,
+      "exit_code": 0,
+      "stdout_sha256": "37e404669cc635958641f585d67df46565bad65f720d4cf7e6ce7f80459d7c0a"
+    },
+    {
+      "module": "vos_memory_inspector.state_training",
+      "command": "inventory",
+      "exit_code": 0,
+      "stdout_sha256": "1d9e1ee200c960dc0edbe85d2ab5d8e67faa2f89ae554b806dea4a50845089fc"
+    },
+    {
+      "module": "vos_memory_inspector.state_training",
+      "command": "freeze",
+      "exit_code": 0,
+      "stdout_sha256": "8bd3587b0458880d9723a91ff4f5d01cf368e48dc930e8f3e658d718b35e5aac"
+    },
+    {
+      "module": "vos_memory_inspector.state_training",
+      "command": "plan",
+      "exit_code": 0,
+      "stdout_sha256": "eb24645177430766f984bb065b3049121f073f1c484dbafbf3a5fe8008ed3675"
+    },
+    {
+      "module": "vos_memory_inspector.state_training",
+      "command": "inspection-plan",
+      "exit_code": 0,
+      "stdout_sha256": "d262b9de3985832606b9a075411a61248bb82b052b957c3ec6aa2807855144a9"
+    },
+    {
+      "module": "vos_memory_inspector.state_training",
+      "command": "index",
+      "exit_code": 0,
+      "stdout_sha256": "19f77d6b350193a005f7eac6cda7c495d5835ec7bed324592d145cf252624182"
+    },
+    {
+      "module": "vos_memory_inspector.state_training",
+      "command": "statistics",
+      "exit_code": 0,
+      "stdout_sha256": "1968ba68adc148a18d375e01e6a85ca80bf9d870074408a19872c7352d916c62"
+    },
+    {
+      "module": "vos_memory_inspector.state_training",
+      "command": "train",
+      "exit_code": 0,
+      "stdout_sha256": "2d29d221eaa56cab646f980dc8117a430fcdb53f829e95e0e6d254be2aee3469"
+    },
+    {
+      "module": "vos_memory_inspector.state_training",
+      "command": "monitor",
+      "exit_code": 0,
+      "stdout_sha256": "65ae9036ae2e4b61ffdfcf71e1a49b8871a9c586741f57561935a851ff0264ac"
+    },
+    {
+      "module": "vos_memory_inspector.state_training.remote_run",
+      "command": null,
+      "exit_code": 0,
+      "stdout_sha256": "f2a0add36602b9bfb4aaaf7e8f36af946c32716b086ca7ce1cd82e58a007ed92"
+    }
+  ],
+  "frozen_source_hashes": {
+    "transformer_translator.py": "60d56b6785e83c10d2dc313986189d93e8d223ebc031cc6054706986b63f4421",
+    "frozen_tensor_api.py": "6e647775fa96726b26ca6f56e9ac4ef144ccd617c28d334e3baf664e7ad8e0ff"
+  },
+  "spec_config_equal": true,
+  "global_batch": 64,
+  "readonly_notebook": true,
+  "template_operational_inputs_redacted": true,
+  "secret_or_large_artifact_findings": [],
+  "ignored_operational_artifacts": [
+    "pod_inputs.active.local.json",
+    "jupyter-private/auth_token",
+    "source.bundle",
+    "translator_delivery.tar.gz"
+  ],
+  "documents_checked": [
+    "README.md",
+    "docs/repository_architecture.md",
+    "docs/state_training_r2_operator_guide.md",
+    "reports/training_r2/IMPLEMENTATION_REPORT_KO.md",
+    "reports/training_r2/REVIEW_AND_RUNTIME_2026-10-13_KO.md"
+  ],
+  "new_local_tensor_tests_executed": false,
+  "new_remote_jobs_executed": false,
+  "full_final_regression_executed": false
+}

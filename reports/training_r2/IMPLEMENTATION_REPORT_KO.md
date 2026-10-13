@@ -1,5 +1,10 @@
 # 고정 split / validation R² 학습 구현 중간 보고
 
+> **역사적 중간 기록**: 아래 내용은 원격 실행 전 상태다. 이후 완료한 CPU·실제 cache·
+> 2-GPU smoke·학습 시작 검증과 2026-10-13 PR 검토 결과는
+> [최신 검토·실행 기록](REVIEW_AND_RUNTIME_2026-10-13_KO.md)을 따른다.
+> 최종 학습 완료/최종 전달 archive는 아직 이 개발방에서 확인하지 않았다.
+
 작성 2026-10-09. **Draft / 원격 검증 대기**.
 최신 main `55b117d`에서 만든 `feat/frozen-split-validation-r2`에서 작업한다.
 기존 `feat/official-mixed-state-training`의 `604644c` 및 미추적 teammate guide는 보존했다.
