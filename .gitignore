@@ -21,6 +21,8 @@ Thumbs.db
 .runpod_ssh_known_hosts
 *.local.yaml
 *.local.yml
+*.local.json
+jupyter-private/
 tmp/
 *.tmp
 .ipynb_checkpoints/
@@ -30,6 +32,8 @@ tmp/
 *.pth
 *.ckpt
 *.safetensors
+*.bundle
+*.tar.gz
 data/*
 !data/README.md
 datasets/

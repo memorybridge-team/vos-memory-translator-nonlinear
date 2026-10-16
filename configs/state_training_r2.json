@@ -1,0 +1,20 @@
+{
+  "lr": 0.0003,
+  "weight_decay": 0.0001,
+  "microbatch": 32,
+  "global_batch": 64,
+  "workers": 2,
+  "prefetch_factor": 2,
+  "pin_memory": true,
+  "cache_cases": 2,
+  "cache_bytes_per_worker": 67108864,
+  "max_epochs": 60,
+  "min_epochs": 15,
+  "patience": 8,
+  "min_delta": 0.001,
+  "clip_norm": 1.0,
+  "seed": 7,
+  "precision": "fp32",
+  "augmentation": "none",
+  "log_every": 20
+}

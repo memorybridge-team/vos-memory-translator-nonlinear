@@ -60,8 +60,15 @@ manifests/                  frozen MOSEv2/LVOS v2 and external evaluation splits
 state map                   system archive link below
 ```
 
-Collection, training and evaluation orchestration lives in the team's local
-workspace. Paired-state tensors, checkpoints and prediction artifacts live on
+Collection and evaluation orchestration lives in the team's local workspace.
+The fixed-split state training contract is documented in
+[docs/state_training_r2_operator_guide.md](docs/state_training_r2_operator_guide.md).
+현재 학습 진입점은 `cmmt-state-training` 또는
+`python -m vos_memory_inspector.state_training`입니다. 모델팀의 고정 Transformer로
+cached-state spatial/pointer MSE를 학습하고 full-validation state R²로 선정합니다.
+[검증·정리 기록](reports/training_r2/REVIEW_AND_RUNTIME_2026-10-13_KO.md)에서
+CPU 검사, 실제 2-GPU smoke, 공식 학습 시작과 미확인 완료 gate를 구분합니다.
+Paired-state tensors, checkpoints and prediction artifacts live on
 the RunPod Network Volume. Completed evidence and benchmark reports are kept
 in the dedicated archive repositories rather than this experiment core.
 

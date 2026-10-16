@@ -1,0 +1,27 @@
+{
+  "operation_root": "/workspace/CMMT-training-contracts/runs/r2-<RUN_ID>",
+  "python": "<ISOLATED_VENV>/bin/python",
+  "source_root": "<VERIFIED_ISOLATED_SOURCE_ROOT>",
+  "source_revision": "<VERIFIED_REVISION>",
+  "package_source_sha256": "<VERIFIED_PACKAGE_SOURCE_SHA256>",
+  "index": "<NEW_INDEX>/index.json",
+  "index_sha256": "<VERIFIED_INDEX_SHA256>",
+  "statistics": "<NEW_STATISTICS>",
+  "statistics_ready_sha256": "<VERIFIED_STATISTICS_READY_SHA256>",
+  "config": "<VERIFIED_SOURCE>/configs/state_training_r2.json",
+  "config_sha256": "<VERIFIED_CONFIG_SHA256>",
+  "gpu_uuids": [
+    "<APPROVED_GPU_UUID_0>",
+    "<APPROVED_GPU_UUID_1>"
+  ],
+  "approval_start_utc": "<ORIGINAL_APPROVAL_START_UTC>",
+  "deadline_utc": "<ORIGINAL_ABSOLUTE_DEADLINE_UTC>",
+  "pod_hourly_rate": 1.16,
+  "budget_usd": 30,
+  "max_hours": 12,
+  "artifact_reserve_seconds": 600,
+  "smoke_seconds": 600,
+  "communication_env": {"NCCL_DEBUG": "INFO"},
+  "communication_evidence": "<ACTUAL_COMMUNICATION_PASS_JSON>",
+  "communication_evidence_sha256": "<VERIFIED_COMMUNICATION_EVIDENCE_SHA256>"
+}
