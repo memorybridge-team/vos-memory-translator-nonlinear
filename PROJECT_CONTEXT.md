@@ -1,8 +1,10 @@
-# CMMT 현재 프로젝트 문맥
+# CMMT 프로젝트 문맥 — 2026-10-05 기록
 
-기준: 2026-10-05 KST. 현재 운영 문서는 [학습·평가 파이프라인 v2](docs/training_evaluation_pipeline_v2.md)다. 이 파일과 v2 문서는 공개 core에 실행기를 다시 넣거나 실행 중인 RunPod 소스를 변경하지 않는다.
+이 파일은 2026-10-05 run의 기록입니다. 이후 고정 split·validation R² 학습 계약의 현재 설정으로 사용하지 않습니다.
 
-## 최신 결정
+기준: 2026-10-05 KST. 당시 운영 문서는 [학습·평가 파이프라인 v2](docs/training_evaluation_pipeline_v2.md)다. 이 파일과 v2 문서는 공개 core에 실행기를 다시 넣거나 실행 중인 RunPod 소스를 변경하지 않는다.
+
+## 당시 결정
 
 - 모델 쌍은 SAM 2.1 **Small → Base+**, 한 방향·한 번의 no-replay memory handoff다. 과거 Tiny→Large/Tiny→Base+ pilot을 현재 성능으로 취급하지 않는다.
 - 10/4 corrected LVOS-only 30-epoch run은 완료된 과거 run으로 보존한다. 10/5 공식 run은 MOSEv2 + LVOS v2 official train으로 별도 시작했으며, 이 run의 optimizer를 초기화하지 않는다.

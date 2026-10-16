@@ -1,5 +1,7 @@
 # CMMT 학습·평가 파이프라인 v2
 
+이 문서는 2026-10-05 run의 운영 기록입니다. 이후 고정 split·validation R² 학습 계약과 데이터 수·모델 선정 정책이 다르므로, 두 run의 설정을 혼용하지 않습니다.
+
 기준일: **2026-10-05 KST**. 최신 실행 상태 snapshot: **15:09:44 KST**(이전 14:50:34 기록도 보존). 날짜가 있는 상태 기록이며 실시간 dashboard가 아니다.
 
 **최신 상태:** 기존 학습은 35 epochs / step 177,135 뒤 `validation_early_stop`으로 종료됐다. State 전달물 READY는 생성됐으며, 정책 migration/재개와 실제 J&F 완료는 아직 확인하지 않았다. 새 평가 Pod는 SSH·GPU·volume 확인 및 SAM2 import를 통과했고 adapter 검증을 진행 중이다.
