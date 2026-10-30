@@ -318,11 +318,11 @@ def test_state_evaluation_accepts_legacy_raw_and_new_ridge_artifacts(sample_inde
     model = construct_model('transformer', pair['source_canonical'].spec, OPTIONS)
     raw = tmp_path / 'legacy.pth'
     torch.save(model.to_payload(), raw)
-    result = evaluate_artifact(index, cpu_config, 'transformer', raw, tmp_path / 'legacy_eval.json', allow_sample=True)
+    result = evaluate_artifact(index, cpu_config, 'transformer', raw, tmp_path / 'legacy_eval.json', allow_sample=True, readiness=inspect(index, cpu_config))
     assert result['metrics']['all']['records'] == 3 and not result['vos_score']
     ridge = tmp_path / 'ridge.pth'
     fit_ridge(index, cpu_config, ridge)
-    result = evaluate_artifact(index, cpu_config, 'ridge', ridge, tmp_path / 'ridge_eval.json', allow_sample=True)
+    result = evaluate_artifact(index, cpu_config, 'ridge', ridge, tmp_path / 'ridge_eval.json', allow_sample=True, readiness=inspect(index, cpu_config))
     assert result['metrics']['all']['state_loss'] < 0.001
     assert load_learned_translator(ridge, 'ridge').source_spec == model.source_spec
 

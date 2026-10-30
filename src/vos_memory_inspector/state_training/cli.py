@@ -50,7 +50,7 @@ def parser():
         if name == 'preflight':
             cmd.add_argument('--checkpoint', type=Path, help='optional epoch checkpoint to inspect for resume')
             cmd.add_argument('--world-size', type=int, default=1, help='planned training process count')
-        if name in ('train', 'ridge-fit'):
+        if name in ('train', 'ridge-fit', 'evaluate'):
             cmd.add_argument('--preflight-report', type=Path, required=name == 'train')
         if name == 'train':
             cmd.add_argument('--distributed-timeout-seconds', type=float, default=180.)
@@ -120,7 +120,8 @@ def main(argv=None):
         return 0 if report['launch_ready'] else 2
     if args.command == 'evaluate':
         from .evaluation import evaluate_artifact
-        evaluate_artifact(index, config, name, args.model_artifact, args.output, allow_sample=args.sample_index)
+        evaluate_artifact(index, config, name, args.model_artifact, args.output, allow_sample=args.sample_index,
+                          readiness=_json(args.preflight_report) if args.preflight_report else None)
         return 0
     if args.command == 'ridge-fit':
         report = (validate_readiness(index, _json(args.preflight_report), allow_sample=args.sample_index).report
