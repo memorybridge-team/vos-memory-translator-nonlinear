@@ -142,6 +142,11 @@ def forbidden(*args, **kwargs):
 cli.inspect = forbidden
 preflight.inspect = forbidden
 trainer.inspect = forbidden
+original_ddp = trainer.DistributedDataParallel
+def ddp(*args, **kwargs):
+    assert kwargs.get('broadcast_buffers') is False
+    return original_ddp(*args, **kwargs)
+trainer.DistributedDataParallel = ddp
 raise SystemExit(cli.main(sys.argv[1:]))
 ''')
     output = tmp_path / 'cli-run'
@@ -167,6 +172,8 @@ raise SystemExit(cli.main(sys.argv[1:]))
     assert result['history'][-1]['step'] == 2
     assert result['identity']['world_size'] == 2
     assert not result['cuda_training_executed']
+    assert result['identity']['determinism']['deterministic_algorithms'] is True
+    assert result['identity']['determinism']['broadcast_buffers'] is False
 
 
 def _run_process_group(command, env):

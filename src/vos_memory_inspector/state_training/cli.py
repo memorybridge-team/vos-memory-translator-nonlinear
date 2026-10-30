@@ -9,6 +9,7 @@ import torch
 import torch.distributed as dist
 
 from .data import load_index
+from .determinism import configure_determinism, execution_profile
 from .policy import TrainConfig
 from .preflight import inspect, require_ready, validate_readiness
 from .ridge import fit_ridge, load_ridge, StreamingRidgeTranslator
@@ -105,6 +106,8 @@ def main(argv=None):
                     checkpoint.get('schema_version') == 'cmmt.record_training_checkpoint.v1' and
                     identity['data'] == index.identity and identity['config'] == config.logical() and
                     identity['model'] == name and identity['options'] == options and
+                    identity.get('determinism') == execution_profile(
+                        'cuda' if identity.get('determinism', {}).get('cublas_workspace_config') else 'cpu') and
                     identity['world_size'] == args.world_size and
                     identity['ridge_sha256'] == (ridge['provenance']['artifact_sha256'] if args.ridge_init else None) and
                     restored.source_spec.to_dict() == report['source_spec'] and
@@ -142,6 +145,7 @@ def main(argv=None):
     if not math.isfinite(args.distributed_timeout_seconds) or args.distributed_timeout_seconds <= 0:
         raise ValueError('distributed timeout must be positive and finite')
     readiness = validate_readiness(index, _json(args.preflight_report))
+    configure_determinism(args.device)
     initialized_here = False
     try:
         if args.device == 'cuda':

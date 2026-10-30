@@ -1,6 +1,5 @@
 """Record-batch FP32 trainer with weighted DDP tails and epoch-boundary resume."""
 from contextlib import nullcontext
-from dataclasses import asdict
 import math
 from pathlib import Path
 import random
@@ -18,6 +17,7 @@ from ..models.residual_mlp import ResidualMLPStateTranslator
 from ..models.transformer import TransformerStateTranslator
 from ..state_schema import StateSpec
 from .data import record_loader
+from .determinism import configure_determinism
 from .metrics import Metrics
 from .policy import WarmupPlateau, ValidationStop, optimizer_groups, schedule
 from .preflight import validate_readiness, bind_stamps
@@ -115,20 +115,23 @@ def train(index, config, name, output, *, options=None, ridge_path=None, device=
         raise ValueError('sample mode cannot run CUDA training')
     if device.type not in ('cpu', 'cuda'):
         raise ValueError('record training supports CPU or CUDA only')
+    if readiness is None:
+        raise ValueError('preflight report required; run standalone preflight before training')
+    report = _rank_zero(lambda: validate_readiness(index, readiness, allow_sample=allow_sample).report, rank, world)
+    bind_stamps(index, report)
+    deterministic_execution = configure_determinism(device)
     if device.type == 'cuda':
         if not torch.cuda.is_available():
             raise ValueError('CUDA unavailable')
         if device.index is None:
             device = torch.device('cuda', torch.cuda.current_device())
-    if readiness is None:
-        raise ValueError('preflight report required; run standalone preflight before training')
-    report = _rank_zero(lambda: validate_readiness(index, readiness, allow_sample=allow_sample).report, rank, world)
-    bind_stamps(index, report)
     scales = report['normalization']['scales']
     spec = StateSpec(**report['source_spec'])
     random.seed(config.seed)
     np.random.seed(config.seed)
     torch.manual_seed(config.seed)
+    if device.type == 'cuda':
+        torch.cuda.manual_seed_all(config.seed)
     model = construct_model(name, spec, options)
     ridge = load_ridge(ridge_path) if ridge_path is not None else None
     if getattr(model, 'skip_mode', 'identity') == 'affine':
@@ -140,7 +143,7 @@ def train(index, config, name, output, *, options=None, ridge_path=None, device=
     elif ridge is not None:
         raise ValueError('ridge initialization is only supported in affine mode')
     identity = dict(data=index.identity, config=config.logical(), model=name, options=options or {},
-                    spec=spec.to_dict(), normalization=scales, world_size=world,
+                    spec=spec.to_dict(), normalization=scales, world_size=world, determinism=deterministic_execution,
                     ridge_sha256=ridge['provenance']['artifact_sha256'] if ridge else None)
     signature = digest(identity)
     output = Path(output)
@@ -165,8 +168,10 @@ def train(index, config, name, output, *, options=None, ridge_path=None, device=
         checkpoint = None
         if resume is not None:
             checkpoint = torch.load(resume, map_location='cpu', weights_only=True)
+            if not checkpoint.get('identity', {}).get('determinism'):
+                raise ValueError('checkpoint has no deterministic execution profile; start a new run')
             if checkpoint.get('schema_version') != 'cmmt.record_training_checkpoint.v1' or checkpoint['signature'] != signature:
-                raise ValueError('resume model/data/skip mode/protocol changed')
+                raise ValueError('resume model/data/skip mode/protocol/determinism changed')
             if checkpoint['identity'] != identity:
                 raise ValueError('resume identity mismatch')
             loaded = restore_model(name, checkpoint['model'])
@@ -181,7 +186,8 @@ def train(index, config, name, output, *, options=None, ridge_path=None, device=
                 raise ValueError('checkpoint has already early-stopped; policy is not reset')
             best_loss, best_payload, best_epoch = checkpoint['best_loss'], checkpoint['best_model'], checkpoint['best_epoch']
         tensor_model = TensorModel(model)
-        ddp = DistributedDataParallel(tensor_model, device_ids=[device.index] if device.type == 'cuda' else None) if world > 1 else tensor_model
+        ddp = DistributedDataParallel(tensor_model, device_ids=[device.index] if device.type == 'cuda' else None,
+                                      broadcast_buffers=False) if world > 1 else tensor_model
         if checkpoint is not None:
             restore_rng(checkpoint['rng'][rank])
         for epoch in range(start, config.max_epochs):
