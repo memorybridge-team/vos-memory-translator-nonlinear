@@ -37,6 +37,7 @@ _SUMMARY_MODULES = (
     ("context_proj", ("context_proj",)),
     ("local_in", ("local_in",)),
     ("local_out", ("local_out",)),
+    ("linear_skip", ("linear_skip",)),
     ("alpha", ()),
 )
 

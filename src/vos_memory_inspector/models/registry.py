@@ -120,7 +120,7 @@ PRESETS: Mapping[str, TranslatorPreset] = MappingProxyType(
 
 _LADDER_OVERRIDES = {
     "linear": {"output_dtype"},
-    "residual_mlp": {"hidden_dim", "pointer_hidden_dim", "output_dtype"},
+    "residual_mlp": {"hidden_dim", "pointer_hidden_dim", "output_dtype", "skip_mode"},
     "moment_match": {"eps", "output_dtype"},
     "direct": set(),
 }

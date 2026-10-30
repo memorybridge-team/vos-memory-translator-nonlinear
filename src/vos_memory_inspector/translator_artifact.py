@@ -13,6 +13,9 @@ LEARNED_ARTIFACT_TRANSLATORS = ("residual_mlp", *TRANSFORMER_TRANSLATORS)
 
 
 def load_learned_translator(path: Path, name: str) -> Any:
+    if name == "ridge":
+        from .state_training.ridge import load_ridge, StreamingRidgeTranslator
+        return StreamingRidgeTranslator(load_ridge(path)).eval()
     if name not in LEARNED_ARTIFACT_TRANSLATORS:
         raise ValueError(f"unsupported learned translator: {name}")
     artifact = torch.load(path, map_location="cpu", weights_only=True)

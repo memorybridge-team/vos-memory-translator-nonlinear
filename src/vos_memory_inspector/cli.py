@@ -463,15 +463,21 @@ def cached_handoff_main(argv: list[str] | None = None) -> None:
         payload = __import__("torch").load(
             args.translator_artifact, map_location="cpu", weights_only=True
         )
-        if not isinstance(payload, dict) or not isinstance(payload.get("ridge"), dict):
-            parser.error("translator artifact does not contain a Ridge payload")
-        ridge = RidgeStateTranslator.from_payload(payload["ridge"])
-        if args.presence_policy == "direct":
-            translator = RidgeDirectPresenceTranslator(ridge)
-            translator_name = translator.name
+        if isinstance(payload, dict) and payload.get("schema_version") == "cmmt.streaming_ridge.v1":
+            if args.presence_policy != "direct":
+                parser.error("streaming ridge preserves diagnostic presence; use --presence-policy direct")
+            translator = load_learned_translator(args.translator_artifact, "ridge")
+            translator_name = "ridge"
         else:
-            translator = ridge
-            translator_name = ridge.name
+            if not isinstance(payload, dict) or not isinstance(payload.get("ridge"), dict):
+                parser.error("translator artifact does not contain a Ridge payload")
+            ridge = RidgeStateTranslator.from_payload(payload["ridge"])
+            if args.presence_policy == "direct":
+                translator = RidgeDirectPresenceTranslator(ridge)
+                translator_name = translator.name
+            else:
+                translator = ridge
+                translator_name = ridge.name
     elif args.translator in LEARNED_ARTIFACT_TRANSLATORS:
         if args.translator_artifact is None:
             parser.error(f"--translator-artifact is required for {args.translator}")

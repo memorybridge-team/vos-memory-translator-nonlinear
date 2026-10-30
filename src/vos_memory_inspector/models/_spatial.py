@@ -11,6 +11,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from ..state_schema import StateSpec
+from .affine import make_skip
 
 
 # Runtime contract v1.1: spatial [B,O,K,64,64,64] bf16, pointer [B,O,K,256] fp32.
@@ -36,7 +37,7 @@ _POSITIVE_INT_FIELDS = (
 )
 _BOOL_FIELDS = ("spatial_context", "use_attention", "use_residual")
 _CONTEXT_MAC_KEYS = ("patch_embed", "attention", "ffn", "context_conv", "context_proj")
-_PIXEL_MAC_KEYS = ("local_in", "local_out")
+_PIXEL_MAC_KEYS = ("local_in", "local_out", "linear_skip")
 
 
 @dataclass(frozen=True)
@@ -66,8 +67,13 @@ class SpatialTransformerConfig:
     pointer_dim: int = 256
     pointer_hidden_dim: int = 512
     output_dtype: str = "source"  # "source" | "float32"
+    skip_mode: str = "identity"
 
     def __post_init__(self) -> None:
+        if self.skip_mode not in ("identity", "affine"):
+            raise ValueError("unknown skip_mode")
+        if self.skip_mode == "affine" and self.local_fusion != "additive_mlp":
+            raise ValueError("affine skip is supported only for additive_mlp context models")
         for name in _POSITIVE_INT_FIELDS:
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value < 1:
@@ -248,6 +254,7 @@ class SpatialMemoryTranslator(nn.Module):
         super().__init__()
         config = SpatialTransformerConfig() if config is None else config
         self.config = config
+        self.linear_skip = make_skip(config.channels, config.channels) if config.skip_mode == "affine" else None
         channels, width = config.channels, config.d_model
         fusion = config.local_fusion
         hidden = config.fusion_hidden_dim
@@ -396,7 +403,8 @@ class SpatialMemoryTranslator(nn.Module):
         memory = flat.to(device=reference.device, dtype=reference.dtype)  # M [N, C, H, W]
         delta, tokens = self._delta(memory)
         if self.config.local_fusion == "additive_mlp":
-            output = memory + delta  # alpha was applied only to context in _delta.
+            skip = memory if self.linear_skip is None else self.linear_skip(memory.movedim(1, -1)).movedim(-1, 1)
+            output = skip + delta  # alpha was applied only to context in _delta.
         else:
             output = memory + self.alpha * delta if self.alpha is not None else delta
         if leading is not None:
@@ -439,6 +447,8 @@ class SpatialMemoryTranslator(nn.Module):
         elif fusion in ("mlp", "additive_mlp"):
             macs["local_in"] = positions * channels * hidden
             macs["local_out"] = positions * hidden * channels
+        if config.skip_mode == "affine":
+            macs["linear_skip"] = positions * channels * channels
         return macs
 
     def macs_per_frame(self) -> int:
@@ -466,10 +476,11 @@ class SpatialMemoryTranslator(nn.Module):
 class ResidualPointerTranslator(nn.Module):
     """``p_hat = p + fc2(GELU(fc1(p)))``; ``fc2`` starts at zero so ``p_hat = p``."""
 
-    def __init__(self, dim: int = 256, hidden_dim: int = 512):
+    def __init__(self, dim: int = 256, hidden_dim: int = 512, skip_mode: str = "identity"):
         super().__init__()
         if dim < 1 or hidden_dim < 1:
             raise ValueError("pointer dims must be positive")
+        self.linear_skip = make_skip(dim, dim) if skip_mode == "affine" else None
         self.dim = dim
         self.hidden_dim = hidden_dim
         self.fc1 = nn.Linear(dim, hidden_dim)
@@ -481,10 +492,11 @@ class ResidualPointerTranslator(nn.Module):
         if pointers.shape[-1] != self.dim:
             raise ValueError(f"pointer dim {pointers.shape[-1]} != {self.dim}")
         pointers = pointers.to(device=self.fc1.weight.device, dtype=self.fc1.weight.dtype)
-        return pointers + self.fc2(F.gelu(self.fc1(pointers)))
+        skip = pointers if self.linear_skip is None else self.linear_skip(pointers)
+        return skip + self.fc2(F.gelu(self.fc1(pointers)))
 
     def macs_per_record(self) -> int:
-        return 2 * self.dim * self.hidden_dim
+        return 2 * self.dim * self.hidden_dim + (self.dim ** 2 if self.linear_skip is not None else 0)
 
     def parameter_count(self) -> int:
         return sum(parameter.numel() for parameter in self.parameters())
