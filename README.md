@@ -302,3 +302,14 @@ p_hat = p + 그 출력
 
 공간 77.6M MAC 중 문맥 갈래가 60.8M, 로컬 갈래가 16.8M입니다. 포인터는 기록당 `2 × 256 × 512` MAC입니다. LayerNorm, GELU, bilinear, residual 덧셈, `alpha` 곱은 이 MAC 합계에 넣지 않습니다.
 
+
+## 전체 데이터용 학습 경로
+
+v2 `state_only` 로더, bounded record batch, streaming ridge 초기화와 공통 AdamW
+trainer는 `cmmt-state-training`으로 실행합니다. 기존 소규모 collection 경로는 유지합니다.
+모델별 설정과 CPU 검사·전체 데이터 preflight·CUDA 실행 준비 명령은
+[전체 데이터 학습 안내](docs/state_training.md)를 참고하세요.
+
+200GB 다운로드는 형식·실행 검사 샘플입니다. 공식 validation을 포함한 전체 index가
+준비되지 않으면 전체 학습 준비 완료로 표시하지 않습니다. FiLM·부재 전용 분기·
+새 attention 손실은 추가하지 않았으며, 실제 spatial 번역 생략도 비활성화 상태입니다.
