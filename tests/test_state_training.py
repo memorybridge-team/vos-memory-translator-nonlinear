@@ -22,6 +22,12 @@ from vos_memory_inspector.state_training.usage import MemoryPolicy, record_usage
 from vos_memory_inspector.translator_artifact import load_learned_translator
 
 
+def prepared_train(index, config, *args, **kwargs):
+    # Complete hashing before starting the trainer; the receipt is reusable.
+    readiness = inspect(index, config)
+    return train(index, config, *args, readiness=readiness, **kwargs)
+
+
 OPTIONS = dict(d_model=4, num_heads=2, num_layers=1, patch_size=2,
                pointer_hidden_dim=10, fusion_hidden_dim=8)
 
@@ -177,17 +183,17 @@ def test_affine_initialization_gradients_export_and_artifact_binding(sample_inde
     altered = dict(ridge, provenance=dict(ridge['provenance'], data_identity={'different': True}))
     torch.save(altered, tmp_path / 'foreign.pth')
     with pytest.raises(ValueError, match='different index'):
-        train(index, cpu_config, name, tmp_path / 'bad', options=options,
+        prepared_train(index, cpu_config, name, tmp_path / 'bad', options=options,
               ridge_path=tmp_path / 'foreign.pth', allow_sample=True)
 
 
 def test_cpu_batch_training_resume_selection_and_protocol_rejection(sample_index, cpu_config, tmp_path):
     index = load_index(sample_index, allow_sample=True)
     options = dict(hidden_dim=8, pointer_hidden_dim=10)
-    continuous, history = train(index, replace(cpu_config, max_epochs=4), 'residual_mlp',
+    continuous, history = prepared_train(index, replace(cpu_config, max_epochs=4), 'residual_mlp',
                                 tmp_path / 'continuous', options=options, allow_sample=True)
-    train(index, cpu_config, 'residual_mlp', tmp_path / 'resume', options=options, allow_sample=True)
-    resumed, resumed_history = train(index, replace(cpu_config, max_epochs=4), 'residual_mlp',
+    prepared_train(index, cpu_config, 'residual_mlp', tmp_path / 'resume', options=options, allow_sample=True)
+    resumed, resumed_history = prepared_train(index, replace(cpu_config, max_epochs=4), 'residual_mlp',
         tmp_path / 'resume', options=options, resume=tmp_path / 'resume/last.ckpt', allow_sample=True)
     assert history[-1]['step'] == 8
     for key, value in continuous.state_dict().items():
@@ -202,10 +208,10 @@ def test_cpu_batch_training_resume_selection_and_protocol_rejection(sample_index
     metrics = history[0]['validation']
     assert metrics['present']['records'] + metrics['absent']['records'] == metrics['all']['records']
     with pytest.raises(ValueError, match='resume model/data/skip'):
-        train(index, replace(cpu_config, global_batch=4), 'residual_mlp', tmp_path / 'resume',
+        prepared_train(index, replace(cpu_config, global_batch=4), 'residual_mlp', tmp_path / 'resume',
               options=options, resume=tmp_path / 'resume/last.ckpt', allow_sample=True)
     with pytest.raises(ValueError, match='sample mode|sample indexes'):
-        train(index, cpu_config, 'residual_mlp', tmp_path / 'cuda', device='cuda', allow_sample=True)
+        prepared_train(index, cpu_config, 'residual_mlp', tmp_path / 'cuda', device='cuda', allow_sample=True)
 
 
 def test_usage_boundaries_and_unverified_skip_is_disabled():
@@ -230,13 +236,15 @@ def _distributed_worker(rank, index_path, output, store):
     import sys
     if sys.platform == 'darwin':
         os.environ.setdefault('GLOO_SOCKET_IFNAME', 'lo0')
+    from vos_memory_inspector.state_training.preflight import validate_readiness
     torch.set_num_threads(1)
+    index = load_index(index_path, allow_sample=True)
+    config = TrainConfig(workers=0, global_batch=6, microbatch=2, max_epochs=2, clip_norm=100.)
+    readiness = validate_readiness(index, inspect(index, config), allow_sample=True)
     dist.init_process_group('gloo', init_method='file://' + store, rank=rank, world_size=2,
                             timeout=timedelta(seconds=40))
     try:
-        index = load_index(index_path, allow_sample=True)
-        config = TrainConfig(workers=0, global_batch=6, microbatch=2, max_epochs=2, clip_norm=100.)
-        model, _ = train(index, config, 'residual_mlp', output,
+        model, _ = train(index, config, 'residual_mlp', output, readiness=readiness,
                          options=dict(hidden_dim=8, pointer_hidden_dim=10), allow_sample=True)
         torch.save(model.state_dict(), str(output) + f'.rank{rank}.pt')
     finally:
@@ -247,7 +255,7 @@ def test_gloo_two_process_tail_matches_single_process(sample_index, tmp_path):
     import torch.multiprocessing as mp
     index = load_index(sample_index, allow_sample=True)
     config = TrainConfig(workers=0, global_batch=6, microbatch=2, max_epochs=2, clip_norm=100.)
-    train(index, config, 'residual_mlp', tmp_path / 'single',
+    prepared_train(index, config, 'residual_mlp', tmp_path / 'single',
           options=dict(hidden_dim=8, pointer_hidden_dim=10), allow_sample=True)
     mp.spawn(_distributed_worker, args=(str(sample_index), str(tmp_path / 'distributed'),
              str(tmp_path / 'gloo-store')), nprocs=2, join=True)
@@ -273,7 +281,7 @@ def test_common_trainer_supports_transformer_and_affine_context(sample_index, cp
         options['skip_mode'] = 'affine'
         ridge_path = tmp_path / 'ridge.pth'
         fit_ridge(index, cpu_config, ridge_path)
-    _, history = train(index, cpu_config, name, tmp_path / 'trained', options=options,
+    _, history = prepared_train(index, cpu_config, name, tmp_path / 'trained', options=options,
                        ridge_path=ridge_path, allow_sample=True)
     assert history[-1]['step'] == 4
     assert all(row['validation']['all']['records'] == 3 for row in history)
@@ -298,7 +306,7 @@ def test_cli_preflight_and_cpu_smoke_do_not_invent_full_readiness(sample_index, 
     assert initialization['provenance']['data_identity']['sample_only']
     index = load_index(sample_index, allow_sample=True)
     with pytest.raises(ValueError, match='different index'):
-        train(index, cpu_config, 'residual_mlp', tmp_path / 'invalid-init',
+        prepared_train(index, cpu_config, 'residual_mlp', tmp_path / 'invalid-init',
               options=dict(hidden_dim=8, pointer_hidden_dim=10, skip_mode='affine'),
               ridge_path=tmp_path / 'smoke/sample_initialization.pth', allow_sample=True)
 
@@ -328,7 +336,7 @@ def test_worker_spawn_loader_coverage(sample_index, cpu_config):
 
 def test_used_spatial_loss_keeps_pointer_training(sample_index, cpu_config, tmp_path):
     index = load_index(sample_index, allow_sample=True)
-    _, history = train(index, replace(cpu_config, spatial_loss_records='used'), 'residual_mlp',
+    _, history = prepared_train(index, replace(cpu_config, spatial_loss_records='used'), 'residual_mlp',
                        tmp_path / 'used', options=dict(hidden_dim=8, pointer_hidden_dim=10), allow_sample=True)
     assert history[-1]['train']['all']['records'] == 7
     assert history[-1]['training_objective'] > 0

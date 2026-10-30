@@ -106,6 +106,8 @@ def sidecar_hash(path):
 def load_pair(entry, *, expected_stamp=None, expected_spec=None):
     path = Path(entry['path'])
     before = file_stamp(path)
+    if expected_stamp is None:
+        expected_stamp = entry.get('verified_stamp')
     if expected_stamp is not None and before != expected_stamp:
         raise ValueError('cache changed since verification')
     if Path(str(path) + '.writer.lock').exists():

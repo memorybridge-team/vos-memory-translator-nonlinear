@@ -20,7 +20,7 @@ from ..state_schema import StateSpec
 from .data import record_loader
 from .metrics import Metrics
 from .policy import WarmupPlateau, ValidationStop, optimizer_groups, schedule
-from .preflight import inspect, require_ready
+from .preflight import validate_readiness, bind_stamps
 from .ridge import load_ridge
 from .storage import digest, save_json, save_torch, writer_lock
 
@@ -120,12 +120,10 @@ def train(index, config, name, output, *, options=None, ridge_path=None, device=
             raise ValueError('CUDA unavailable')
         if device.index is None:
             device = torch.device('cuda', torch.cuda.current_device())
-    if readiness is not None:
-        # A supplied report is advisory; inspect actual files at every new launch.
-        if readiness['data_identity'] != index.identity:
-            raise ValueError('readiness data identity mismatch')
-    report = _rank_zero(lambda: inspect(index, config), rank, world)
-    require_ready(report, allow_sample=allow_sample)
+    if readiness is None:
+        raise ValueError('preflight report required; run standalone preflight before training')
+    report = _rank_zero(lambda: validate_readiness(index, readiness, allow_sample=allow_sample).report, rank, world)
+    bind_stamps(index, report)
     scales = report['normalization']['scales']
     spec = StateSpec(**report['source_spec'])
     random.seed(config.seed)

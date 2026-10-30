@@ -1,6 +1,7 @@
 """Preflight, ridge fit, CPU smoke and explicit full-data training commands."""
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 
@@ -9,7 +10,7 @@ import torch.distributed as dist
 
 from .data import load_index
 from .policy import TrainConfig
-from .preflight import inspect, require_ready
+from .preflight import inspect, require_ready, validate_readiness
 from .ridge import fit_ridge, load_ridge, StreamingRidgeTranslator
 from .storage import save_json, digest
 from .trainer import train, construct_model
@@ -49,7 +50,10 @@ def parser():
         if name == 'preflight':
             cmd.add_argument('--checkpoint', type=Path, help='optional epoch checkpoint to inspect for resume')
             cmd.add_argument('--world-size', type=int, default=1, help='planned training process count')
+        if name in ('train', 'ridge-fit'):
+            cmd.add_argument('--preflight-report', type=Path, required=name == 'train')
         if name == 'train':
+            cmd.add_argument('--distributed-timeout-seconds', type=float, default=180.)
             cmd.add_argument('--device', required=True, choices=('cpu', 'cuda'))
             cmd.add_argument('--resume', type=Path)
         if name == 'cpu-smoke':
@@ -119,7 +123,8 @@ def main(argv=None):
         evaluate_artifact(index, config, name, args.model_artifact, args.output, allow_sample=args.sample_index)
         return 0
     if args.command == 'ridge-fit':
-        report = inspect(index, config)
+        report = (validate_readiness(index, _json(args.preflight_report), allow_sample=args.sample_index).report
+                  if args.preflight_report else inspect(index, config))
         require_ready(report, allow_sample=args.sample_index)
         if args.output.exists():
             raise ValueError('ridge output exists; choose a new file')
@@ -131,6 +136,11 @@ def main(argv=None):
                            ridge_path=args.ridge_init, sample_cases=8 if args.sample_cases is None else args.sample_cases, steps=args.steps)
         print(json.dumps(dict(checked_cases=len(result['samples']), cuda_training_executed=False)))
         return 0
+    # Expensive standalone preflight must finish before torchrun. Each process
+    # checks its local file metadata before creating any process group.
+    if not math.isfinite(args.distributed_timeout_seconds) or args.distributed_timeout_seconds <= 0:
+        raise ValueError('distributed timeout must be positive and finite')
+    readiness = validate_readiness(index, _json(args.preflight_report))
     initialized_here = False
     try:
         if args.device == 'cuda':
@@ -144,10 +154,10 @@ def main(argv=None):
         if world > 1:
             from datetime import timedelta
             dist.init_process_group(backend='nccl' if args.device == 'cuda' else 'gloo',
-                                    timeout=timedelta(seconds=180))
+                                    timeout=timedelta(seconds=args.distributed_timeout_seconds))
             initialized_here = True
         train(index, config, name, args.output, options=options, ridge_path=args.ridge_init,
-              device=device, resume=args.resume)
+              device=device, resume=args.resume, readiness=readiness)
     finally:
         if initialized_here:
             dist.destroy_process_group()
