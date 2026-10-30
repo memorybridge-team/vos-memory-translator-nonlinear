@@ -39,6 +39,16 @@ false다. 누락 목록과 손상 원인을 JSON에 기록한다. 준비 미완�
 Affine 설정은 추가로 `--ridge-init`이 필요하다. 재개 검사에는 `--checkpoint`를 사용하고
 `--world-size`를 실제 실행 process 수에 맞춘다.
 
+전체 검사는 `torchrun`을 띄우기 전에 단일 process로 수행한다. 보고서는 v2 schema이며,
+검사한 case ID·SHA256·파일 크기/mtime·train RMS를 포함한다. `train`에는 반드시
+`--preflight-report runs/preflight-data.json`을 전달한다. 시작/재개 시에는 index SHA,
+보고서 digest·정규화·현재 파일 stamp/sidecar만 확인하고 tensor를 다시 읽지 않는다.
+CLI는 이 검사를 process group 생성 전에 완료한다. 실제 case를 로드할 때의 SHA256
+검사는 계속 수행한다. 오래된 v1 보고서나 바뀐 파일은 거부하므로 preflight를 다시 실행한다.
+데이터 보고서는 모델별로 공유할 수 있으며 모델·ridge·checkpoint 설정은 실행 시 별도로 대조한다.
+라이브러리 호출도 `readiness=`가 필수다. DDP caller는 group 생성 전에
+`validate_readiness(index, report)`로 검사한 객체를 만들어 전달한다.
+
 메모리 예상량은 process당 worker cache·전송 대기 tensor와 모델/optimizer 추정치다.
 전체 데이터가 RAM에 올라가지 않지만, index·Python overhead·활성값은 추가 공간이 필요하다.
 64MiB보다 큰 case는 LRU에 보관하지 않는다. 한 번 읽는 case와 현재 global window는
@@ -49,13 +59,16 @@ Affine 설정은 추가로 `--ridge-init`이 필요하다. 재개 검사에는 `
 ```sh
 cmmt-state-training ridge-fit \
   --index /data/run_binding/raw_index.json --root-map /data/root-map.json \
-  --config configs/state_training/transformer.json --output runs/ridge.pth
+  --config configs/state_training/transformer.json \
+  --preflight-report runs/preflight-data.json --output runs/ridge.pth
 ```
 
 FP64 centered sufficient statistics를 누적하고 `lambda=alpha*trace(G)/D`를 적용한다.
 Bias는 정규화하지 않는다. 후보 alpha는 `0,1e-8,1e-6,1e-4,1e-2,1e-1,1`이다.
 공간·pointer별 validation MSE로 선택하고 상대 1e-8 이내 동률이면 작은 alpha를 고른다.
 선택 후 재적합하지 않는다. FP32 계수·train RMS·후보 점수·충분통계·index identity를 저장한다.
+`ridge-fit`도 보고서를 전달하면 중복 전체 검사를 생략한다. 보고서를 생략한 기존 단일
+process 명령은 전체 검사를 수행한다. 충분통계 계산 자체에는 train/validation 읽기가 필요하다.
 충분통계 구현은 기존 `linear-transfer/regression.py`에서 가져왔으며 sibling 저장소를 import하지 않는다.
 
 비교 설정은 `configs/state_training/`에 있다.
@@ -103,28 +116,50 @@ cmmt-state-training evaluate \
 ridge artifact용이다. 원시/정규화 MSE와 source presence·conditioning·공간 사용 여부별
 통계를 기록한다. Source/target presence 불일치도 기록한다. J&F를 계산하지 않는다.
 
+평가는 validation case만 읽는다. 공식 index의 train-only 정규화 값을 사용하므로 train
+캐시가 마운트되어 있지 않아도 된다. 정규화를 다시 추정하거나 train 파일을 검사하지 않는다.
+`--preflight-report runs/preflight-data.json`을 추가하면 해당 보고서의 RMS와 validation
+stamp를 대조한다. 정규화가 없는 sample index는 이 보고서가 필수다. Validation 데이터의
+target으로 RMS를 추정하는 fallback은 없다.
+
 ## CUDA 실행 명령: 준비만 제공, 이번 작업에서 실행하지 않음
 
 ```sh
 cmmt-state-training train \
   --index /data/run_binding/raw_index.json --root-map /data/root-map.json \
   --config configs/state_training/residual_mlp.json --ridge-init runs/ridge.pth \
+  --preflight-report runs/preflight-data.json \
   --device cuda --output runs/residual-mlp-affine
 
 python -m torch.distributed.run --standalone --nproc-per-node=2 \
   -m vos_memory_inspector.state_training.cli train \
   --index /data/run_binding/raw_index.json --root-map /data/root-map.json \
   --config configs/state_training/mlp_context.json --ridge-init runs/ridge.pth \
+  --preflight-report runs/preflight-data.json \
   --device cuda --output runs/mlp-context-affine
 ```
 
-Base는 `transformer.json`을 사용하고 `--ridge-init`을 생략한다. 실행 시작 시 데이터를
-다시 검사한다. 기존 run 폴더에 덮어쓰지 않으며, 재개에는 `--resume runs/RUN/last.ckpt`를
+Base는 `transformer.json`을 사용하고 `--ridge-init`을 생략한다. 시작 시 기존 보고서와
+파일 metadata를 대조하며 전체 해시/tensor 검사는 반복하지 않는다. 기존 run 폴더에
+덮어쓰지 않으며, 재개에는 `--resume runs/RUN/last.ckpt`를
 명시한다. Index·모델 옵션·skip mode·정규화·학습 정책·ridge hash·world size가 달라지면
-재개를 거부한다. Max epochs와 microbatch/worker tuning은 바꿀 수 있다.
+재개를 거부한다. 실행 결정성 profile과 PyTorch 버전도 checkpoint identity에 포함한다.
+이 정보가 없는 이전 학습 checkpoint는 새 trainer에서 재개할 수 없으며 새 run이 필요하다.
+기존 모델 가중치의 추론·상태 평가는 계속 지원한다. Max epochs와 microbatch/worker tuning은 바꿀 수 있다.
+
+결정적 알고리즘을 강제하고 cuDNN benchmark는 끄며, DDP `broadcast_buffers=False`를
+사용한다. CUDA 초기화 전에 `CUBLAS_WORKSPACE_CONFIG=:4096:8`을 설정한다. 미설정이면
+CLI가 설정하며, 충돌하는 설정 또는 잘못된 설정으로 이미 초기화한 CUDA는 거부한다.
+명시적으로 환경 변수를 지정할 때도 이 값을 사용한다. 이는 실행 정책을 고정하는 장치이며,
+GPU 종류·process 수가 다른 실행 사이의 비트 일치를 보장하지 않는다.
+
+통신 timeout 기본값은 기존의 180초를 유지한다. `--distributed-timeout-seconds`로 바꿀 수
+있지만 긴 preflight를 기다리는 수단으로 사용하지 않는다.
 
 AdamW lr 3e-4, weight decay 1e-4, FP32, global batch 64, microbatch 32, clip norm 1.0,
 seed 7이 기본이다. Bias·LayerNorm·gate·위치 임베딩에는 weight decay를 적용하지 않는다.
+Affine skip weight에는 기존 AdamW 정책대로 weight decay를 적용한다. Ridge는 초기값이며
+학습 중 고정된 prior는 아니다. 비교 조건 유지를 위해 이번 timeout/평가 수정에서 이 정책을 바꾸지 않았다.
 최대 60 epoch, 최소 15 epoch 이후 meaningful improvement 0.2%가 없는 validation 8회로
 중단한다. Warmup은 min(epoch update 수,1000), plateau는 factor 0.5 / patience 3 /
 relative threshold 0.002 / cooldown 1 / min_lr 1e-5다.

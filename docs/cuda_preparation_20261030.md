@@ -1,5 +1,7 @@
 # CUDA 학습 준비 검증 결과 — 2026-10-30
 
+[2026-10-31 후속 수정](preflight_fix_20261031.md)에서 DDP 시작 timeout·평가 IO·결정성 설정을 보완했다.
+
 코드 구현과 CPU 검증을 완료했다. 실제 CUDA 학습은 실행하지 않았다.
 전체 데이터 준비 상태는 `full_data_ready=false`다.
 
