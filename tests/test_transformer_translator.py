@@ -63,6 +63,7 @@ def test_config_defaults_match_base_and_round_trip() -> None:
         {"patch_embed": "linear"},
         {"pos_embed": "rope"},
         {"local_fusion": "concat"},
+        {"local_fusion": "additive_mlp", "use_residual": False},
         {"output_dtype": "bfloat16"},
         {"dropout": 1.0},
         {"mlp_ratio": 0.0},
@@ -278,7 +279,7 @@ def test_base_parameters_and_analytic_macs_match_plan() -> None:
     assert round(module.per_pixel_macs() / 1e6, 1) == 16.8
 
 
-@pytest.mark.parametrize("preset", ["base", "base_mlp", "res8", "no_attn_context"])
+@pytest.mark.parametrize("preset", ["base", "base_mlp", "mlp_context", "res8", "no_attn_context"])
 def test_flop_counter_cross_checks_matmul_and_conv_terms(preset: str) -> None:
     """FLOPs are a separate measurement; only the matmul/conv groups are compared."""
 

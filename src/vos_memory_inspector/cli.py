@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from .paired_experiment import (
+    PAIRED_TRANSLATORS,
     load_case_cache_pair,
     load_canonical_state,
     run_paired_experiment,
@@ -23,9 +24,12 @@ from .roundtrip import (
     run_same_checkpoint_roundtrip,
 )
 from .translators import (
-    ResidualMLPStateTranslator,
     RidgeDirectPresenceTranslator,
     RidgeStateTranslator,
+)
+from .translator_training import DEFAULT_EPOCHS, DEFAULT_LEARNING_RATE
+from .translator_artifact import (
+    LEARNED_ARTIFACT_TRANSLATORS, TRANSFORMER_TRANSLATORS, load_learned_translator,
 )
 
 
@@ -36,7 +40,7 @@ def synthetic_experiment_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--epochs", type=int, default=120)
-    parser.add_argument("--learning-rate", type=float, default=2e-2)
+    parser.add_argument("--learning-rate", type=float, default=DEFAULT_LEARNING_RATE)
     parser.add_argument("--ridge-lambda", type=float, default=0.01)
     parser.add_argument("--hidden-dim", type=int, default=32)
     args = parser.parse_args(argv)
@@ -59,36 +63,54 @@ def paired_experiment_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--train-target", action="append", type=Path, default=[])
     parser.add_argument("--test-source", action="append", type=Path, default=[])
     parser.add_argument("--test-target", action="append", type=Path, default=[])
+    parser.add_argument("--validation-source", action="append", type=Path, default=[])
+    parser.add_argument("--validation-target", action="append", type=Path, default=[])
     parser.add_argument("--train-case-cache", action="append", type=Path, default=[])
     parser.add_argument("--test-case-cache", action="append", type=Path, default=[])
+    parser.add_argument("--validation-case-cache", action="append", type=Path, default=[])
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--seed", type=int, default=7)
-    parser.add_argument("--epochs", type=int, default=120)
-    parser.add_argument("--learning-rate", type=float, default=2e-2)
+    parser.add_argument("--epochs", type=int, default=DEFAULT_EPOCHS)
+    parser.add_argument("--learning-rate", type=float, default=DEFAULT_LEARNING_RATE)
     parser.add_argument("--ridge-lambda", type=float, default=0.01)
     parser.add_argument("--hidden-dim", type=int, default=128)
+    parser.add_argument("--pointer-hidden-dim", type=int, default=512)
     parser.add_argument(
         "--device",
         default="auto",
         help="auto uses CUDA, then Apple MPS when allowed, otherwise CPU.",
     )
-    parser.add_argument(
+    spatial = parser.add_mutually_exclusive_group()
+    spatial.add_argument(
         "--spatial-samples-per-pair",
         type=int,
-        help="Sample this many valid spatial tokens per state and epoch.",
+        help="Opt in to spatial subsampling; default uses all valid positions.",
     )
+    spatial.add_argument("--whole-frames", action="store_true", help="Use all positions (default).")
     parser.add_argument(
         "--translator",
         action="append",
-        choices=("direct", "ridge", "linear", "residual_mlp"),
+        choices=PAIRED_TRANSLATORS,
         default=[],
-        help="Translator to run; repeat as needed. Default: all.",
+        help="Repeat as needed. Default: direct, ridge, linear, residual_mlp. Transformer variants are opt-in.",
     )
     args = parser.parse_args(argv)
+    if set(TRANSFORMER_TRANSLATORS).intersection(args.translator) and args.spatial_samples_per_pair is not None:
+        parser.error("Transformer translators require whole frames; remove --spatial-samples-per-pair")
     if len(args.train_source) != len(args.train_target):
         parser.error("provide the same number of --train-source/--train-target")
     if len(args.test_source) != len(args.test_target):
         parser.error("provide the same number of --test-source/--test-target")
+    if len(args.validation_source) != len(args.validation_target):
+        parser.error("provide the same number of --validation-source/--validation-target")
+    split_paths = {
+        split: {path.resolve() for suffix in ("source", "target", "case_cache")
+                for path in getattr(args, f"{split}_{suffix}")}
+        for split in ("train", "validation", "test")
+    }
+    for left, right in (("train", "validation"), ("train", "test"), ("validation", "test")):
+        if split_paths[left] & split_paths[right]:
+            parser.error(f"{left} and {right} must not reuse the same input files")
     train_pairs = [
         (load_canonical_state(source), load_canonical_state(target))
         for source, target in zip(args.train_source, args.train_target, strict=True)
@@ -99,8 +121,15 @@ def paired_experiment_main(argv: list[str] | None = None) -> None:
         for source, target in zip(args.test_source, args.test_target, strict=True)
     ]
     test_pairs.extend(load_case_cache_pair(path) for path in args.test_case_cache)
-    if not train_pairs or not test_pairs:
-        parser.error("provide at least one train pair and one test pair")
+    validation_pairs = [
+        (load_canonical_state(source), load_canonical_state(target))
+        for source, target in zip(args.validation_source, args.validation_target, strict=True)
+    ]
+    validation_pairs.extend(load_case_cache_pair(path) for path in args.validation_case_cache)
+    if not train_pairs or not (validation_pairs or test_pairs):
+        parser.error("provide train pairs and validation or test pairs")
+    if (not args.translator or {"linear", *LEARNED_ARTIFACT_TRANSLATORS}.intersection(args.translator)) and not validation_pairs:
+        parser.error("learned translators require --validation-* inputs for checkpoint selection")
     report = run_paired_experiment(
         train_pairs,
         test_pairs,
@@ -110,9 +139,11 @@ def paired_experiment_main(argv: list[str] | None = None) -> None:
         learning_rate=args.learning_rate,
         ridge_lambda=args.ridge_lambda,
         hidden_dim=args.hidden_dim,
+        pointer_hidden_dim=args.pointer_hidden_dim,
         translator_names=tuple(args.translator) or None,
         device=args.device,
         spatial_samples_per_pair=args.spatial_samples_per_pair,
+        validation_pairs=validation_pairs,
     )
     print(json.dumps(report, indent=2))
 
@@ -394,7 +425,7 @@ def prepare_handoff_case_main(argv: list[str] | None = None) -> None:
 def cached_handoff_main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Run Direct, Ridge, or residual-MLP target continuation from a "
+            "Run Direct, Ridge, residual MLP or Transformer target continuation from a "
             "prepared case cache."
         )
     )
@@ -406,7 +437,7 @@ def cached_handoff_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--video-dir", required=True, type=Path)
     parser.add_argument(
         "--translator",
-        choices=("direct", "ridge", "residual_mlp"),
+        choices=("direct", "ridge", *LEARNED_ARTIFACT_TRANSLATORS),
         default="direct",
     )
     parser.add_argument("--translator-artifact", type=Path)
@@ -441,17 +472,14 @@ def cached_handoff_main(argv: list[str] | None = None) -> None:
         else:
             translator = ridge
             translator_name = ridge.name
-    elif args.translator == "residual_mlp":
+    elif args.translator in LEARNED_ARTIFACT_TRANSLATORS:
         if args.translator_artifact is None:
-            parser.error("--translator-artifact is required for residual_mlp")
-        payload = __import__("torch").load(
-            args.translator_artifact, map_location="cpu", weights_only=True
-        )
-        mlp_payload = payload.get("residual_mlp") if isinstance(payload, dict) else None
-        if not isinstance(mlp_payload, dict):
-            parser.error("translator artifact does not contain a residual_mlp payload")
-        translator = ResidualMLPStateTranslator.from_payload(mlp_payload)
-        translator_name = translator.name
+            parser.error(f"--translator-artifact is required for {args.translator}")
+        try:
+            translator = load_learned_translator(args.translator_artifact, args.translator)
+        except ValueError as exc:
+            parser.error(str(exc))
+        translator_name = args.translator
     report = run_cached_translator_handoff(
         case_cache=args.case_cache,
         sam2_repo=args.sam2_repo,

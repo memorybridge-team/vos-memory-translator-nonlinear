@@ -183,8 +183,8 @@ def test_bf16_handoff_keeps_source_dtype_and_direct_copy_bytes(kind: str, make_s
     assert torch.equal(translated.presence_logits, state.presence_logits)
 
 
-def test_legacy_float32_output_policy_is_kept_by_default(make_state) -> None:
-    translator = _residual_mlp()
+def test_legacy_float32_output_policy_is_available_explicitly(make_state) -> None:
+    translator = _residual_mlp(output_dtype="float32")
     spatial, pointer = _inputs(torch.bfloat16)
     state = make_state(spatial, pointer, validity=VALIDITY)
     with torch.no_grad():
@@ -255,7 +255,7 @@ def test_residual_mlp_payload_adds_pointer_hidden_dim_and_reads_old_payloads(tmp
     restored = ResidualMLPStateTranslator.from_payload(torch.load(tmp_path / "mlp.pt", weights_only=True))
     assert (restored.pointer_hidden_dim, restored.output_dtype) == (9, "source")
 
-    legacy_translator = _residual_mlp()
+    legacy_translator = _residual_mlp(pointer_hidden_dim=None, output_dtype="float32")
     legacy = legacy_translator.to_payload()
     del legacy["pointer_hidden_dim"], legacy["output_dtype"]
     restored = ResidualMLPStateTranslator.from_payload(legacy)

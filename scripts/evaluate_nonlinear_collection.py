@@ -10,14 +10,12 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
-import torch
-
 from vos_memory_inspector.device import resolve_device
 from vos_memory_inspector.roundtrip import run_cached_translator_handoff
-from vos_memory_inspector.translators import (
-    LearnedComponentPolicyTranslator,
-    ResidualMLPStateTranslator,
+from vos_memory_inspector.translator_artifact import (
+    LEARNED_ARTIFACT_TRANSLATORS, load_learned_translator,
 )
+from vos_memory_inspector.translators import LearnedComponentPolicyTranslator
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -32,13 +30,13 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--target-checkpoint", required=True, type=Path)
     parser.add_argument("--target-model-id", required=True)
     parser.add_argument(
-        "--translator", choices=("residual_mlp", "direct"), default="residual_mlp"
+        "--translator", choices=(*LEARNED_ARTIFACT_TRANSLATORS, "direct"), default="residual_mlp"
     )
     parser.add_argument(
         "--component-policy",
         choices=("full", "spatial_pointer", "spatial_only"),
         default="full",
-        help="Residual MLP components to use; remaining components use Direct Copy.",
+        help="Learned components to use; remaining components use Direct Copy.",
     )
     parser.add_argument("--translator-artifact", type=Path)
     parser.add_argument("--output-root", required=True, type=Path)
@@ -121,21 +119,16 @@ def main() -> None:
     ]
     if not cases:
         raise ValueError("selection has no internal validation cases")
-    if args.translator == "residual_mlp":
+    if args.translator in LEARNED_ARTIFACT_TRANSLATORS:
         if args.translator_artifact is None:
-            raise ValueError("--translator-artifact is required for residual_mlp")
+            raise ValueError(f"--translator-artifact is required for {args.translator}")
         artifact_path = args.translator_artifact.resolve()
-        artifact = torch.load(artifact_path, map_location="cpu", weights_only=True)
-        payload = artifact.get("residual_mlp") if isinstance(artifact, dict) else None
-        if not isinstance(payload, dict):
-            raise ValueError("artifact has no residual_mlp payload")
-        learned = (
-            ResidualMLPStateTranslator.from_payload(payload).to(translator_device).eval()
-        )
+        learned = load_learned_translator(artifact_path, args.translator).to(translator_device).eval()
         artifact_sha = _sha256(artifact_path)
+        # 한 파일에 여러 모델이 있을 수 있으므로 모델 이름도 cache key에 넣는다.
+        evaluation_id = f"{artifact_sha}:{args.translator}:{args.component_policy}:v2"
         if args.component_policy == "full":
             translator = learned
-            evaluation_id = artifact_sha
         else:
             learned_components = (
                 ("spatial_memory", "object_pointer")
@@ -146,12 +139,11 @@ def main() -> None:
                 learned,
                 learned_components=learned_components,
             )
-            evaluation_id = f"{artifact_sha}:{args.component_policy}:v1"
     else:
         if args.translator_artifact is not None:
             raise ValueError("--translator-artifact is not used for direct")
         if args.component_policy != "full":
-            raise ValueError("--component-policy is only used for residual_mlp")
+            raise ValueError("--component-policy is only used for learned translators")
         artifact_path = None
         translator = None
         evaluation_id = "direct-copy-v1"
@@ -164,6 +156,7 @@ def main() -> None:
     for index, case in enumerate(cases, start=1):
         slug = _slug(case)
         case_output = output_root / slug
+        case_output.mkdir(parents=True, exist_ok=True)
         summary_path = case_output / "summary.json"
         if summary_path.is_file():
             summary = json.loads(summary_path.read_text(encoding="utf-8"))

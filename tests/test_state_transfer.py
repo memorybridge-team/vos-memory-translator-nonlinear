@@ -472,6 +472,7 @@ def test_paired_experiment_serializes_residual_mlp_contract(tmp_path: Path) -> N
         translator_names=("residual_mlp",),
         device="cpu",
         spatial_samples_per_pair=3,
+        validation_pairs=[(source, target)],
     )
 
     assert report["training"]["device"] == "cpu"
