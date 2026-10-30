@@ -23,6 +23,7 @@ eval = [
 ]
 
 [project.scripts]
+cmmt-state-training = "vos_memory_inspector.state_training.cli:main"
 cmmt-synthetic-experiment = "vos_memory_inspector.cli:synthetic_experiment_main"
 cmmt-paired-experiment = "vos_memory_inspector.cli:paired_experiment_main"
 sam2-roundtrip-smoke = "vos_memory_inspector.cli:roundtrip_main"
