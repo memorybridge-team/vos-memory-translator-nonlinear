@@ -383,4 +383,4 @@ def test_a_few_updates_lower_the_loss_on_a_nonlinear_target(model_type):
         losses.append(float(loss.detach()))
     assert losses[-1] < 0.7 * losses[0]
     # The nonlinear branch has moved away from its zero start.
-    assert float(model.spatial.blocks[0].mlp.fc2.weight.abs().sum()) > 0
+    assert float(model.spatial.blocks[0].mlp.fc2.weight.detach().abs().sum()) > 0
