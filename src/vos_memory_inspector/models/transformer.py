@@ -9,10 +9,15 @@ import torch
 
 from ..state_schema import CanonicalState, StateSpec
 from ._base import _LearnedStateTranslator
-from .affine import initialize_skips
 from ._spatial import (
     PAYLOAD_SCHEMA, ResidualPointerTranslator, SpatialMemoryTranslator,
     SpatialTransformerConfig, describe_config,
+)
+
+_REMOVED_AFFINE_SCHEMA = "cmmt.spatial_context_transformer_translator.v2"
+_MLP_CONTEXT_REMOVED = (
+    "mlp_context payloads are no longer supported; "
+    "load them with a checkout before the mlp_context removal"
 )
 
 
@@ -58,17 +63,10 @@ class TransformerStateTranslator(_LearnedStateTranslator):
                     f"{role} spec [C,H,W,D]={actual} does not match the translator "
                     f"config {wanted}"
                 )
-        self.skip_mode = config.skip_mode
-        self.ridge_initialization = None
         self.config = config
         self.preset = preset
         self.spatial = SpatialMemoryTranslator(config)
-        self.pointer = ResidualPointerTranslator(config.pointer_dim, config.pointer_hidden_dim, config.skip_mode)
-
-    def initialize_from_ridge(self, ridge):
-        if self.skip_mode != "affine":
-            raise ValueError("ridge initialization requires affine skip")
-        initialize_skips(self, self.spatial.linear_skip, self.pointer.linear_skip, ridge)
+        self.pointer = ResidualPointerTranslator(config.pointer_dim, config.pointer_hidden_dim)
 
     def _translate_frames(self, frames: torch.Tensor) -> torch.Tensor:
         return self.spatial(frames)  # [N, C, H, W]
@@ -113,8 +111,8 @@ class TransformerStateTranslator(_LearnedStateTranslator):
             "context_branch_macs": self.spatial.context_branch_macs(),
             "per_pixel_macs": self.spatial.per_pixel_macs(),
             "pointer_macs_per_record": self.pointer_macs_per_record(),
-            "identity_at_init": config.skip_mode == "identity" and config.use_residual and config.residual_scale_init == 0.0,
-            "residual_gate_scope": "context_only" if config.local_fusion == "additive_mlp" else "combined_delta",
+            "identity_at_init": config.use_residual and config.residual_scale_init == 0.0,
+            "residual_gate_scope": "combined_delta",
         }
 
     def _translation_metadata(self) -> dict[str, Any]:
@@ -133,17 +131,11 @@ class TransformerStateTranslator(_LearnedStateTranslator):
     def to_payload(self) -> dict[str, Any]:
         """Plain dict with CPU tensors; loadable with ``torch.load(weights_only=True)``."""
 
-        config_values = self.config.to_dict()
-        if self.skip_mode == "identity":
-            config_values.pop("skip_mode")
-        elif not self.ridge_initialization:
-            raise ValueError("affine model has not been initialized from ridge")
         return {
-            **({"ridge_initialization": self.ridge_initialization} if self.skip_mode == "affine" else {}),
-            "schema_version": "cmmt.spatial_context_transformer_translator.v2" if self.skip_mode == "affine" else PAYLOAD_SCHEMA,
+            "schema_version": PAYLOAD_SCHEMA,
             "translator": self.name,
             "preset": self.preset,
-            "config": config_values,
+            "config": self.config.to_dict(),
             "source_spec": self.source_spec.to_dict(),
             "target_spec": self.target_spec.to_dict(),
             "state_dict": {
@@ -154,35 +146,28 @@ class TransformerStateTranslator(_LearnedStateTranslator):
     @classmethod
     def from_payload(cls, payload: Mapping[str, Any]) -> "TransformerStateTranslator":
         schema = payload.get("schema_version")
-        if schema not in (PAYLOAD_SCHEMA, "cmmt.spatial_context_transformer_translator.v2"):
-            raise ValueError("unsupported spatial-context transformer payload")
         config_values = payload.get("config")
+        if schema == _REMOVED_AFFINE_SCHEMA or (
+            isinstance(config_values, Mapping) and config_values.get("local_fusion") == "additive_mlp"
+        ):
+            raise ValueError(_MLP_CONTEXT_REMOVED)
+        if schema != PAYLOAD_SCHEMA:
+            raise ValueError("unsupported spatial-context transformer payload")
         if not isinstance(config_values, Mapping):
             raise TypeError("payload config must be a mapping")
-        missing = sorted({item.name for item in fields(SpatialTransformerConfig) if item.name != "skip_mode"} - set(config_values))
+        missing = sorted({item.name for item in fields(SpatialTransformerConfig)} - set(config_values))
         if missing:
             raise ValueError(f"payload config is missing fields: {missing}")
-        if schema != PAYLOAD_SCHEMA and (config_values.get("skip_mode") != "affine" or not payload.get("ridge_initialization")):
-            raise ValueError("affine payload initialization is missing")
-        if schema == PAYLOAD_SCHEMA and config_values.get("skip_mode", "identity") != "identity":
-            raise ValueError("legacy payload cannot declare affine skip")
         state_dict = payload.get("state_dict")
         if not isinstance(state_dict, Mapping):
             raise TypeError("payload state_dict must be a mapping")
         preset = payload.get("preset")
-        model_type = cls
-        if cls is TransformerStateTranslator and config_values.get("local_fusion") == "additive_mlp":
-            # Older artifacts used the same wrapper for both architectures.
-            from .mlp_context import MLPContextStateTranslator
-
-            model_type = MLPContextStateTranslator
-        translator = model_type(
+        translator = cls(
             StateSpec(**dict(payload["source_spec"])),
             StateSpec(**dict(payload["target_spec"])),
             config=SpatialTransformerConfig.from_dict(config_values),
             preset=None if preset is None else str(preset),
         )
-        translator.ridge_initialization = payload.get("ridge_initialization")
         translator.load_state_dict(dict(state_dict), strict=True)
         translator.eval()
         return translator

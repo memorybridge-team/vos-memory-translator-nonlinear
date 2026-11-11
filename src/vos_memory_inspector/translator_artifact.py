@@ -8,7 +8,7 @@ import torch
 from .models.residual_mlp import ResidualMLPStateTranslator
 
 
-TRANSFORMER_TRANSLATORS = ("transformer", "mlp_context")
+TRANSFORMER_TRANSLATORS = ("transformer",)
 LEARNED_ARTIFACT_TRANSLATORS = ("residual_mlp", *TRANSFORMER_TRANSLATORS)
 
 
@@ -28,7 +28,6 @@ def load_learned_translator(path: Path, name: str) -> Any:
     from .models.transformer import TransformerStateTranslator
 
     translator = TransformerStateTranslator.from_payload(payload)
-    expected_fusion = "additive_mlp" if name == "mlp_context" else "linear"
-    if translator.config.local_fusion != expected_fusion:
+    if translator.config.local_fusion != "linear":
         raise ValueError(f"{name} payload has incompatible local_fusion")
     return translator

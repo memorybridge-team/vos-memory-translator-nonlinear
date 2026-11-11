@@ -11,7 +11,6 @@ from torch import nn
 from torch.nn import functional as F
 
 from ..state_schema import StateSpec
-from .affine import make_skip
 
 
 # Runtime contract v1.1: spatial [B,O,K,64,64,64] bf16, pointer [B,O,K,256] fp32.
@@ -19,7 +18,7 @@ SAM21_MEMORY_SPEC = StateSpec(feature_channels=64, height=64, width=64, pointer_
 
 PATCH_EMBEDS = ("conv", "avgpool")
 POS_EMBEDS = ("learnable", "sincos", "none")
-LOCAL_FUSIONS = ("linear", "mlp", "additive_mlp", "none")
+LOCAL_FUSIONS = ("linear", "mlp", "none")
 OUTPUT_DTYPES = ("source", "float32")
 PAYLOAD_SCHEMA = "cmmt.spatial_context_transformer_translator.v1"
 
@@ -37,7 +36,7 @@ _POSITIVE_INT_FIELDS = (
 )
 _BOOL_FIELDS = ("spatial_context", "use_attention", "use_residual")
 _CONTEXT_MAC_KEYS = ("patch_embed", "attention", "ffn", "context_conv", "context_proj")
-_PIXEL_MAC_KEYS = ("local_in", "local_out", "linear_skip")
+_PIXEL_MAC_KEYS = ("local_in", "local_out")
 
 
 @dataclass(frozen=True)
@@ -59,7 +58,7 @@ class SpatialTransformerConfig:
     pos_embed: str = "learnable"  # "learnable" | "sincos" | "none"
     spatial_context: bool = True
     use_attention: bool = True  # False: blocks keep only the token-wise FFN
-    local_fusion: str = "linear"  # "linear" | "mlp" | "additive_mlp" | "none"
+    local_fusion: str = "linear"  # "linear" | "mlp" | "none"
     fusion_hidden_dim: int = 128
     use_residual: bool = True
     residual_scale_init: float = 0.0
@@ -67,13 +66,8 @@ class SpatialTransformerConfig:
     pointer_dim: int = 256
     pointer_hidden_dim: int = 512
     output_dtype: str = "source"  # "source" | "float32"
-    skip_mode: str = "identity"
 
     def __post_init__(self) -> None:
-        if self.skip_mode not in ("identity", "affine"):
-            raise ValueError("unknown skip_mode")
-        if self.skip_mode == "affine" and self.local_fusion != "additive_mlp":
-            raise ValueError("affine skip is supported only for additive_mlp context models")
         for name in _POSITIVE_INT_FIELDS:
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value < 1:
@@ -111,8 +105,6 @@ class SpatialTransformerConfig:
             raise ValueError(
                 "spatial_context=False with local_fusion='none' leaves no branch to learn"
             )
-        if self.local_fusion == "additive_mlp" and not self.use_residual:
-            raise ValueError("additive_mlp requires use_residual=True")
 
     @property
     def grid_size(self) -> tuple[int, int]:
@@ -242,7 +234,6 @@ class SpatialMemoryTranslator(nn.Module):
 
     - ``linear``: ``Delta = W_l(M) + Up(W_c(ctx))``
     - ``mlp``: ``Delta = W_2(GELU(W_l(M) + Up(W_c(ctx))))``
-    - ``additive_mlp``: ``M_hat = M + W_2(GELU(W_l(M))) + alpha * Up(W_c(ctx))``
     - ``none``: ``Delta = Up(ctx)`` (context only)
 
     Bilinear upsampling is linear and acts per channel, so it commutes with the
@@ -254,7 +245,6 @@ class SpatialMemoryTranslator(nn.Module):
         super().__init__()
         config = SpatialTransformerConfig() if config is None else config
         self.config = config
-        self.linear_skip = make_skip(config.channels, config.channels) if config.skip_mode == "affine" else None
         channels, width = config.channels, config.d_model
         fusion = config.local_fusion
         hidden = config.fusion_hidden_dim
@@ -311,18 +301,12 @@ class SpatialMemoryTranslator(nn.Module):
         if fusion == "linear":
             self.local_in: nn.Module | None = nn.Conv2d(channels, channels, kernel_size=1)
             self.local_out: nn.Module | None = None
-        elif fusion in ("mlp", "additive_mlp"):
+        elif fusion == "mlp":
             self.local_in = nn.Conv2d(channels, hidden, kernel_size=1)
             self.local_out = nn.Conv2d(hidden, channels, kernel_size=1)
-            if fusion == "additive_mlp":
-                # 로컬 보정은 gate 없이 더한다. 마지막 층만 0으로 초기화한다.
-                nn.init.zeros_(self.local_out.weight)
-                nn.init.zeros_(self.local_out.bias)
         else:
             self.local_in = None
             self.local_out = None
-        # additive_mlp에서 alpha는 문맥만 조절한다. 문맥 projection은 일반
-        # 초기화를 유지해 gate와 projection이 동시에 0이 되는 것을 피한다.
         self.alpha = (
             nn.Parameter(torch.full((1, channels, 1, 1), float(config.residual_scale_init)))
             if config.use_residual
@@ -363,9 +347,6 @@ class SpatialMemoryTranslator(nn.Module):
                 return self._upsample(ctx), tokens  # context_only: [N, C, H, W]
             context = self._upsample(self.context_proj(ctx))  # c_up [N, C|h, H, W]
         fused = self.local_in(frames)  # [N, C|h, H, W]
-        if self.config.local_fusion == "additive_mlp":
-            local = self.local_out(F.gelu(fused))
-            return (local if context is None else local + self.alpha * context), tokens
         if context is not None:
             fused = fused + context
         if self.local_out is not None:
@@ -402,11 +383,7 @@ class SpatialMemoryTranslator(nn.Module):
         reference = self._parameter_reference()
         memory = flat.to(device=reference.device, dtype=reference.dtype)  # M [N, C, H, W]
         delta, tokens = self._delta(memory)
-        if self.config.local_fusion == "additive_mlp":
-            skip = memory if self.linear_skip is None else self.linear_skip(memory.movedim(1, -1)).movedim(-1, 1)
-            output = skip + delta  # alpha was applied only to context in _delta.
-        else:
-            output = memory + self.alpha * delta if self.alpha is not None else delta
+        output = memory + self.alpha * delta if self.alpha is not None else delta
         if leading is not None:
             output = output.reshape(*leading, *output.shape[1:])
             if tokens is not None:
@@ -444,11 +421,9 @@ class SpatialMemoryTranslator(nn.Module):
                 macs["context_proj"] = tokens * width * (hidden if fusion == "mlp" else channels)
         if fusion == "linear":
             macs["local_in"] = positions * channels * channels
-        elif fusion in ("mlp", "additive_mlp"):
+        elif fusion == "mlp":
             macs["local_in"] = positions * channels * hidden
             macs["local_out"] = positions * hidden * channels
-        if config.skip_mode == "affine":
-            macs["linear_skip"] = positions * channels * channels
         return macs
 
     def macs_per_frame(self) -> int:
@@ -476,11 +451,10 @@ class SpatialMemoryTranslator(nn.Module):
 class ResidualPointerTranslator(nn.Module):
     """``p_hat = p + fc2(GELU(fc1(p)))``; ``fc2`` starts at zero so ``p_hat = p``."""
 
-    def __init__(self, dim: int = 256, hidden_dim: int = 512, skip_mode: str = "identity"):
+    def __init__(self, dim: int = 256, hidden_dim: int = 512):
         super().__init__()
         if dim < 1 or hidden_dim < 1:
             raise ValueError("pointer dims must be positive")
-        self.linear_skip = make_skip(dim, dim) if skip_mode == "affine" else None
         self.dim = dim
         self.hidden_dim = hidden_dim
         self.fc1 = nn.Linear(dim, hidden_dim)
@@ -492,11 +466,10 @@ class ResidualPointerTranslator(nn.Module):
         if pointers.shape[-1] != self.dim:
             raise ValueError(f"pointer dim {pointers.shape[-1]} != {self.dim}")
         pointers = pointers.to(device=self.fc1.weight.device, dtype=self.fc1.weight.dtype)
-        skip = pointers if self.linear_skip is None else self.linear_skip(pointers)
-        return skip + self.fc2(F.gelu(self.fc1(pointers)))
+        return pointers + self.fc2(F.gelu(self.fc1(pointers)))
 
     def macs_per_record(self) -> int:
-        return 2 * self.dim * self.hidden_dim + (self.dim ** 2 if self.linear_skip is not None else 0)
+        return 2 * self.dim * self.hidden_dim
 
     def parameter_count(self) -> int:
         return sum(parameter.numel() for parameter in self.parameters())
@@ -507,6 +480,5 @@ def describe_config(config: SpatialTransformerConfig) -> str:
         head = "linear" if config.local_fusion == "linear" else "MLP"
         return f"position-wise {head} head, no spatial context"
     family = "Spatial-Context Transformer" if config.use_attention else "Spatial-Context (no attention)"
-    fusion = {"linear": "linear fusion", "mlp": "MLP fusion", "none": "context only",
-              "additive_mlp": "independent residual MLP + gated context"}
+    fusion = {"linear": "linear fusion", "mlp": "MLP fusion", "none": "context only"}
     return f"{family}, {fusion[config.local_fusion]}"

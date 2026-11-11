@@ -9,7 +9,6 @@ from typing import Any, Iterable, Mapping
 from ..state_schema import CanonicalState, StateSpec
 from ..translators import DirectCopyTranslator, LinearStateTranslator, MomentMatchedCopyTranslator
 from ._spatial import SpatialTransformerConfig
-from .mlp_context import MLPContextStateTranslator
 from .residual_mlp import ResidualMLPStateTranslator
 from .transformer import TransformerStateTranslator
 
@@ -76,7 +75,6 @@ PRESETS: Mapping[str, TranslatorPreset] = MappingProxyType(
             _preset("base", _ST, "2x2", "linear local head + spatial context"),
             _preset("no_context", _ST, "2x2", "MLP local head (128), no context", config=_NO_CONTEXT_MLP),
             _preset("base_mlp", _ST, "2x2", "MLP local head + spatial context", config={"local_fusion": "mlp"}),
-            _preset("mlp_context", _ST, "structure", "independent residual MLP + gated spatial context", config={"local_fusion": "additive_mlp"}),
             # Ablations of base (one change each unless noted).
             _preset("context_only", _ST, "structure", "Delta = Up(Conv3x3(ctx))", config={"local_fusion": "none"}),
             _preset("no_attn_context", _ST, "structure", "attention sublayers removed", config={"use_attention": False}),
@@ -166,12 +164,7 @@ def build_translator(
         if unknown:
             raise ValueError(f"unknown overrides for {name!r}: {unknown}")
         effective_config = replace(base, **overrides)
-        model_type = (
-            MLPContextStateTranslator
-            if effective_config.local_fusion == "additive_mlp"
-            else TransformerStateTranslator
-        )
-        translator: Any = model_type(
+        translator: Any = TransformerStateTranslator(
             source_spec, target_spec, config=effective_config, preset=name
         )
         return translator

@@ -34,8 +34,7 @@ def evaluate_artifact(index, config, name, artifact, output, *, allow_sample=Fal
                 raise ValueError('checkpoint model mismatch')
             payload = raw['model']
         model = restore_model(name, payload)
-        expected_fusion = 'linear' if name == 'transformer' else 'additive_mlp'
-        if name != 'residual_mlp' and model.config.local_fusion != expected_fusion:
+        if name != 'residual_mlp' and model.config.local_fusion != 'linear':
             raise ValueError('artifact architecture mismatch')
     if report is not None and model.source_spec.to_dict() != report['source_spec']:
         raise ValueError('artifact spec mismatch')

@@ -39,13 +39,12 @@ def construct_model(name, spec, options=None):
     options = dict(options or {})
     if name == 'residual_mlp':
         return build_translator(name, spec, spec, **options)
-    if name not in ('transformer', 'mlp_context'):
+    if name != 'transformer':
         raise ValueError('unsupported training model')
-    options.setdefault("local_fusion", "linear" if name == "transformer" else "additive_mlp")
+    options.setdefault("local_fusion", "linear")
     config = SpatialTransformerConfig(channels=spec.feature_channels, height=spec.height,
         width=spec.width, pointer_dim=spec.pointer_dim, **options)
-    return build_translator('base' if name == 'transformer' else name, spec, spec, config=config,
-                            local_fusion='linear' if name == 'transformer' else 'additive_mlp')
+    return build_translator('base', spec, spec, config=config, local_fusion='linear')
 
 
 def restore_model(name, payload):

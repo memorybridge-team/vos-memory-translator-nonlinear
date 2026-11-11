@@ -380,9 +380,8 @@ def run_paired_experiment(
         from .models.registry import build_translator
 
         model = build_translator(
-            "base" if name == "transformer" else "mlp_context",
-            source_spec, target_spec, config=transformer_config,
-            local_fusion="linear" if name == "transformer" else "additive_mlp",
+            "base",
+            source_spec, target_spec, config=transformer_config, local_fusion="linear",
             fusion_hidden_dim=hidden_dim, pointer_hidden_dim=pointer_hidden_dim,
         )
         training["model_selection"][name] = fit_validated_translator(

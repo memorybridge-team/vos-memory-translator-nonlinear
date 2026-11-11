@@ -14,7 +14,6 @@ __all__ = [
     "SpatialMemoryTranslator",
     "LinearStateTranslator",
     "MomentMatchedCopyTranslator",
-    "MLPContextStateTranslator",
     "PRESETS",
     "ResidualMLPStateTranslator",
     "ResidualPointerTranslator",
@@ -36,7 +35,6 @@ _EXPORTS = {
     "LinearStateTranslator": (".translators", "LinearStateTranslator"),
     "MomentMatchedCopyTranslator": (".translators", "MomentMatchedCopyTranslator"),
     "ResidualMLPStateTranslator": (".models.residual_mlp", "ResidualMLPStateTranslator"),
-    "MLPContextStateTranslator": (".models.mlp_context", "MLPContextStateTranslator"),
     "RidgeStateTranslator": (".translators", "RidgeStateTranslator"),
     "SpatialMemoryTranslator": (
         ".models._spatial",

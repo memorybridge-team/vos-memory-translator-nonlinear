@@ -150,13 +150,13 @@ def test_streaming_ridge_equals_direct_centered_solution():
         torch.testing.assert_close(affine.bias, y.mean(0) - x.mean(0) @ expected)
 
 
-@pytest.mark.parametrize('name', ['residual_mlp', 'mlp_context'])
-def test_affine_initialization_gradients_export_and_artifact_binding(sample_index, cpu_config, tmp_path, name):
+def test_affine_initialization_gradients_export_and_artifact_binding(sample_index, cpu_config, tmp_path):
+    name = 'residual_mlp'
     index = load_index(sample_index, allow_sample=True)
     ridge_path = tmp_path / 'ridge.pth'
     ridge = fit_ridge(index, cpu_config, ridge_path)
     baseline = StreamingRidgeTranslator(ridge)
-    options = dict(skip_mode='affine', **(dict(hidden_dim=8, pointer_hidden_dim=10) if name == 'residual_mlp' else OPTIONS))
+    options = dict(skip_mode='affine', hidden_dim=8, pointer_hidden_dim=10)
     model = construct_model(name, baseline.source_spec, options)
     model.initialize_from_ridge(ridge)
     pair, _ = load_pair(index.entries[0])
@@ -164,7 +164,7 @@ def test_affine_initialization_gradients_export_and_artifact_binding(sample_inde
     inputs = (s.spatial_memory, s.object_pointer, s.validity)
     for a, b in zip(model.translate_tensors(*inputs), baseline.translate_tensors(*inputs)):
         torch.testing.assert_close(a, b, rtol=1e-5, atol=2e-7)
-    assert model.to_payload()['schema_version'].endswith('v3' if name == 'residual_mlp' else 'v2')
+    assert model.to_payload()['schema_version'].endswith('v3')
     optimizer = torch.optim.AdamW(model.parameters(), lr=.01)
     for step in range(2):
         optimizer.zero_grad()
@@ -272,21 +272,19 @@ def test_gloo_two_process_tail_matches_single_process(sample_index, tmp_path):
         assert abs(a['validation']['all']['state_loss'] - b['validation']['all']['state_loss']) < 1e-6
 
 
-@pytest.mark.parametrize('name', ['transformer', 'mlp_context'])
-def test_common_trainer_supports_transformer_and_affine_context(sample_index, cpu_config, tmp_path, name):
+def test_common_trainer_supports_transformer_and_rejects_ridge_init(sample_index, cpu_config, tmp_path):
     index = load_index(sample_index, allow_sample=True)
-    options = dict(OPTIONS)
-    ridge_path = None
-    if name == 'mlp_context':
-        options['skip_mode'] = 'affine'
-        ridge_path = tmp_path / 'ridge.pth'
-        fit_ridge(index, cpu_config, ridge_path)
-    _, history = prepared_train(index, cpu_config, name, tmp_path / 'trained', options=options,
-                       ridge_path=ridge_path, allow_sample=True)
+    _, history = prepared_train(index, cpu_config, 'transformer', tmp_path / 'trained', options=dict(OPTIONS),
+                       allow_sample=True)
     assert history[-1]['step'] == 4
     assert all(row['validation']['all']['records'] == 3 for row in history)
-    model = load_learned_translator(tmp_path / 'trained/paired_translators.pt', name)
-    assert model.skip_mode == ('affine' if ridge_path else 'identity')
+    model = load_learned_translator(tmp_path / 'trained/paired_translators.pt', 'transformer')
+    assert model.config.local_fusion == 'linear'
+    ridge_path = tmp_path / 'ridge.pth'
+    fit_ridge(index, cpu_config, ridge_path)
+    with pytest.raises(ValueError, match='only supported in affine mode'):
+        prepared_train(index, cpu_config, 'transformer', tmp_path / 'ridge_rejected', options=dict(OPTIONS),
+                       ridge_path=ridge_path, allow_sample=True)
 
 
 def test_cli_preflight_and_cpu_smoke_do_not_invent_full_readiness(sample_index, tmp_path, cpu_config):

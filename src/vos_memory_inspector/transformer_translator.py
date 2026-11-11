@@ -19,7 +19,6 @@ from .models._spatial import (
     sincos_2d_embedding, describe_config,
 )
 from .models.transformer import TransformerStateTranslator
-from .models.mlp_context import MLPContextStateTranslator
 from .models.registry import PRESETS, TranslatorPreset, build_translator, preset_names, _ST
 
 
@@ -37,7 +36,6 @@ _SUMMARY_MODULES = (
     ("context_proj", ("context_proj",)),
     ("local_in", ("local_in",)),
     ("local_out", ("local_out",)),
-    ("linear_skip", ("linear_skip",)),
     ("alpha", ()),
 )
 
