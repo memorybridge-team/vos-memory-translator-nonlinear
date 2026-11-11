@@ -54,7 +54,7 @@ def optimizer_groups(model, weight_decay):
                 for p in m.parameters(recurse=False)}
     decay, excluded = [], []
     for name, parameter in model.named_parameters():
-        no_decay = name.endswith('.bias') or id(parameter) in norm_ids or name.endswith('.alpha') or 'pos_embed' in name
+        no_decay = name.endswith('.bias') or id(parameter) in norm_ids
         (excluded if no_decay else decay).append(parameter)
     return [dict(params=decay, weight_decay=weight_decay), dict(params=excluded, weight_decay=0.)]
 
