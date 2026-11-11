@@ -11,8 +11,8 @@ from vos_memory_inspector.state_schema import StateSpec
 from vos_memory_inspector.transformer_translator import (
     PRESETS,
     SAM21_MEMORY_SPEC,
-    SpatialTransformerConfig,
     TransformerStateTranslator,
+    TranslatorConfig,
     build_translator,
     preset_names,
 )
@@ -172,63 +172,44 @@ def test_component_ablation_zeroes_valid_records_only(zero: tuple[str, ...], mak
         ComponentAblationTranslator(DirectCopyTranslator(SPEC), zero=())
 
 
-def test_component_ablation_wraps_learned_translators(make_state) -> None:
-    config = SpatialTransformerConfig(
-        channels=4, height=8, width=8, d_model=8, num_heads=2, pointer_dim=5, pointer_hidden_dim=6
-    )
+@pytest.mark.parametrize("model_type", [ResidualMLPStateTranslator, TransformerStateTranslator])
+def test_component_ablation_wraps_learned_translators(model_type, make_state) -> None:
     spec = StateSpec(4, 8, 8, 5)
-    inner = TransformerStateTranslator(spec, spec, config=config)
+    inner = model_type(spec, spec)
     source = make_state(torch.randn(1, 1, 2, 4, 8, 8).to(torch.bfloat16), torch.randn(1, 1, 2, 5))
     with torch.no_grad():
         translated = ComponentAblationTranslator(inner, zero=("spatial_memory",)).translate(source)
     assert translated.spatial_memory.dtype == torch.bfloat16
     assert torch.count_nonzero(translated.spatial_memory) == 0
-    assert torch.equal(translated.object_pointer, source.object_pointer)  # pointer head at identity
+    assert torch.equal(translated.object_pointer, source.object_pointer)  # untrained model is the identity
 
 
 EXPECTED = {
-    # name: (spatial params, pointer params, MACs per frame in millions)
-    "linear": (4_160, 65_792, 16.8),
-    "residual_mlp": (16_576, 262_912, 67.1),
-    "linear_local": (4_224, 262_912, 16.8),
-    "base": (194_304, 262_912, 77.6),
-    "no_context": (16_640, 262_912, 67.1),
-    "base_mlp": (210_816, 262_912, 129.0),
-    "context_only": (186_048, 262_912, 59.8),
-    "no_attn_context": (160_768, 262_912, 52.4),
-    "res8": (116_480, 262_912, 24.9),
-    "res16": (116_480, 262_912, 61.9),
-    "res32": (116_480, 262_912, 398.5),
-    "grid8": (378_624, 262_912, 41.4),
-    "grid32": (194_304, 262_912, 411.0),
-    "depth1": (160_832, 262_912, 60.8),
-    "depth4": (261_248, 262_912, 111.1),
-    "heads2": (194_304, 262_912, 77.6),
-    "heads8": (194_304, 262_912, 77.6),
-    "no_residual": (194_240, 262_912, 77.6),
-    "mlp256": (33_152, 262_912, 134.2),
-    "mlp_param": (194_273, 262_912, 789.1),
-    "no_pos": (177_920, 262_912, 77.6),
-    "sincos_pos": (177_920, 262_912, 77.6),
-    "ptr128": (194_304, 65_920, 77.6),
-    "no_cos": (194_304, 262_912, 77.6),
+    # name: (spatial params, pointer params, MACs per frame, kind)
+    "linear": (4_160, 65_792, 16_777_216, "linear"),
+    "residual_mlp": (37_376, 65_792, 150_994_944, "residual_mlp"),
+    "transformer": (119_872, 65_792, 337_641_472, "transformer"),
+    "residual_mlp_matched": (119_936, 65_792, 486_539_264, "residual_mlp"),
 }
 
 
-def test_registry_covers_every_plan_preset() -> None:
+def test_registry_covers_every_preset() -> None:
     assert set(preset_names(learned=True)) == set(EXPECTED)
     assert set(PRESETS) == set(EXPECTED) | {"direct", "moment_match"}
-    assert PRESETS["no_cos"].training == {"lambda_cos": 0.0}
+    assert preset_names(kind="residual_mlp") == ("residual_mlp", "residual_mlp_matched")
+    assert preset_names(kind="transformer") == ("transformer",)
+    assert {name: PRESETS[name].kind for name in EXPECTED} == {n: v[3] for n, v in EXPECTED.items()}
+    assert PRESETS["residual_mlp_matched"].config == {"mlp_ratio": 14.0}
 
 
 @pytest.mark.parametrize("name", sorted(EXPECTED))
-def test_every_learned_preset_builds_forwards_and_matches_the_plan(name: str, make_state) -> None:
+def test_every_learned_preset_builds_forwards_and_matches_the_design(name: str, make_state) -> None:
     torch.manual_seed(0)
     translator = build_translator(name, SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC).eval()
-    spatial_params, pointer_params, macs = EXPECTED[name]
+    spatial_params, pointer_params, macs, _ = EXPECTED[name]
     breakdown = translator.parameter_breakdown()
     assert (breakdown["spatial"], breakdown["pointer"]) == (spatial_params, pointer_params)
-    assert round(translator.macs_per_frame() / 1e6, 1) == macs
+    assert translator.macs_per_frame() == macs
     assert translator.preset == name
     validity = torch.tensor([[[True, False]]])
     source = make_state(
@@ -244,25 +225,30 @@ def test_every_learned_preset_builds_forwards_and_matches_the_plan(name: str, ma
 
 
 def test_build_translator_overrides_and_errors(make_state) -> None:
-    custom = build_translator("base", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC, num_layers=3)
-    assert custom.config.num_layers == 3 and custom.preset == "base"
+    custom = build_translator("transformer", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC, num_layers=3)
+    assert custom.config.num_layers == 3 and custom.preset == "transformer"
+    assert custom.config.attention is True
     explicit = build_translator(
-        "base", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC, config=SpatialTransformerConfig(patch_size=8)
+        "residual_mlp", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC, config=TranslatorConfig(mlp_ratio=2.0)
     )
-    assert explicit.config.patch_size == 8
+    assert explicit.config.mlp_ratio == 2.0
     assert isinstance(build_translator("linear", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC), LinearStateTranslator)
     assert isinstance(build_translator("residual_mlp", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC), ResidualMLPStateTranslator)
     assert isinstance(build_translator("direct", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC), DirectCopyTranslator)
     with pytest.raises(ValueError, match="unknown preset"):
         build_translator("huge", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC)
     with pytest.raises(ValueError, match="unknown overrides"):
-        build_translator("base", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC, depth=3)
+        build_translator("transformer", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC, depth=3)
+    with pytest.raises(ValueError, match="unknown overrides"):
+        build_translator("transformer", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC, attention=False)
     with pytest.raises(ValueError, match="unknown overrides"):
         build_translator("linear", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC, hidden_dim=3)
+    with pytest.raises(ValueError, match="config="):
+        build_translator("linear", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC, config=TranslatorConfig())
     with pytest.raises(ValueError, match="fit_pairs"):
         build_translator("moment_match", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC)
     fit_pairs = [_affine_pair(make_state, seed) for seed in range(2)]
     moment = build_translator("moment_match", SPEC, SPEC, fit_pairs=fit_pairs)
     assert isinstance(moment, MomentMatchedCopyTranslator) and moment.preset == "moment_match"
     with pytest.raises(ValueError, match="fit_pairs"):
-        build_translator("base", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC, fit_pairs=fit_pairs)
+        build_translator("transformer", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC, fit_pairs=fit_pairs)

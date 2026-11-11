@@ -34,14 +34,12 @@ def evaluate_artifact(index, config, name, artifact, output, *, allow_sample=Fal
                 raise ValueError('checkpoint model mismatch')
             payload = raw['model']
         model = restore_model(name, payload)
-        if name != 'residual_mlp' and model.config.local_fusion != 'linear':
-            raise ValueError('artifact architecture mismatch')
     if report is not None and model.source_spec.to_dict() != report['source_spec']:
         raise ValueError('artifact spec mismatch')
     if model.source_spec != model.target_spec:
         raise ValueError('state-pair evaluation requires matching source/target specs')
     if index.official:
-        from ..models._spatial import SAM21_MEMORY_SPEC
+        from ..models._stitched import SAM21_MEMORY_SPEC
         if model.source_spec != SAM21_MEMORY_SPEC:
             raise ValueError('official artifact memory spec mismatch')
     if Path(output).exists():

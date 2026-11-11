@@ -29,8 +29,6 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--translator", choices=LEARNED_ARTIFACT_TRANSLATORS, default="residual_mlp")
     parser.add_argument("--epochs", type=int, default=DEFAULT_EPOCHS)
     parser.add_argument("--learning-rate", type=float, default=DEFAULT_LEARNING_RATE)
-    parser.add_argument("--hidden-dim", type=int, default=128)
-    parser.add_argument("--pointer-hidden-dim", type=int, default=512)
     spatial = parser.add_mutually_exclusive_group()
     spatial.add_argument(
         "--spatial-samples-per-pair", type=int,
@@ -108,8 +106,6 @@ def main() -> None:
         seed=args.seed,
         epochs=args.epochs,
         learning_rate=args.learning_rate,
-        hidden_dim=args.hidden_dim,
-        pointer_hidden_dim=args.pointer_hidden_dim,
         translator_names=(args.translator,),
         device=args.device,
         spatial_samples_per_pair=(None if args.whole_frames else args.spatial_samples_per_pair),

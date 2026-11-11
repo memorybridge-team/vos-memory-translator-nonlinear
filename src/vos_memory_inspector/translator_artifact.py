@@ -27,7 +27,4 @@ def load_learned_translator(path: Path, name: str) -> Any:
 
     from .models.transformer import TransformerStateTranslator
 
-    translator = TransformerStateTranslator.from_payload(payload)
-    if translator.config.local_fusion != "linear":
-        raise ValueError(f"{name} payload has incompatible local_fusion")
-    return translator
+    return TransformerStateTranslator.from_payload(payload).eval()

@@ -8,12 +8,12 @@ import pytest
 import torch
 from torch.nn import functional as F
 
+from vos_memory_inspector.models._stitched import PAYLOAD_SCHEMA
 from vos_memory_inspector.state_schema import StateSpec
 from vos_memory_inspector.transformer_translator import (
-    PAYLOAD_SCHEMA,
     SAM21_MEMORY_SPEC,
-    SpatialTransformerConfig,
     TransformerStateTranslator,
+    TranslatorConfig,
     build_translator,
 )
 from vos_memory_inspector.translator_training import fit_gradient_translator
@@ -25,18 +25,8 @@ from vos_memory_inspector.translators import (
 )
 
 
-SMALL = SpatialTransformerConfig(
-    channels=8,
-    height=16,
-    width=16,
-    d_model=16,
-    num_heads=2,
-    patch_size=4,
-    fusion_hidden_dim=12,
-    pointer_dim=12,
-    pointer_hidden_dim=24,
-)
 SMALL_SPEC = StateSpec(8, 16, 16, 12)
+SMALL = TranslatorConfig(num_heads=2, sr_ratio=2)
 VALIDITY = torch.tensor([[[True, True, False], [True, False, False]]])  # 3 of 6 valid
 
 
@@ -47,16 +37,19 @@ def _randomize(module: torch.nn.Module, seed: int = 5) -> None:
             parameter.copy_(torch.randn(parameter.shape, generator=generator) * 0.2)
 
 
-def _transformer() -> TransformerStateTranslator:
+def _transformer(**options) -> TransformerStateTranslator:
     torch.manual_seed(0)
-    translator = TransformerStateTranslator(SMALL_SPEC, SMALL_SPEC, config=SMALL).eval()
+    config = TranslatorConfig(num_heads=2, sr_ratio=2, **options)
+    translator = TransformerStateTranslator(SMALL_SPEC, SMALL_SPEC, config=config).eval()
     _randomize(translator)
     return translator
 
 
 def _residual_mlp(**options) -> ResidualMLPStateTranslator:
     torch.manual_seed(0)
-    translator = ResidualMLPStateTranslator(SMALL_SPEC, SMALL_SPEC, hidden_dim=7, **options).eval()
+    translator = ResidualMLPStateTranslator(
+        SMALL_SPEC, SMALL_SPEC, config=TranslatorConfig(mlp_ratio=1.5, **options)
+    ).eval()
     _randomize(translator)
     return translator
 
@@ -69,6 +62,7 @@ def _linear() -> LinearStateTranslator:
 
 
 TRANSLATORS = {"transformer": _transformer, "residual_mlp": _residual_mlp, "linear": _linear}
+MODELS = ("transformer", "residual_mlp")
 
 
 def _inputs(dtype: torch.dtype = torch.float32, seed: int = 0) -> tuple[torch.Tensor, torch.Tensor]:
@@ -78,17 +72,16 @@ def _inputs(dtype: torch.dtype = torch.float32, seed: int = 0) -> tuple[torch.Te
     return spatial, pointer
 
 
-def test_residual_mlp_valid_output_is_x_plus_mlp(make_state) -> None:
-    translator = _residual_mlp(pointer_hidden_dim=9)
+@pytest.mark.parametrize("kind", MODELS)
+def test_valid_output_is_the_model_applied_to_the_gathered_records(kind: str, make_state) -> None:
+    translator = TRANSLATORS[kind]()
     spatial, pointer = _inputs()
     with torch.no_grad():
         translated = translator.translate(make_state(spatial, pointer, validity=VALIDITY))
-        vectors = spatial.movedim(3, -1)[VALIDITY]  # [N, H, W, C]
-        expected_spatial = (vectors + translator.feature(vectors)).movedim(-1, 1)
-        expected_pointer = pointer[VALIDITY] + translator.pointer(pointer[VALIDITY])
+        expected_spatial = translator.spatial(spatial[VALIDITY])  # [N, C, H, W]
+        expected_pointer = translator.pointer(pointer[VALIDITY])
     torch.testing.assert_close(translated.spatial_memory[VALIDITY], expected_spatial)
     torch.testing.assert_close(translated.object_pointer[VALIDITY], expected_pointer)
-    assert translator.pointer[0].out_features == 9
 
 
 @pytest.mark.parametrize("kind", sorted(TRANSLATORS))
@@ -124,7 +117,7 @@ def test_nan_padding_never_reaches_valid_outputs(kind: str, make_state) -> None:
 @pytest.mark.parametrize("kind", sorted(TRANSLATORS))
 def test_forward_sees_only_valid_records(kind: str, make_state) -> None:
     translator = TRANSLATORS[kind]()
-    spatial_module = translator.spatial if kind == "transformer" else translator.feature
+    spatial_module = translator.feature if kind == "linear" else translator.spatial
     pointer_module = translator.pointer
     seen: dict[str, list[int]] = {"spatial": [], "pointer": []}
     hooks = [
@@ -151,6 +144,7 @@ def test_forward_sees_only_valid_records(kind: str, make_state) -> None:
 def test_zero_fill_padding_when_shapes_differ(make_state) -> None:
     torch.manual_seed(0)
     translator = ResidualMLPStateTranslator(SMALL_SPEC, StateSpec(6, 16, 16, 5)).eval()
+    _randomize(translator)
     spatial, pointer = _inputs()
     with torch.no_grad():
         translated = translator.translate(make_state(spatial, pointer, validity=VALIDITY))
@@ -160,9 +154,9 @@ def test_zero_fill_padding_when_shapes_differ(make_state) -> None:
     assert translated.metadata["translation"]["invalid_records"]["spatial_memory"] == "zero_fill"
 
 
-@pytest.mark.parametrize("kind", ["transformer", "residual_mlp_source"])
+@pytest.mark.parametrize("kind", MODELS)
 def test_bf16_handoff_keeps_source_dtype_and_direct_copy_bytes(kind: str, make_state) -> None:
-    translator = _transformer() if kind == "transformer" else _residual_mlp(output_dtype="source")
+    translator = TRANSLATORS[kind](output_dtype="source")
     spatial, pointer = _inputs(torch.bfloat16)
     state = make_state(spatial, pointer, validity=VALIDITY)
     with torch.no_grad():
@@ -183,8 +177,9 @@ def test_bf16_handoff_keeps_source_dtype_and_direct_copy_bytes(kind: str, make_s
     assert torch.equal(translated.presence_logits, state.presence_logits)
 
 
-def test_legacy_float32_output_policy_is_available_explicitly(make_state) -> None:
-    translator = _residual_mlp(output_dtype="float32")
+@pytest.mark.parametrize("kind", MODELS)
+def test_float32_output_policy_is_available_explicitly(kind: str, make_state) -> None:
+    translator = TRANSLATORS[kind](output_dtype="float32")
     spatial, pointer = _inputs(torch.bfloat16)
     state = make_state(spatial, pointer, validity=VALIDITY)
     with torch.no_grad():
@@ -194,16 +189,18 @@ def test_legacy_float32_output_policy_is_available_explicitly(make_state) -> Non
     assert translated.handoff_bytes() > DirectCopyTranslator(SMALL_SPEC).translate(state).handoff_bytes()
 
 
-def test_translate_tensors_keeps_gradients_in_float32() -> None:
-    translator = _transformer().train()
+@pytest.mark.parametrize("kind", MODELS)
+def test_translate_tensors_keeps_gradients_in_float32(kind: str) -> None:
+    translator = TRANSLATORS[kind]().train()
     spatial, pointer = _inputs(torch.bfloat16)
     spatial_hat, pointer_hat = translator.translate_tensors(spatial, pointer, VALIDITY)
     assert spatial_hat.dtype == pointer_hat.dtype == torch.float32
     assert spatial_hat.shape == spatial.shape and pointer_hat.shape == pointer.shape
     loss = spatial_hat[VALIDITY].square().mean() + pointer_hat[VALIDITY].square().mean()
     loss.backward()
-    assert translator.spatial.alpha.grad.abs().max() > 0
-    assert translator.pointer.fc2.weight.grad.abs().max() > 0
+    assert translator.spatial.stitch.linear.weight.grad.abs().max() > 0
+    assert translator.spatial.blocks[0].mlp.fc2.weight.grad.abs().max() > 0
+    assert translator.pointer.linear.weight.grad.abs().max() > 0
     # validity=None treats every record as valid.
     everything, _ = translator.translate_tensors(spatial, pointer)
     assert not torch.equal(everything[~VALIDITY], spatial[~VALIDITY].float())
@@ -222,15 +219,17 @@ def test_translate_tensors_validates_inputs() -> None:
         translator.translate_tensors(spatial, pointer, VALIDITY.int())
 
 
-def test_transformer_payload_round_trip_with_weights_only(tmp_path: Path, make_state) -> None:
-    translator = _transformer()
+@pytest.mark.parametrize("kind", MODELS)
+def test_payload_round_trip_with_weights_only(kind: str, tmp_path: Path, make_state) -> None:
+    translator = TRANSLATORS[kind](output_dtype="float32")
     translator.preset = "small"
     payload = translator.to_payload()
-    assert payload["schema_version"] == PAYLOAD_SCHEMA == "cmmt.spatial_context_transformer_translator.v1"
+    assert payload["schema_version"] == PAYLOAD_SCHEMA == "cmmt.stitched_translator.v1"
     path = tmp_path / "translator.pt"
     torch.save(payload, path)
-    restored = TransformerStateTranslator.from_payload(torch.load(path, weights_only=True))
-    assert restored.config == SMALL and restored.preset == "small"
+    restored = type(translator).from_payload(torch.load(path, weights_only=True))
+    assert restored.config == translator.config and restored.preset == "small"
+    assert restored.output_dtype == "float32"
     spatial, pointer = _inputs(torch.bfloat16)
     state = make_state(spatial, pointer, validity=VALIDITY)
     with torch.no_grad():
@@ -239,31 +238,11 @@ def test_transformer_payload_round_trip_with_weights_only(tmp_path: Path, make_s
     assert torch.equal(actual.object_pointer, expected.object_pointer)
 
     broken = dict(payload)
-    broken["config"] = {key: value for key, value in payload["config"].items() if key != "d_model"}
-    with pytest.raises(ValueError, match="missing"):
-        TransformerStateTranslator.from_payload(broken)
+    broken["config"] = {**payload["config"], "hidden_dim": 7}
+    with pytest.raises(ValueError, match="unknown"):
+        type(translator).from_payload(broken)
     with pytest.raises(ValueError, match="unsupported"):
-        TransformerStateTranslator.from_payload({**payload, "schema_version": "v0"})
-
-
-def test_residual_mlp_payload_adds_pointer_hidden_dim_and_reads_old_payloads(tmp_path: Path) -> None:
-    translator = _residual_mlp(pointer_hidden_dim=9, output_dtype="source")
-    payload = translator.to_payload()
-    assert payload["schema_version"] == "cmmt.residual_mlp_translator.v2"
-    assert (payload["hidden_dim"], payload["pointer_hidden_dim"], payload["output_dtype"]) == (7, 9, "source")
-    torch.save(payload, tmp_path / "mlp.pt")
-    restored = ResidualMLPStateTranslator.from_payload(torch.load(tmp_path / "mlp.pt", weights_only=True))
-    assert (restored.pointer_hidden_dim, restored.output_dtype) == (9, "source")
-
-    legacy_translator = _residual_mlp(pointer_hidden_dim=None, output_dtype="float32")
-    legacy = legacy_translator.to_payload()
-    del legacy["pointer_hidden_dim"], legacy["output_dtype"]
-    restored = ResidualMLPStateTranslator.from_payload(legacy)
-    assert (restored.hidden_dim, restored.pointer_hidden_dim, restored.output_dtype) == (7, 7, "float32")
-
-    ladder = build_translator("residual_mlp", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC)
-    assert ladder.parameter_breakdown() == {"spatial": 16_576, "pointer": 262_912, "total": 279_488}
-    assert ladder.output_dtype == "source"
+        type(translator).from_payload({**payload, "schema_version": "v0"})
 
 
 def test_component_policy_accepts_the_transformer(make_state) -> None:
@@ -281,9 +260,7 @@ def test_component_policy_accepts_the_transformer(make_state) -> None:
 
 
 def test_spec_mismatch_and_sampled_training_fail_closed(make_state) -> None:
-    with pytest.raises(ValueError, match="source spec"):
-        TransformerStateTranslator(StateSpec(8, 16, 16, 10), SMALL_SPEC, config=SMALL)
-    with pytest.raises(ValueError, match="target spec"):
+    with pytest.raises(ValueError, match="grids must be equal"):
         TransformerStateTranslator(SMALL_SPEC, StateSpec(8, 8, 8, 12), config=SMALL)
     translator = _transformer()
     other = make_state(torch.randn(1, 1, 2, 8, 8, 8), torch.randn(1, 1, 2, 12))
@@ -300,13 +277,20 @@ def test_spec_mismatch_and_sampled_training_fail_closed(make_state) -> None:
     # Whole-frame training through the legacy trainer still works.
     history = fit_gradient_translator(translator, [(source, target)], epochs=2, learning_rate=1e-3, device="cpu")
     assert len(history) == 2 and all(torch.isfinite(torch.tensor(history)))
+    # The model without attention also accepts sampled positions.
+    mlp = _residual_mlp().train()
+    history = fit_gradient_translator(
+        mlp, [(source, target)], epochs=2, learning_rate=1e-3, device="cpu", spatial_samples_per_pair=3
+    )
+    assert len(history) == 2 and all(torch.isfinite(torch.tensor(history)))
 
 
-def test_whole_frame_training_reduces_loss() -> None:
-    """translate_tensors is enough to train the context model end to end."""
+@pytest.mark.parametrize("kind", MODELS)
+def test_whole_frame_training_reduces_loss(kind: str) -> None:
+    """translate_tensors is enough to train either model end to end."""
 
     torch.manual_seed(0)
-    translator = TransformerStateTranslator(SMALL_SPEC, SMALL_SPEC, config=SMALL).train()
+    translator = build_translator(kind, SMALL_SPEC, SMALL_SPEC).train()
     generator = torch.Generator().manual_seed(2)
     spatial = torch.randn(1, 2, 3, 8, 16, 16, generator=generator)
     pointer = torch.randn(1, 2, 3, 12, generator=generator)

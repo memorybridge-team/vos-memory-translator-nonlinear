@@ -8,6 +8,7 @@ from test_state_training import sample_index, cpu_config
 from vos_memory_inspector.state_training.data import load_index
 from vos_memory_inspector.state_training.determinism import configure_determinism, execution_profile, CUBLAS_WORKSPACE
 from vos_memory_inspector.state_training.preflight import inspect
+from vos_memory_inspector.state_training.ridge import fit_ridge
 from vos_memory_inspector.state_training.storage import digest
 from vos_memory_inspector.state_training.trainer import train
 
@@ -56,9 +57,11 @@ def test_cuda_environment_is_set_before_initialization_and_conflicts_are_rejecte
 def test_resume_rejects_changed_or_legacy_execution_profiles(sample_index, cpu_config, tmp_path):
     index = load_index(sample_index, allow_sample=True)
     readiness = inspect(index, cpu_config)
-    options = dict(hidden_dim=8, pointer_hidden_dim=10)
+    options = dict(num_layers=1, mlp_ratio=2.0)
+    ridge_path = tmp_path / 'ridge.pth'
+    fit_ridge(index, cpu_config, ridge_path)
     train(index, cpu_config, 'residual_mlp', tmp_path / 'original', options=options,
-          readiness=readiness, allow_sample=True)
+          readiness=readiness, allow_sample=True, ridge_path=ridge_path)
     original = torch.load(tmp_path / 'original/last.ckpt', weights_only=True)
     assert original['identity']['determinism']['deterministic_algorithms']
     original['identity']['determinism']['broadcast_buffers'] = True
@@ -69,11 +72,11 @@ def test_resume_rejects_changed_or_legacy_execution_profiles(sample_index, cpu_c
     config = replace(cpu_config, max_epochs=3)
     with pytest.raises(ValueError, match='determinism changed'):
         train(index, config, 'residual_mlp', tmp_path / 'changed', options=options,
-              readiness=readiness, allow_sample=True, resume=changed)
+              readiness=readiness, allow_sample=True, resume=changed, ridge_path=ridge_path)
     original['identity'].pop('determinism')
     original['signature'] = digest(original['identity'])
     legacy = tmp_path / 'legacy.ckpt'
     torch.save(original, legacy)
     with pytest.raises(ValueError, match='no deterministic execution profile'):
         train(index, config, 'residual_mlp', tmp_path / 'legacy', options=options,
-              readiness=readiness, allow_sample=True, resume=legacy)
+              readiness=readiness, allow_sample=True, resume=legacy, ridge_path=ridge_path)

@@ -42,7 +42,6 @@ def synthetic_experiment_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--epochs", type=int, default=120)
     parser.add_argument("--learning-rate", type=float, default=DEFAULT_LEARNING_RATE)
     parser.add_argument("--ridge-lambda", type=float, default=0.01)
-    parser.add_argument("--hidden-dim", type=int, default=32)
     args = parser.parse_args(argv)
     report = run_synthetic_experiment(
         args.output_dir,
@@ -50,7 +49,6 @@ def synthetic_experiment_main(argv: list[str] | None = None) -> None:
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         ridge_lambda=args.ridge_lambda,
-        hidden_dim=args.hidden_dim,
     )
     print(json.dumps(report, indent=2))
 
@@ -73,8 +71,6 @@ def paired_experiment_main(argv: list[str] | None = None) -> None:
     parser.add_argument("--epochs", type=int, default=DEFAULT_EPOCHS)
     parser.add_argument("--learning-rate", type=float, default=DEFAULT_LEARNING_RATE)
     parser.add_argument("--ridge-lambda", type=float, default=0.01)
-    parser.add_argument("--hidden-dim", type=int, default=128)
-    parser.add_argument("--pointer-hidden-dim", type=int, default=512)
     parser.add_argument(
         "--device",
         default="auto",
@@ -138,8 +134,6 @@ def paired_experiment_main(argv: list[str] | None = None) -> None:
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         ridge_lambda=args.ridge_lambda,
-        hidden_dim=args.hidden_dim,
-        pointer_hidden_dim=args.pointer_hidden_dim,
         translator_names=tuple(args.translator) or None,
         device=args.device,
         spatial_samples_per_pair=args.spatial_samples_per_pair,

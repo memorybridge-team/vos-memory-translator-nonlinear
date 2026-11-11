@@ -12,7 +12,6 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 
 from ..models.registry import build_translator
-from ..models._spatial import SpatialTransformerConfig
 from ..models.residual_mlp import ResidualMLPStateTranslator
 from ..models.transformer import TransformerStateTranslator
 from ..state_schema import StateSpec
@@ -36,15 +35,11 @@ class TensorModel(nn.Module):
 
 
 def construct_model(name, spec, options=None):
-    options = dict(options or {})
-    if name == 'residual_mlp':
-        return build_translator(name, spec, spec, **options)
-    if name != 'transformer':
+    # One code path for every model pair: the structure comes from the model
+    # name and the TranslatorConfig options, never from the pair.
+    if name not in ('residual_mlp', 'transformer'):
         raise ValueError('unsupported training model')
-    options.setdefault("local_fusion", "linear")
-    config = SpatialTransformerConfig(channels=spec.feature_channels, height=spec.height,
-        width=spec.width, pointer_dim=spec.pointer_dim, **options)
-    return build_translator('base', spec, spec, config=config, local_fusion='linear')
+    return build_translator(name, spec, spec, **dict(options or {}))
 
 
 def restore_model(name, payload):
@@ -133,14 +128,12 @@ def train(index, config, name, output, *, options=None, ridge_path=None, device=
         torch.cuda.manual_seed_all(config.seed)
     model = construct_model(name, spec, options)
     ridge = load_ridge(ridge_path) if ridge_path is not None else None
-    if getattr(model, 'skip_mode', 'identity') == 'affine':
-        if ridge is None:
-            raise ValueError('affine training requires --ridge-init')
-        if ridge['provenance']['data_identity'] != index.identity:
-            raise ValueError('ridge was fitted/selected on a different index')
-        model.initialize_from_ridge(ridge)
-    elif ridge is not None:
-        raise ValueError('ridge initialization is only supported in affine mode')
+    # Both models start from the closed-form stitching layer and pointer map.
+    if ridge is None:
+        raise ValueError('training requires --ridge-init: both models start from the ridge solution')
+    if ridge['provenance']['data_identity'] != index.identity:
+        raise ValueError('ridge was fitted/selected on a different index')
+    model.initialize_from_ridge(ridge)
     identity = dict(data=index.identity, config=config.logical(), model=name, options=options or {},
                     spec=spec.to_dict(), normalization=scales, world_size=world, determinism=deterministic_execution,
                     ridge_sha256=ridge['provenance']['artifact_sha256'] if ridge else None)

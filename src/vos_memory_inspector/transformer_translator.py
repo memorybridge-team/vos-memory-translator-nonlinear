@@ -12,32 +12,17 @@ from typing import Any, Mapping, Sequence
 import torch
 
 from .state_schema import CanonicalState, StateSpec
-from .models._spatial import (
-    SAM21_MEMORY_SPEC, PATCH_EMBEDS, POS_EMBEDS, LOCAL_FUSIONS, OUTPUT_DTYPES,
-    PAYLOAD_SCHEMA, SpatialTransformerConfig, SpatialSelfAttention,
-    SpatialTransformerBlock, SpatialMemoryTranslator, ResidualPointerTranslator,
-    sincos_2d_embedding, describe_config,
+from .models._stitched import (
+    OUTPUT_DTYPES, PAYLOAD_SCHEMA, SAM21_MEMORY_SPEC, StitchedStateTranslator,
+    TranslatorConfig,
 )
+from .models.residual_mlp import ResidualMLPStateTranslator
 from .models.transformer import TransformerStateTranslator
-from .models.registry import PRESETS, TranslatorPreset, build_translator, preset_names, _ST
+from .models.registry import PRESETS, TranslatorPreset, build_translator, preset_names
 
 
 def _millions(value: float) -> str:
     return f"{value / 1e6:.1f}M"
-
-
-# (parameter group, analytic MAC keys) in forward order.
-_SUMMARY_MODULES = (
-    ("patch_embed", ("patch_embed",)),
-    ("pos_embed", ()),
-    ("blocks", ("attention", "ffn")),
-    ("norm", ()),
-    ("context_conv", ("context_conv",)),
-    ("context_proj", ("context_proj",)),
-    ("local_in", ("local_in",)),
-    ("local_out", ("local_out",)),
-    ("alpha", ()),
-)
 
 
 def _dummy_state(
@@ -84,7 +69,7 @@ def pytorch_flops(function: Any, *args: Any) -> int:
 
 
 def summarize_dummy_forward(
-    translator: TransformerStateTranslator,
+    translator: StitchedStateTranslator,
     *,
     batch: int = 1,
     objects: int = 2,
@@ -105,20 +90,14 @@ def summarize_dummy_forward(
         seed=seed,
         spec=translator.source_spec,
     )
-    captured: dict[str, Any] = {"frames": None, "tokens": None, "attention": []}
+    captured: dict[str, Any] = {"frames": None, "attention": []}
     hooks = [
         translator.spatial.register_forward_pre_hook(
             lambda _module, inputs: captured.__setitem__("frames", tuple(inputs[0].shape))
         )
     ]
-    if translator.spatial.norm is not None:
-        hooks.append(
-            translator.spatial.norm.register_forward_hook(
-                lambda _module, _inputs, output: captured.__setitem__("tokens", tuple(output.shape))
-            )
-        )
     for block in translator.spatial.blocks:
-        if block.attn is not None:
+        if getattr(block, "attn", None) is not None:
             hooks.append(
                 block.attn.register_forward_pre_hook(
                     lambda _module, inputs: captured["attention"].append(tuple(inputs[0].shape))
@@ -140,9 +119,9 @@ def summarize_dummy_forward(
         ).abs().max().item()
     else:
         spatial_error = pointer_error = 0.0
-    config = translator.config
+    spec = translator.source_spec
     one_frame = torch.zeros(
-        1, config.channels, config.height, config.width,
+        1, spec.feature_channels, spec.height, spec.width,
         device=next(translator.parameters()).device,
     )
     return {
@@ -153,7 +132,6 @@ def summarize_dummy_forward(
         "valid_records": int(valid.sum()),
         "total_records": total,
         "frames": captured["frames"],
-        "tokens": captured["tokens"],
         "attention_inputs": captured["attention"],
         "output_spatial": tuple(translated.spatial_memory.shape),
         "output_dtype": str(translated.spatial_memory.dtype).removeprefix("torch."),
@@ -169,25 +147,21 @@ def summarize_dummy_forward(
 def format_dummy_forward_summary(summary: Mapping[str, Any]) -> str:
     arch = summary["architecture"]
     params = arch["parameters"]
-    config = arch["config"]
+    macs = arch["macs_by_module"]
     frames = summary["frames"]
     lines = [
         f"preset             : {summary['preset']} ({summary['description']})",
         f"input spatial      : {summary['input_spatial']} {summary['input_dtype']}  "
         f"valid {summary['valid_records']}/{summary['total_records']} -> frames "
         + (str(frames) if frames is not None else "none (translator not called)"),
-        "intermediate tokens: "
-        + (
-            str(summary["tokens"])
-            if summary["tokens"] is not None
-            else ("n/a (no spatial context)" if not config["spatial_context"] else "none (no valid record)")
-        ),
         f"output spatial     : {summary['output_spatial']} {summary['output_dtype']}",
         f"object pointer     : {summary['pointer_in']} -> {summary['pointer_out']}",
+        f"config             : {arch['config']}  (start: {arch['start']})",
         f"trainable params   : spatial {params['spatial']:,} | pointer {params['pointer']:,} "
         f"| total {params['total']:,}",
-        f"MACs per frame     : ~{_millions(arch['macs_per_frame'])} (context branch "
-        f"{_millions(arch['context_branch_macs'])} + per-pixel {_millions(arch['per_pixel_macs'])})",
+        f"MACs per frame     : ~{_millions(arch['macs_per_frame'])} (stitch "
+        f"{_millions(macs['stitch'])} + feed-forward {_millions(macs['feed_forward'])} "
+        f"+ attention {_millions(macs['attention'])})",
         f"PyTorch FLOPs/frame: {_millions(summary['pytorch_flops_per_frame'])} (FlopCounterMode, "
         "matmul/conv only; ~2 FLOPs per MAC, a different unit from MACs)",
         f"identity at init   : max|T(M)-M| = {summary['identity_spatial_max_abs']:.3g} | "
@@ -195,39 +169,32 @@ def format_dummy_forward_summary(summary: Mapping[str, Any]) -> str:
     ]
     attention = arch["attention"]
     if attention is not None:
-        size = attention["matrix"]
         lines.append(
-            f"attention scope    : per frame, {size[0]}x{size[1]} (no cross-frame attention)"
+            f"attention scope    : per frame, {attention['queries']} queries x "
+            f"{attention['keys']} keys, {attention['heads']} head(s), sr_ratio "
+            f"{attention['sr_ratio']} (no cross-frame attention)"
         )
-    elif config["spatial_context"]:
-        lines.append("attention scope    : none (context branch without self-attention)")
     else:
-        lines.append("attention scope    : none (position-wise head)")
-    lines.extend(["", f"{'module':<16}{'params':>12}{'MACs/frame':>14}"])
-    macs = arch["macs_by_module"]
+        lines.append("attention scope    : none (position-wise feed-forward)")
+    lines.extend(["", f"{'module':<24}{'params':>12}{'MACs/frame':>14}"])
     params_by_module = arch["spatial_parameters_by_module"]
-    for module, mac_keys in _SUMMARY_MODULES:
-        if module not in params_by_module and not any(key in macs for key in mac_keys):
-            continue
-        present = [key for key in mac_keys if key in macs]
-        cell = _millions(sum(macs[key] for key in present)) if present else "-"
-        note = ""
-        if len(present) > 1:
-            note = "  (" + " + ".join(f"{key} {_millions(macs[key])}" for key in present) + ")"
-        lines.append(f"{module:<16}{params_by_module.get(module, 0):>12,}{cell:>14}{note}")
-    lines.append(
-        f"{'pointer':<16}{params['pointer']:>12,}"
-        f"{_millions(arch['pointer_macs_per_record']):>14}  (per record)"
-    )
+    for module, count in params_by_module.items():
+        cell = _millions(macs[module]) if module in macs else "-"
+        lines.append(f"{module:<24}{count:>12,}{cell:>14}")
+    lines.append(f"{'pointer':<24}{params['pointer']:>12,}{_millions(arch['pointer_macs_per_record']):>14}  (per record)")
     return "\n".join(lines)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m vos_memory_inspector.transformer_translator",
-        description="Dummy forward summary of a spatial-context translator preset.",
+        description="Dummy forward summary of a residual_mlp or transformer translator preset.",
     )
-    parser.add_argument("--preset", default="base", choices=preset_names(kind=_ST))
+    parser.add_argument(
+        "--preset",
+        default="transformer",
+        choices=(*preset_names(kind="residual_mlp"), *preset_names(kind="transformer")),
+    )
     parser.add_argument("--batch", type=int, default=1)
     parser.add_argument("--objects", type=int, default=2)
     parser.add_argument("--records", type=int, default=3)

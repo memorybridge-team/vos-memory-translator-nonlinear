@@ -37,7 +37,7 @@ def test_fp32_evaluation_does_not_round_through_bf16_handoff(make_state):
     target = _target(source, 0.001, 0)
     model = ResidualMLPStateTranslator(source.spec, source.spec)
     with torch.no_grad():
-        model.feature[-1].bias.fill_(0.001)
+        model.spatial.blocks[0].mlp.fc2.bias.fill_(0.001)
     model.train()
     metrics = evaluate_state_pairs(model, [(source, target)])
     assert model.training  # Validation must not leave the training loop in eval mode.
@@ -49,7 +49,7 @@ def test_best_epoch_weights_are_restored_and_survive_export(tmp_path, make_state
     source = make_state(torch.zeros(1, 1, 1, 2, 2, 2), torch.zeros(1, 1, 1, 3))
     train = [(source, _target(source, 1, 1))]
     validation = [(source, _target(source, 0.01, 0.01))]
-    model = ResidualMLPStateTranslator(source.spec, source.spec, hidden_dim=4, pointer_hidden_dim=4)
+    model = ResidualMLPStateTranslator(source.spec, source.spec)
     # A bias-only learning problem has its validation optimum after the first update.
     with torch.no_grad():
         for parameter in model.parameters():
@@ -85,7 +85,7 @@ def test_test_targets_cannot_change_selection_or_saved_weights(tmp_path, make_st
         report = run_paired_experiment(
             train, [(source, _target(source, offset, offset))], directory,
             validation_pairs=validation, translator_names=("residual_mlp",),
-            epochs=3, hidden_dim=4, pointer_hidden_dim=4, device="cpu",
+            epochs=3, device="cpu",
         )
         artifact = torch.load(directory / "paired_translators.pt", weights_only=True)
         assert report["evaluation_split"] == "test"

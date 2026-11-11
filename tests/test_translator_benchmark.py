@@ -11,7 +11,6 @@ import torch
 from vos_memory_inspector.state_schema import StateSpec
 from vos_memory_inspector.transformer_translator import (
     SAM21_MEMORY_SPEC,
-    SpatialTransformerConfig,
     TransformerStateTranslator,
     build_translator,
 )
@@ -28,16 +27,13 @@ from vos_memory_inspector.translator_benchmark import (
 from vos_memory_inspector.translators import ComponentAblationTranslator, DirectCopyTranslator
 
 
-SMALL = SpatialTransformerConfig(
-    channels=8, height=16, width=16, d_model=16, num_heads=2, pointer_dim=12, pointer_hidden_dim=24
-)
 SMALL_SPEC = StateSpec(8, 16, 16, 12)
 FAST = {"warmup": 0, "iters": 2}
 
 
 def _small() -> TransformerStateTranslator:
     torch.manual_seed(0)
-    return TransformerStateTranslator(SMALL_SPEC, SMALL_SPEC, config=SMALL)
+    return TransformerStateTranslator(SMALL_SPEC, SMALL_SPEC)
 
 
 def test_cpu_benchmark_reports_every_field() -> None:
@@ -166,7 +162,7 @@ def test_benchmark_rejects_bad_inputs_and_restores_training_mode() -> None:
 
 def test_cost_table_cli_writes_json_and_markdown(tmp_path: Path, capsys) -> None:
     arguments = [
-        "--presets", "residual_mlp,linear_local,direct",
+        "--presets", "residual_mlp,linear,direct",
         "--device", "cpu",
         "--valid-records", "1", "2",
         "--warmup", "0",
@@ -180,24 +176,24 @@ def test_cost_table_cli_writes_json_and_markdown(tmp_path: Path, capsys) -> None
     table = json.loads((tmp_path / "cost.json").read_text(encoding="utf-8"))
     assert table["schema_version"] == "cmmt.translator_cost_table.v1"
     assert table["valid_records"] == [1, 2]
-    assert [row["preset"] for row in table["rows"]] == ["residual_mlp", "linear_local", "direct"]
+    assert [row["preset"] for row in table["rows"]] == ["residual_mlp", "linear", "direct"]
     rows = {row["preset"]: row for row in table["rows"]}
     assert rows["residual_mlp"]["aux_relative_latency_vs_residual_mlp"]["eager"] == {"1": 1.0, "2": 1.0}
-    assert rows["residual_mlp"]["spatial_params"] == 16_576
-    assert rows["linear_local"]["analytic_macs_per_frame"] == 64 * 64 * 64 * 64
+    assert rows["residual_mlp"]["spatial_params"] == 37_376
+    assert rows["linear"]["analytic_macs_per_frame"] == 64 * 64 * 64 * 64
     assert rows["direct"]["latency_e2e_optimized_median_ms"] == {"1": None, "2": None}
     assert all("environment" not in report for report in table["presets"].values())
     markdown = (tmp_path / "cost.md").read_text(encoding="utf-8")
     assert markdown == printed
     assert "## End-to-end eager latency (primary), median ms [p90]" in markdown
     assert "## Auxiliary: latency relative to Residual MLP (eager / optimized)" in markdown
-    assert "| residual_mlp | ladder | 16,576 | 262,912 | 67.1M |" in markdown
+    assert "| residual_mlp | model | 37,376 | 65,792 | 151.0M |" in markdown
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is not available")
 def test_cuda_benchmark_measures_optimized_path_and_memory() -> None:
     torch.manual_seed(0)
-    translator = build_translator("base", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC).cuda().eval()
+    translator = build_translator("transformer", SAM21_MEMORY_SPEC, SAM21_MEMORY_SPEC).cuda().eval()
     report = benchmark_translator(translator, (1, 3), device="cuda", warmup=2, iters=5)
     assert report["environment"]["gpu"]
     for entry in report["entries"]:

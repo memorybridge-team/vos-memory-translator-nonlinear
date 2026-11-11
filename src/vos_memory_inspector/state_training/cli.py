@@ -81,11 +81,12 @@ def main(argv=None):
         report['planned_world_size'] = args.world_size
         if args.ridge_init:
             ridge = load_ridge(args.ridge_init)
-            report['ridge_initialization_ready'] = (options.get('skip_mode', 'identity') == 'affine' and
+            report['ridge_initialization_ready'] = (
                 ridge['provenance']['data_identity'] == index.identity and
                 ridge['source_spec'] == report['source_spec'] and ridge['target_spec'] == report['source_spec'])
         else:
-            report['ridge_initialization_ready'] = options.get('skip_mode', 'identity') != 'affine'
+            # Both models start from the ridge solution, so a launch needs --ridge-init.
+            report['ridge_initialization_ready'] = False
         report['model_configuration'] = dict(name=name, options=options)
         if report['source_spec']:
             from ..state_schema import StateSpec

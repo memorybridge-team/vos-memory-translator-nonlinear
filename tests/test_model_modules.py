@@ -5,23 +5,19 @@ import subprocess
 import sys
 
 import pytest
-import torch
 
 import vos_memory_inspector as package
 from vos_memory_inspector.models import (
     ResidualMLPStateTranslator,
-    SpatialTransformerConfig,
     TransformerStateTranslator,
+    TranslatorConfig,
     build_translator,
 )
 from vos_memory_inspector.state_schema import StateSpec
 
 
 SPEC = StateSpec(4, 8, 8, 6)
-CONFIG = SpatialTransformerConfig(
-    channels=4, height=8, width=8, d_model=4, num_heads=2, num_layers=1,
-    patch_size=2, pointer_dim=6, pointer_hidden_dim=9, fusion_hidden_dim=7,
-)
+CONFIG = TranslatorConfig(num_heads=2, sr_ratio=2)
 
 
 def test_old_import_and_pickle_paths_resolve_to_model_classes():
@@ -39,19 +35,23 @@ def test_old_import_and_pickle_paths_resolve_to_model_classes():
         assert pickle.loads(reference) is expected
 
 
+def test_compatibility_module_exports_the_new_names_only():
+    import vos_memory_inspector.transformer_translator as compat
+
+    for name in ("StitchedStateTranslator", "TranslatorConfig", "SAM21_MEMORY_SPEC",
+                 "OUTPUT_DTYPES", "PAYLOAD_SCHEMA", "build_translator", "PRESETS"):
+        assert hasattr(compat, name), name
+    for name in ("SpatialTransformerConfig", "SpatialMemoryTranslator", "ResidualPointerTranslator",
+                 "sincos_2d_embedding", "describe_config"):
+        assert not hasattr(compat, name), name
+
+
 def test_factory_uses_separate_model_modules():
     mlp = build_translator("residual_mlp", SPEC, SPEC)
-    transformer = build_translator("base", SPEC, SPEC, config=CONFIG)
+    transformer = build_translator("transformer", SPEC, SPEC, config=CONFIG)
     assert type(mlp) is ResidualMLPStateTranslator
     assert type(transformer) is TransformerStateTranslator
     assert len({type(model).__module__ for model in (mlp, transformer)}) == 2
-
-
-def test_removed_mlp_context_payload_is_rejected_with_clear_error():
-    payload = TransformerStateTranslator(SPEC, SPEC, config=CONFIG).to_payload()
-    payload["config"] = {**payload["config"], "local_fusion": "additive_mlp"}
-    with pytest.raises(ValueError, match="mlp_context payloads are no longer supported"):
-        TransformerStateTranslator.from_payload(payload)
 
 
 @pytest.mark.parametrize("module", [

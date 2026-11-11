@@ -38,26 +38,26 @@ def cpu_smoke(index, config, name, output, *, options=None, ridge_path=None, sam
     spec = pair['source_canonical'].spec
     torch.manual_seed(config.seed)
     model = construct_model(name, spec, options)
-    if getattr(model, 'skip_mode', 'identity') == 'affine':
-        if ridge_path:
-            ridge = load_ridge(ridge_path)
-            if ridge['provenance']['data_identity'] != index.identity:
-                raise ValueError('ridge data identity mismatch')
-        else:
-            # This initializes a smoke model only. It is not validation-selected
-            # and its identity deliberately cannot match official training.
-            _, stats = collect_statistics(selected, config)
-            components = {}
-            for c in ('spatial', 'pointer'):
-                a = solve(stats[c], 1e-4)
-                components[c] = dict(weight=a.weight.float(), bias=a.bias.float(), diagnostics=a.diagnostics)
-            init_path = output / 'sample_initialization.pth'
-            save_torch(init_path, dict(schema_version=SCHEMA, source_spec=spec.to_dict(), target_spec=spec.to_dict(),
-                       **components, provenance=dict(data_identity={'sample_only': True, 'parent_index': index.identity,
-                       'cases': [e['case']['case_id'] for e in selected]}, selection_role='none_cpu_smoke',
-                       refit_after_selection=False)))
-            ridge = load_ridge(init_path)
-        model.initialize_from_ridge(ridge)
+    # Both models start from a ridge solution; without --ridge-init a sample one is fitted.
+    if ridge_path:
+        ridge = load_ridge(ridge_path)
+        if ridge['provenance']['data_identity'] != index.identity:
+            raise ValueError('ridge data identity mismatch')
+    else:
+        # This initializes a smoke model only. It is not validation-selected
+        # and its identity deliberately cannot match official training.
+        _, stats = collect_statistics(selected, config)
+        components = {}
+        for c in ('spatial', 'pointer'):
+            a = solve(stats[c], 1e-4)
+            components[c] = dict(weight=a.weight.float(), bias=a.bias.float(), diagnostics=a.diagnostics)
+        init_path = output / 'sample_initialization.pth'
+        save_torch(init_path, dict(schema_version=SCHEMA, source_spec=spec.to_dict(), target_spec=spec.to_dict(),
+                   **components, provenance=dict(data_identity={'sample_only': True, 'parent_index': index.identity,
+                   'cases': [e['case']['case_id'] for e in selected]}, selection_role='none_cpu_smoke',
+                   refit_after_selection=False)))
+        ridge = load_ridge(init_path)
+    model.initialize_from_ridge(ridge)
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
     results = []
     for e in selected:

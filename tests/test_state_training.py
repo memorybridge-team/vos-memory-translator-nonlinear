@@ -22,14 +22,25 @@ from vos_memory_inspector.state_training.usage import MemoryPolicy, record_usage
 from vos_memory_inspector.translator_artifact import load_learned_translator
 
 
+def ridge_for(index, config, output):
+    """Fit (once per output path) the closed-form ridge both models start from."""
+    path = Path(output).parent / f'ridge_{Path(output).name}.pth'
+    if not path.exists():
+        fit_ridge(index, config, path)
+    return path
+
+
 def prepared_train(index, config, *args, **kwargs):
     # Complete hashing before starting the trainer; the receipt is reusable.
+    # Both models require a ridge start, so fit it unless the caller passes one.
     readiness = inspect(index, config)
+    if 'ridge_path' not in kwargs:
+        kwargs['ridge_path'] = ridge_for(index, config, args[1])
     return train(index, config, *args, readiness=readiness, **kwargs)
 
 
-OPTIONS = dict(d_model=4, num_heads=2, num_layers=1, patch_size=2,
-               pointer_hidden_dim=10, fusion_hidden_dim=8)
+OPTIONS = dict(num_layers=1, num_heads=2, sr_ratio=2)
+MLP_OPTIONS = dict(num_layers=1, mlp_ratio=2.0)
 
 
 @pytest.fixture
@@ -156,7 +167,7 @@ def test_affine_initialization_gradients_export_and_artifact_binding(sample_inde
     ridge_path = tmp_path / 'ridge.pth'
     ridge = fit_ridge(index, cpu_config, ridge_path)
     baseline = StreamingRidgeTranslator(ridge)
-    options = dict(skip_mode='affine', hidden_dim=8, pointer_hidden_dim=10)
+    options = dict(MLP_OPTIONS)
     model = construct_model(name, baseline.source_spec, options)
     model.initialize_from_ridge(ridge)
     pair, _ = load_pair(index.entries[0])
@@ -164,7 +175,8 @@ def test_affine_initialization_gradients_export_and_artifact_binding(sample_inde
     inputs = (s.spatial_memory, s.object_pointer, s.validity)
     for a, b in zip(model.translate_tensors(*inputs), baseline.translate_tensors(*inputs)):
         torch.testing.assert_close(a, b, rtol=1e-5, atol=2e-7)
-    assert model.to_payload()['schema_version'].endswith('v3')
+    assert model.to_payload()['schema_version'] == 'cmmt.stitched_translator.v1'
+    assert model.ridge_initialization == ridge['provenance']
     optimizer = torch.optim.AdamW(model.parameters(), lr=.01)
     for step in range(2):
         optimizer.zero_grad()
@@ -189,7 +201,7 @@ def test_affine_initialization_gradients_export_and_artifact_binding(sample_inde
 
 def test_cpu_batch_training_resume_selection_and_protocol_rejection(sample_index, cpu_config, tmp_path):
     index = load_index(sample_index, allow_sample=True)
-    options = dict(hidden_dim=8, pointer_hidden_dim=10)
+    options = dict(MLP_OPTIONS)
     continuous, history = prepared_train(index, replace(cpu_config, max_epochs=4), 'residual_mlp',
                                 tmp_path / 'continuous', options=options, allow_sample=True)
     prepared_train(index, cpu_config, 'residual_mlp', tmp_path / 'resume', options=options, allow_sample=True)
@@ -212,6 +224,9 @@ def test_cpu_batch_training_resume_selection_and_protocol_rejection(sample_index
               options=options, resume=tmp_path / 'resume/last.ckpt', allow_sample=True)
     with pytest.raises(ValueError, match='sample mode|sample indexes'):
         prepared_train(index, cpu_config, 'residual_mlp', tmp_path / 'cuda', device='cuda', allow_sample=True)
+    with pytest.raises(ValueError, match='requires --ridge-init'):
+        train(index, cpu_config, 'residual_mlp', tmp_path / 'no_ridge', options=options,
+              readiness=inspect(index, cpu_config), allow_sample=True)
 
 
 def test_usage_boundaries_and_unverified_skip_is_disabled():
@@ -229,7 +244,7 @@ def test_usage_boundaries_and_unverified_skip_is_disabled():
         require_selective_handoff_verified()
 
 
-def _distributed_worker(rank, index_path, output, store):
+def _distributed_worker(rank, index_path, output, store, ridge_path):
     from datetime import timedelta
     import torch.distributed as dist
     import os
@@ -245,7 +260,7 @@ def _distributed_worker(rank, index_path, output, store):
                             timeout=timedelta(seconds=40))
     try:
         model, _ = train(index, config, 'residual_mlp', output, readiness=readiness,
-                         options=dict(hidden_dim=8, pointer_hidden_dim=10), allow_sample=True)
+                         options=dict(MLP_OPTIONS), ridge_path=ridge_path, allow_sample=True)
         torch.save(model.state_dict(), str(output) + f'.rank{rank}.pt')
     finally:
         dist.destroy_process_group()
@@ -255,10 +270,19 @@ def test_gloo_two_process_tail_matches_single_process(sample_index, tmp_path):
     import torch.multiprocessing as mp
     index = load_index(sample_index, allow_sample=True)
     config = TrainConfig(workers=0, global_batch=6, microbatch=2, max_epochs=2, clip_norm=100.)
+    # The sample targets are exactly affine, so the fitted ridge start has a gradient of
+    # about zero and AdamW turns summation-order noise into full-size steps. Detune the
+    # start so the comparison between one and two processes is well conditioned.
+    exact = torch.load(ridge_for(index, config, tmp_path / 'single'), weights_only=True)
+    for component in ('spatial', 'pointer'):
+        exact[component]['weight'] = exact[component]['weight'] * 0.8
+        exact[component]['bias'] = exact[component]['bias'] + 0.05
+    ridge_path = tmp_path / 'detuned_ridge.pth'
+    torch.save(exact, ridge_path)
     prepared_train(index, config, 'residual_mlp', tmp_path / 'single',
-          options=dict(hidden_dim=8, pointer_hidden_dim=10), allow_sample=True)
+          options=dict(MLP_OPTIONS), ridge_path=ridge_path, allow_sample=True)
     mp.spawn(_distributed_worker, args=(str(sample_index), str(tmp_path / 'distributed'),
-             str(tmp_path / 'gloo-store')), nprocs=2, join=True)
+             str(tmp_path / 'gloo-store'), ridge_path), nprocs=2, join=True)
     rank0 = torch.load(str(tmp_path / 'distributed') + '.rank0.pt', weights_only=True)
     rank1 = torch.load(str(tmp_path / 'distributed') + '.rank1.pt', weights_only=True)
     assert all(torch.equal(rank0[k], rank1[k]) for k in rank0)
@@ -272,30 +296,30 @@ def test_gloo_two_process_tail_matches_single_process(sample_index, tmp_path):
         assert abs(a['validation']['all']['state_loss'] - b['validation']['all']['state_loss']) < 1e-6
 
 
-def test_common_trainer_supports_transformer_and_rejects_ridge_init(sample_index, cpu_config, tmp_path):
+def test_common_trainer_supports_transformer_and_requires_ridge_init(sample_index, cpu_config, tmp_path):
     index = load_index(sample_index, allow_sample=True)
     _, history = prepared_train(index, cpu_config, 'transformer', tmp_path / 'trained', options=dict(OPTIONS),
                        allow_sample=True)
     assert history[-1]['step'] == 4
     assert all(row['validation']['all']['records'] == 3 for row in history)
     model = load_learned_translator(tmp_path / 'trained/paired_translators.pt', 'transformer')
-    assert model.config.local_fusion == 'linear'
-    ridge_path = tmp_path / 'ridge.pth'
-    fit_ridge(index, cpu_config, ridge_path)
-    with pytest.raises(ValueError, match='only supported in affine mode'):
-        prepared_train(index, cpu_config, 'transformer', tmp_path / 'ridge_rejected', options=dict(OPTIONS),
-                       ridge_path=ridge_path, allow_sample=True)
+    assert model.config.attention and model.config.num_heads == 2 and model.config.sr_ratio == 2
+    assert model.ridge_initialization is not None
+    with pytest.raises(ValueError, match='requires --ridge-init'):
+        train(index, cpu_config, 'transformer', tmp_path / 'ridge_missing', options=dict(OPTIONS),
+              readiness=inspect(index, cpu_config), allow_sample=True)
 
 
 def test_cli_preflight_and_cpu_smoke_do_not_invent_full_readiness(sample_index, tmp_path, cpu_config):
     from vos_memory_inspector.state_training.cli import main
     config = tmp_path / 'config.json'
-    save_json(config, dict(model='residual_mlp', model_options=dict(hidden_dim=8, pointer_hidden_dim=10, skip_mode='affine'),
+    save_json(config, dict(model='residual_mlp', model_options=dict(MLP_OPTIONS),
                           training=dict(workers=0, global_batch=6, microbatch=2)))
     common = ['--index', str(sample_index), '--sample-index', '--config', str(config)]
     assert main(['preflight', *common, '--output', str(tmp_path / 'preflight.json')]) == 2
     report = json.loads((tmp_path / 'preflight.json').read_text())
     assert not report['full_data_ready'] and not report['launch_ready']
+    assert report['ridge_initialization_ready'] is False
     assert main(['cpu-smoke', *common, '--output', str(tmp_path / 'smoke'), '--sample-cases', '2']) == 0
     smoke = json.loads((tmp_path / 'smoke/cpu_smoke_report.json').read_text())
     assert not smoke['validation_or_benchmark_score'] and not smoke['cuda_training_executed']
@@ -305,11 +329,11 @@ def test_cli_preflight_and_cpu_smoke_do_not_invent_full_readiness(sample_index, 
     index = load_index(sample_index, allow_sample=True)
     with pytest.raises(ValueError, match='different index'):
         prepared_train(index, cpu_config, 'residual_mlp', tmp_path / 'invalid-init',
-              options=dict(hidden_dim=8, pointer_hidden_dim=10, skip_mode='affine'),
+              options=dict(MLP_OPTIONS),
               ridge_path=tmp_path / 'smoke/sample_initialization.pth', allow_sample=True)
 
 
-def test_state_evaluation_accepts_legacy_raw_and_new_ridge_artifacts(sample_index, cpu_config, tmp_path):
+def test_state_evaluation_accepts_raw_payloads_and_ridge_artifacts(sample_index, cpu_config, tmp_path):
     from vos_memory_inspector.state_training.evaluation import evaluate_artifact
     index = load_index(sample_index, allow_sample=True)
     pair, _ = load_pair(index.entries[0])
@@ -335,6 +359,6 @@ def test_worker_spawn_loader_coverage(sample_index, cpu_config):
 def test_used_spatial_loss_keeps_pointer_training(sample_index, cpu_config, tmp_path):
     index = load_index(sample_index, allow_sample=True)
     _, history = prepared_train(index, replace(cpu_config, spatial_loss_records='used'), 'residual_mlp',
-                       tmp_path / 'used', options=dict(hidden_dim=8, pointer_hidden_dim=10), allow_sample=True)
+                       tmp_path / 'used', options=dict(MLP_OPTIONS), allow_sample=True)
     assert history[-1]['train']['all']['records'] == 7
     assert history[-1]['training_objective'] > 0

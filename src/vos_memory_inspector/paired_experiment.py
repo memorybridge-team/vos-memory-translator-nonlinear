@@ -27,7 +27,7 @@ from .translators import (
 )
 
 if TYPE_CHECKING:
-    from .models import SpatialTransformerConfig
+    from .models import TranslatorConfig
 
 DEFAULT_PAIRED_TRANSLATORS = ("direct", "ridge", "linear", "residual_mlp")
 PAIRED_TRANSLATORS = (*DEFAULT_PAIRED_TRANSLATORS, *TRANSFORMER_TRANSLATORS)
@@ -175,7 +175,7 @@ def run_synthetic_experiment(
     epochs: int = 120,
     learning_rate: float = DEFAULT_LEARNING_RATE,
     ridge_lambda: float = 0.01,
-    hidden_dim: int = 32,
+    translator_config: TranslatorConfig | None = None,
 ) -> dict[str, Any]:
     """Run a deterministic CPU smoke test; this is not a SAM 2 result."""
 
@@ -188,7 +188,7 @@ def run_synthetic_experiment(
     ridge = RidgeStateTranslator.fit(train_pairs, ridge_lambda=ridge_lambda)
     linear = LinearStateTranslator(source_spec, target_spec)
     mlp = ResidualMLPStateTranslator(
-        source_spec, target_spec, hidden_dim=hidden_dim
+        source_spec, target_spec, config=translator_config
     )
     linear_history = fit_gradient_translator(
         linear, train_pairs, epochs=epochs, learning_rate=learning_rate
@@ -285,13 +285,11 @@ def run_paired_experiment(
     epochs: int = DEFAULT_EPOCHS,
     learning_rate: float = DEFAULT_LEARNING_RATE,
     ridge_lambda: float = 0.01,
-    hidden_dim: int = 128,
-    pointer_hidden_dim: int = 512,
     translator_names: tuple[str, ...] | None = None,
     device: str | None = None,
     spatial_samples_per_pair: int | None = None,
     validation_pairs: list[tuple[CanonicalState, CanonicalState]] | None = None,
-    transformer_config: SpatialTransformerConfig | None = None,
+    translator_config: TranslatorConfig | None = None,
 ) -> dict[str, Any]:
     """Fit/evaluate offline paired canonical state without claiming injection."""
 
@@ -322,8 +320,7 @@ def run_paired_experiment(
         "ridge_lambda": ridge_lambda,
         "device": device,
         "spatial_samples_per_pair": spatial_samples_per_pair,
-        "hidden_dim": hidden_dim,
-        "pointer_hidden_dim": pointer_hidden_dim,
+        "translator_config": None if translator_config is None else translator_config.to_dict(),
         "optimizer": "Adam",
         "loss": "spatial_MSE + pointer_MSE; equal pair weights; no normalization",
         "checkpoint_selection": "minimum_validation_state_loss; ties_keep_earlier_epoch",
@@ -355,8 +352,7 @@ def run_paired_experiment(
         training["linear_final_loss"] = linear_history[-1]
     if "residual_mlp" in selected:
         mlp = ResidualMLPStateTranslator(
-            source_spec, target_spec, hidden_dim=hidden_dim,
-            pointer_hidden_dim=pointer_hidden_dim,
+            source_spec, target_spec, config=translator_config
         )
         mlp_fit = fit_validated_translator(
             mlp,
@@ -373,16 +369,14 @@ def run_paired_experiment(
         training["mlp_initial_loss"] = mlp_history[0]
         training["mlp_final_loss"] = mlp_history[-1]
         training["mlp_loss_history"] = mlp_history
-        training["mlp_initialization"] = "zero_output_layers; identity_when_shapes_match"
+        training["mlp_initialization"] = "identity_placeholder; legacy trainer applies no ridge initialisation"
     for name in TRANSFORMER_TRANSLATORS:
         if name not in selected:
             continue
         from .models.registry import build_translator
 
         model = build_translator(
-            "base",
-            source_spec, target_spec, config=transformer_config, local_fusion="linear",
-            fusion_hidden_dim=hidden_dim, pointer_hidden_dim=pointer_hidden_dim,
+            name, source_spec, target_spec, config=translator_config
         )
         training["model_selection"][name] = fit_validated_translator(
             model, train_pairs, validation_pairs, epochs=epochs,
