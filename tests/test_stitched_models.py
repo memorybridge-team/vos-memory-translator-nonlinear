@@ -384,3 +384,33 @@ def test_a_few_updates_lower_the_loss_on_a_nonlinear_target(model_type):
     assert losses[-1] < 0.7 * losses[0]
     # The nonlinear branch has moved away from its zero start.
     assert float(model.spatial.blocks[0].mlp.fc2.weight.detach().abs().sum()) > 0
+
+
+def test_training_configs_build_the_documented_models():
+    """The three trainer configs give the sizes stated in the design note."""
+
+    import json
+    from pathlib import Path
+
+    from vos_memory_inspector.state_training.policy import TrainConfig
+    from vos_memory_inspector.state_training.trainer import construct_model
+
+    expected = {
+        "residual_mlp.json": ("residual_mlp", 37_376, 150_994_944),
+        "transformer.json": ("transformer", 119_872, 337_641_472),
+        "residual_mlp_matched.json": ("residual_mlp", 119_936, 486_539_264),
+    }
+    folder = Path(__file__).resolve().parents[1] / "configs" / "state_training"
+    assert {path.name for path in folder.glob("*.json")} == set(expected)
+    training = None
+    for name, (model_name, spatial, macs) in expected.items():
+        raw = json.loads((folder / name).read_text())
+        TrainConfig(**raw["training"]).validate()
+        assert raw["model"] == model_name
+        model = construct_model(raw["model"], SAM21_MEMORY_SPEC, raw["model_options"])
+        assert model.parameter_breakdown()["spatial"] == spatial
+        assert model.parameter_breakdown()["pointer"] == 65_792
+        assert model.macs_per_frame() == macs
+        # The comparison is only fair if the three runs share their training settings.
+        training = raw["training"] if training is None else training
+        assert raw["training"] == training
