@@ -56,7 +56,8 @@ class TranslatorConfig:
     mlp_ratio: float = 4.0
     attention: bool = False
     # One head at 64 channels follows stage 1 of the Pyramid Vision Transformer
-    # (Wang et al., ICCV 2021); SAM 2's memory attention is single-head too.
+    # (Wang et al., ICCV 2021, Table 1) and gives the head size of Vaswani et
+    # al. (2017), 64; SAM 2's memory attention is single-head too.
     num_heads: int = 1
     # Spatial reduction of keys and values (PVT). 4 gives a 16x16 key grid for
     # the 64x64 memory. The value was not tuned. PVT uses 8 at its 64-channel
@@ -100,10 +101,13 @@ def sine_position_encoding(
 ) -> torch.Tensor:
     """Fixed 2D sine encoding ``[height*width, dim]`` in row-major order.
 
-    The form is the one of DETR (Carion et al., ECCV 2020), which extends the
-    encoding of Vaswani et al. (2017) to two axes: half of the channels encode
-    ``y`` and half ``x``. Coordinates are cell centres scaled to ``(0, 2*pi)``,
-    so grids of different resolution share one coordinate frame.
+    The formula is the one of DETR's official code (Carion et al., ECCV 2020;
+    SAM 2 uses the same code), which extends the encoding of Vaswani et al.
+    (2017) to two axes: half of the channels encode ``y`` and half ``x``, with
+    sine on even and cosine on odd channels. One detail differs: coordinates
+    are cell centres, ``(i + 0.5) / H * 2*pi``, where DETR's code uses
+    ``(i + 1) / H * 2*pi``. With centres, a reduced key grid sits at the mean
+    position of the cells it covers, so both grids share one coordinate frame.
     """
 
     if dim % 4:
@@ -127,14 +131,17 @@ class StitchingLayer(nn.Module):
     """``Z = W M + b``, the same affine map at every position (a 1x1 convolution).
 
     Source: the stitching layer of model stitching. Lenc & Vedaldi (CVPR 2015)
-    introduced a learned bank of linear filters between two networks; Bansal et
+    introduced a learned bank of linear filters between two networks (they give
+    no filter size) and report that the identity in its place fails; Bansal et
     al. (NeurIPS 2021) and Csiszarik et al. (NeurIPS 2021) use a 1x1 convolution
     between frozen networks (Bansal et al. add BatchNorm around it, which this
     layer does not). Csiszarik et al. start the layer from the least-squares
     solution before training it, and Stitchable Neural Networks (Pan et al.,
     CVPR 2023) do the same while also updating the networks;
-    ``initialize_from_ridge`` does that first step here. Before it the layer is
-    the identity when both sides have the same width, a neutral placeholder.
+    ``initialize_from_ridge`` does that first step here, with ridge instead of
+    plain least squares, as Heo et al. (arXiv 2608.03893, 2026) do for the
+    stored state of language models of one family. Before it the layer is the
+    identity when both sides have the same width, a neutral placeholder.
     """
 
     def __init__(self, in_dim: int, out_dim: int):
@@ -154,11 +161,12 @@ class FeedForward(nn.Module):
 
     Source: Vaswani et al. (NeurIPS 2017, section 3.3), "applied to each
     position separately and identically", with inner width 4x; GELU as in ViT
-    (Dosovitskiy et al., ICLR 2021; Hendrycks & Gimpel, 2016). The same form
-    (two linear layers, GELU, hidden width 4x) maps tokens into the feature
-    space of another model in UNIC (Sariyildiz et al., ECCV 2024), and a
-    two-layer GELU MLP replaces a linear vision-language projection in
-    LLaVA-1.5 (Liu et al., CVPR 2024). The last layer starts at zero so that
+    (Dosovitskiy et al., ICLR 2021; Hendrycks & Gimpel, 2016). As a map into
+    another model's space: Heo et al. (2026) train an MLP where their linear
+    map of stored state falls short; UNIC (Sariyildiz et al., ECCV 2024) uses
+    this exact form (two linear layers, GELU, hidden width 4x) as a projector
+    during distillation; LLaVA-1.5 (Liu et al., CVPR 2024) replaces a linear
+    vision-language projection by a two-layer GELU MLP. The last layer starts at zero so that
     the block starts as the identity (rule 1 of Fixup, Zhang et al., ICLR
     2019; Goyal et al., 2017).
     """
@@ -395,7 +403,8 @@ class LinearPointerTranslator(nn.Module):
 
     Source: a linear map fitted on paired vectors maps one independently
     trained vector space into another (Mikolov et al., 2013; Lahner & Moeller,
-    UniReps 2024). SAM 2 takes the pointer from the mask decoder's output token
+    UniReps 2024, who also find that a three-layer MLP does worse than the
+    linear map on test data). SAM 2 takes the pointer from the mask decoder's output token
     and the spatial memory from the memory encoder (Ravi et al., ICLR 2025), and
     their sizes differ, so the pointer has its own head; UNIC (Sariyildiz et
     al., ECCV 2024) likewise uses dedicated projectors for the global token and
