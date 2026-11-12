@@ -59,7 +59,9 @@ class TranslatorConfig:
     # (Wang et al., ICCV 2021); SAM 2's memory attention is single-head too.
     num_heads: int = 1
     # Spatial reduction of keys and values (PVT). 4 gives a 16x16 key grid for
-    # the 64x64 memory. The value itself has no precedent for this task.
+    # the 64x64 memory. The value was not tuned. PVT uses 8 at its 64-channel
+    # stage and 4 at the next; MViTv2 (Li et al., CVPR 2022) pools keys and
+    # values with stride 4 at its highest-resolution stage.
     sr_ratio: int = 4
     output_dtype: str = "source"  # "source" | "float32"
 
@@ -124,12 +126,15 @@ def sine_position_encoding(
 class StitchingLayer(nn.Module):
     """``Z = W M + b``, the same affine map at every position (a 1x1 convolution).
 
-    Source: the stitching layer of model stitching (Lenc & Vedaldi, CVPR 2015;
-    Bansal et al., NeurIPS 2021; Csiszarik et al., NeurIPS 2021). Stitchable
-    Neural Networks (Pan et al., CVPR 2023) solve it by least squares and then
-    train it with SGD; ``initialize_from_ridge`` does the first step here.
-    Before that step the layer is the identity when both sides have the same
-    width, which is only a neutral placeholder.
+    Source: the stitching layer of model stitching. Lenc & Vedaldi (CVPR 2015)
+    introduced a learned bank of linear filters between two networks; Bansal et
+    al. (NeurIPS 2021) and Csiszarik et al. (NeurIPS 2021) use a 1x1 convolution
+    between frozen networks (Bansal et al. add BatchNorm around it, which this
+    layer does not). Csiszarik et al. start the layer from the least-squares
+    solution before training it, and Stitchable Neural Networks (Pan et al.,
+    CVPR 2023) do the same while also updating the networks;
+    ``initialize_from_ridge`` does that first step here. Before it the layer is
+    the identity when both sides have the same width, a neutral placeholder.
     """
 
     def __init__(self, in_dim: int, out_dim: int):
@@ -148,11 +153,14 @@ class FeedForward(nn.Module):
     """Position-wise feed-forward sublayer ``W2 GELU(W1 x)``.
 
     Source: Vaswani et al. (NeurIPS 2017, section 3.3), "applied to each
-    position separately and identically"; GELU as in ViT (Dosovitskiy et al.,
-    ICLR 2021; Hendrycks & Gimpel, 2016). A two-layer GELU MLP is also the
-    connector between two frozen models in LLaVA-1.5 (Liu et al., CVPR 2024).
-    The last layer starts at zero so that the block starts as the identity
-    (Fixup, Zhang et al., ICLR 2019; Goyal et al., 2017).
+    position separately and identically", with inner width 4x; GELU as in ViT
+    (Dosovitskiy et al., ICLR 2021; Hendrycks & Gimpel, 2016). The same form
+    (two linear layers, GELU, hidden width 4x) maps tokens into the feature
+    space of another model in UNIC (Sariyildiz et al., ECCV 2024), and a
+    two-layer GELU MLP replaces a linear vision-language projection in
+    LLaVA-1.5 (Liu et al., CVPR 2024). The last layer starts at zero so that
+    the block starts as the identity (rule 1 of Fixup, Zhang et al., ICLR
+    2019; Goyal et al., 2017).
     """
 
     def __init__(self, dim: int, hidden_dim: int):
@@ -173,13 +181,19 @@ class SpatialReductionAttention(nn.Module):
     a strided convolution (kernel = stride = ``sr_ratio``) and a LayerNorm, as
     in the spatial-reduction attention of the Pyramid Vision Transformer (Wang
     et al., ICCV 2021), which was introduced to make attention affordable on
-    high-resolution feature maps. The attention itself is the scaled
-    dot-product attention of Vaswani et al. (2017).
+    high-resolution feature maps. The paper writes the reduction as a reshape
+    followed by a linear projection and a norm; its official code uses this
+    strided convolution, which is the same map. The attention itself is the
+    scaled dot-product attention of Vaswani et al. (2017). EdgeTAM (Zhou et
+    al., CVPR 2025) also applies attention to each stored SAM 2 memory map
+    separately.
 
     The fixed sine position encoding is added to queries and keys only, at the
     attention, as in DETR (Carion et al., ECCV 2020). Values and the residual
     stream carry no position signal, so the feed-forward path is the same
-    function in both models. The output projection starts at zero (Fixup).
+    function in both models. Placing the coordinates at cell centres, so that
+    the query grid and the reduced key grid share one frame, is a detail of
+    this code. The output projection starts at zero (Fixup).
     """
 
     def __init__(self, dim: int, grid: tuple[int, int], *, num_heads: int, sr_ratio: int):
@@ -379,11 +393,14 @@ class SpatialTranslator(nn.Module):
 class LinearPointerTranslator(nn.Module):
     """``p_hat = A p + c`` for one object pointer.
 
-    Source: a linear map fitted on paired vectors is the standard way to map
-    one independently trained vector space into another (Mikolov et al., 2013;
-    Lahner & Moeller, UniReps 2024). The pointer is produced by a different
-    module of SAM 2 than the spatial memory and has a different size, so it has
-    its own head. Initialised by ridge; identity before that when sizes match.
+    Source: a linear map fitted on paired vectors maps one independently
+    trained vector space into another (Mikolov et al., 2013; Lahner & Moeller,
+    UniReps 2024). SAM 2 takes the pointer from the mask decoder's output token
+    and the spatial memory from the memory encoder (Ravi et al., ICLR 2025), and
+    their sizes differ, so the pointer has its own head; UNIC (Sariyildiz et
+    al., ECCV 2024) likewise uses dedicated projectors for the global token and
+    the patch tokens. Initialised by ridge; identity before that when sizes
+    match.
     """
 
     def __init__(self, source_dim: int, target_dim: int):
