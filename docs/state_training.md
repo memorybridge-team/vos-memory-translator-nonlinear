@@ -36,12 +36,22 @@ cmmt-state-training preflight \
 기본 preflight는 모든 case를 checksum·tensor 수준에서 읽고 train-only target RMS를
 재계산한다. `--sample-cases 8`은 검사량을 제한하므로 샘플만 성공해도 `launch_ready`는
 false다. 누락 목록과 손상 원인을 JSON에 기록한다. 준비 미완료의 종료 코드는 2다.
-Affine 설정은 추가로 `--ridge-init`이 필요하다. 재개 검사에는 `--checkpoint`를 사용하고
+두 모델(`residual_mlp`, `transformer`) 모두 ridge 시작이 필요하므로 `--ridge-init` 없이는
+`ridge_initialization_ready: false`로 표시하고 종료 코드 2를 낸다. 순서는 `preflight` →
+`ridge-fit` → `preflight --ridge-init runs/ridge.pth` → `train --ridge-init runs/ridge.pth`다.
+재개 검사에는 `--checkpoint`를 사용하고
 `--world-size`를 실제 실행 process 수에 맞춘다.
+
+```sh
+cmmt-state-training preflight \
+  --index /data/run_binding/raw_index.json --root-map /data/root-map.json \
+  --config configs/state_training/transformer.json --ridge-init runs/ridge.pth \
+  --world-size 2 --output runs/preflight-data-ridge.json
+```
 
 전체 검사는 `torchrun`을 띄우기 전에 단일 process로 수행한다. 보고서는 v2 schema이며,
 검사한 case ID·SHA256·파일 크기/mtime·train RMS를 포함한다. `train`에는 반드시
-`--preflight-report runs/preflight-data.json`을 전달한다. 시작/재개 시에는 index SHA,
+`--preflight-report`(위 두 번째 preflight의 `runs/preflight-data-ridge.json`)를 전달한다. 시작/재개 시에는 index SHA,
 보고서 digest·정규화·현재 파일 stamp/sidecar만 확인하고 tensor를 다시 읽지 않는다.
 CLI는 이 검사를 process group 생성 전에 완료한다. 실제 case를 로드할 때의 SHA256
 검사는 계속 수행한다. 오래된 v1 보고서나 바뀐 파일은 거부하므로 preflight를 다시 실행한다.
@@ -75,16 +85,25 @@ process 명령은 전체 검사를 수행한다. 충분통계 계산 자체에�
 
 | 설정 | 공간 | Pointer |
 |---|---|---|
-| `transformer.json` | 기존 base 유지 | 기존 잔차 MLP |
-| `residual_mlp.json` | affine skip + MLP | affine skip + MLP |
-| `mlp_context.json` | affine skip + MLP + gated context | affine skip + MLP |
+| `residual_mlp.json` | 선형 연결층 + feed-forward 블록(64→256→64, GELU) | 선형 `A p + c` |
+| `transformer.json` | 선형 연결층 + self-attention·feed-forward 블록 | 선형 `A p + c` |
+| `residual_mlp_matched.json` | `residual_mlp`의 feed-forward 비율을 14로 넓힌 대조군(공간 파라미터 119,936개, Transformer 모델은 119,872개) | 선형 `A p + c` |
 
-두 개선 모델은 동일한 ridge artifact에서 시작한다. Affine skip은 학습 가능하며,
-MLP 마지막 층과 문맥 gate는 0으로 초기화한다. 초기 출력은 FP32 연산 허용오차 내에서
-ridge와 일치한다. Ridge의 데이터 identity가 다르면 학습을 거부한다.
+두 모델은 attention 부분층 하나만 다르다. 구조와 크기(파라미터 `residual_mlp` 103,168,
+`transformer` 185,664, 공간 MAC 기록당 150,994,944와 337,641,472)는
+[`translator_model_design.md`](translator_model_design.md) 1·3·4절에, 바뀐 이유는
+[`refactor_decisions.md`](refactor_decisions.md)에 있다. 설정 파일의 `model_options`는
+`TranslatorConfig` 필드(`num_layers`, `mlp_ratio`, `num_heads`, `sr_ratio`, `output_dtype`)이며
+두 파일 모두 비어 있다(기본값 사용). 세 모델 쌍에 같은 구조를 쓰고, 가중치와 학습 설정만 다르다.
 
-`skip_mode=identity`는 기존 동작이다. Affine 모델은 residual MLP v3 / Transformer v2
-payload를 사용하며 과거 residual MLP v2 / Transformer v1도 읽는다. 새 가중치는
+두 모델 모두 ridge artifact의 해로 연결층과 포인터 선형층을 초기화한다. 각 부분층의
+마지막 선형층은 0으로 초기화하므로 초기 출력은 FP32 연산 허용오차 내에서 ridge와
+일치한다. Ridge의 데이터 identity가 다르면 학습을 거부한다. `train`은 `--ridge-init`이 없으면
+오류를 낸다. `cpu-smoke`는 `--ridge-init`이 없으면 선택된 샘플로 ridge 해를 직접 적합한다.
+
+Payload schema는 `cmmt.stitched_translator.v1`이다. 이 브랜치의 구조 변경 전에 만든 payload와
+checkpoint(`cmmt.residual_mlp_translator.v2/.v3`, `cmmt.spatial_context_transformer_translator.v1/.v2`)는
+읽을 수 없다. 커밋 `913e35b` 또는 `main`에서 읽고, 모든 모델을 새로 학습한다. 새 가중치는
 기존 handoff CLI의 `--translator-artifact`로 읽을 수 있다. Streaming ridge에는
 `--translator ridge --presence-policy direct`를 사용한다. v2 state-only 캐시만으로
 기존 mask 기반 handoff/J&F CLI를 실행할 수 있다는 뜻은 아니다.
@@ -94,8 +113,8 @@ payload를 사용하며 과거 residual MLP v2 / Transformer v1도 읽는다. �
 ```sh
 cmmt-state-training cpu-smoke \
   --index /data/run_binding/raw_index.json --root-map /data/root-map.json \
-  --config configs/state_training/mlp_context.json \
-  --sample-cases 8 --steps 2 --output runs/cpu-smoke-context
+  --config configs/state_training/residual_mlp.json \
+  --sample-cases 8 --steps 2 --output runs/cpu-smoke-residual-mlp
 ```
 
 이 명령은 사용 가능한 train 샘플만으로 CPU forward/backward를 검사한다. Validation
@@ -107,12 +126,13 @@ cmmt-state-training cpu-smoke \
 ```sh
 cmmt-state-training evaluate \
   --index /data/run_binding/raw_index.json --root-map /data/root-map.json \
-  --model transformer --model-artifact /data/selected_state_loss_best/translator_weights.pth \
-  --output runs/epoch27-state-evaluation.json
+  --model residual_mlp --model-artifact runs/residual-mlp/paired_translators.pt \
+  --output runs/residual-mlp-state-evaluation.json
 ```
 
-`evaluate`는 CPU에서 모든 validation record의 상태 오차를 집계한다. 기존 raw export,
-새 `paired_translators.pt`, epoch checkpoint, streaming ridge를 지원한다. `--model ridge`는
+`evaluate`는 CPU에서 모든 validation record의 상태 오차를 집계한다. 새 schema
+(`cmmt.stitched_translator.v1`)의 payload, `paired_translators.pt`, epoch checkpoint,
+streaming ridge를 지원한다. 구조 변경 전에 저장한 가중치(예: 1차 학습 epoch 27)는 읽지 못한다. `--model ridge`는
 ridge artifact용이다. 원시/정규화 MSE와 source presence·conditioning·공간 사용 여부별
 통계를 기록한다. Source/target presence 불일치도 기록한다. J&F를 계산하지 않는다.
 
@@ -128,21 +148,22 @@ target으로 RMS를 추정하는 fallback은 없다.
 cmmt-state-training train \
   --index /data/run_binding/raw_index.json --root-map /data/root-map.json \
   --config configs/state_training/residual_mlp.json --ridge-init runs/ridge.pth \
-  --preflight-report runs/preflight-data.json \
-  --device cuda --output runs/residual-mlp-affine
+  --preflight-report runs/preflight-data-ridge.json \
+  --device cuda --output runs/residual-mlp
 
 python -m torch.distributed.run --standalone --nproc-per-node=2 \
   -m vos_memory_inspector.state_training.cli train \
   --index /data/run_binding/raw_index.json --root-map /data/root-map.json \
-  --config configs/state_training/mlp_context.json --ridge-init runs/ridge.pth \
-  --preflight-report runs/preflight-data.json \
-  --device cuda --output runs/mlp-context-affine
+  --config configs/state_training/residual_mlp.json --ridge-init runs/ridge.pth \
+  --preflight-report runs/preflight-data-ridge.json \
+  --device cuda --output runs/residual-mlp-ddp
 ```
 
-Base는 `transformer.json`을 사용하고 `--ridge-init`을 생략한다. 시작 시 기존 보고서와
+Transformer 모델은 `transformer.json`을 사용하며 `--ridge-init`은 똑같이 필요하다
+(위 두 명령에서 설정 파일만 바꾼다). 시작 시 기존 보고서와
 파일 metadata를 대조하며 전체 해시/tensor 검사는 반복하지 않는다. 기존 run 폴더에
 덮어쓰지 않으며, 재개에는 `--resume runs/RUN/last.ckpt`를
-명시한다. Index·모델 옵션·skip mode·정규화·학습 정책·ridge hash·world size가 달라지면
+명시한다. Index·모델 옵션·정규화·학습 정책·ridge hash·world size가 달라지면
 재개를 거부한다. 실행 결정성 profile과 PyTorch 버전도 checkpoint identity에 포함한다.
 이 정보가 없는 이전 학습 checkpoint는 새 trainer에서 재개할 수 없으며 새 run이 필요하다.
 기존 모델 가중치의 추론·상태 평가는 계속 지원한다. Max epochs와 microbatch/worker tuning은 바꿀 수 있다.
@@ -157,8 +178,8 @@ GPU 종류·process 수가 다른 실행 사이의 비트 일치를 보장하지
 있지만 긴 preflight를 기다리는 수단으로 사용하지 않는다.
 
 AdamW lr 3e-4, weight decay 1e-4, FP32, global batch 64, microbatch 32, clip norm 1.0,
-seed 7이 기본이다. Bias·LayerNorm·gate·위치 임베딩에는 weight decay를 적용하지 않는다.
-Affine skip weight에는 기존 AdamW 정책대로 weight decay를 적용한다. Ridge는 초기값이며
+seed 7이 기본이다. Bias와 LayerNorm 파라미터에는 weight decay를 적용하지 않는다.
+연결층 weight를 포함한 나머지 weight에는 AdamW 정책대로 weight decay를 적용한다. Ridge는 초기값이며
 학습 중 고정된 prior는 아니다. 비교 조건 유지를 위해 이번 timeout/평가 수정에서 이 정책을 바꾸지 않았다.
 최대 60 epoch, 최소 15 epoch 이후 meaningful improvement 0.2%가 없는 validation 8회로
 중단한다. Warmup은 min(epoch update 수,1000), plateau는 factor 0.5 / patience 3 /

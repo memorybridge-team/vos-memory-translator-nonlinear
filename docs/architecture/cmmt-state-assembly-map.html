@@ -352,7 +352,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
     ['학습 모듈', [
       ['a-grid', 'Spatial grid adapter', '필요할 때만 H×W 정렬'],
       ['a-spatial', 'Spatial nonlinear head', '제안 translator'],
-      ['a-pointer', 'Pointer nonlinear head', '제안 translator']]],
+      ['a-pointer', 'Pointer linear head', '제안 translator']]],
     ['History materializer', [
       ['a-order', 'Record materializer', 'frame·slot 순서 복원'],
       ['a-route', 'Cond/non-cond router', '기록 종류별 분기'],
@@ -602,7 +602,7 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Consolas, monospace; }
   const edgeNotes = {
     's-spatial>a-grid': 'Source 공간 기억의 H×W를 Target memory grid와 비교합니다. 다르면 bilinear interpolation으로 맞추고, 현재 Small→Base+처럼 같으면 그대로 통과합니다.',
     'a-grid>a-spatial': '크기가 정렬된 공간 기억만 learned head에 넘깁니다. 따라서 MLP는 위치 크기 문제가 아니라 채널별 표현 의미를 학습합니다.',
-    's-pointer>a-pointer': 'object pointer는 제안 방식에서 별도 nonlinear head로 번역합니다. identity/direct copy는 학습 head의 설명이 아니라 별도 baseline입니다.',
+    's-pointer>a-pointer': 'object pointer는 제안 방식에서 별도 선형 head(ridge 시작)로 번역합니다. 구조는 docs/translator_model_design.md를 참고합니다. identity/direct copy는 학습 head의 설명이 아니라 별도 baseline입니다.',
     's-presence>a-diagnostics': '과거 Source object_score_logits는 새 Target mask 예측의 memory read에 직접 사용하지 않습니다. 진단·재현 기록으로만 남기고 learned translator 입력에서는 제외합니다.',
     's-is-cond>a-route': '각 record의 true/false 표지를 읽어 사용자 기준 기억과 자동 추적 기억을 서로 다른 보관함으로 나눕니다.',
     'a-route>t-cond-root': 'true인 record를 conditioning history에 넣어 사용자가 직접 지정한 강한 기준 기억으로 유지합니다.',

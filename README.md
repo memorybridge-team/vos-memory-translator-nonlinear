@@ -2,7 +2,7 @@
 
 SAM 2.1 Small이 switch 시점까지 만든 객체별 memory를 translator로 바꾼 뒤 SAM 2.1 Base+ predictor에 주입해 `switch frame + 1`부터 이어 추적하는 코드입니다.
 
-새 translator의 실제 데이터 학습 및 후속 추적 성능은 아직 검증되지 않았습니다.
+모델 리팩토링은 완료되었습니다. Small → Base+ `transformer`는 전체 데이터로 학습했고(`cmmt-state-training`), 고정된 Base+를 통과시키는 fine-tuning까지 거쳐 PUMaVOS·M3-VOS에서 J&F를 측정했습니다. Fine-tuning 후에는 Base+ 단독과 통계적으로 구분되지 않는 수준입니다(PUMaVOS 50% 67.38 vs 69.53, M3-VOS 61.37 vs 60.23, 단일 seed). 방법, 출처, 결과는 [`docs/translator_model_design.md`](docs/translator_model_design.md) 7절에 있습니다. `residual_mlp`와 Base+ → Large, Small → Large pair는 아직 이 구조로 학습하지 않았습니다.
 
 ## 모델 구조
 

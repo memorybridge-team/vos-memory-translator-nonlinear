@@ -2,6 +2,15 @@
 
 Answer to `docs/fable_reference_prompt.md`. Written 2026-11-12.
 
+**Corrections after the source check of 2026-11-12** (details in `docs/design_finish_report.md`; the text below is unchanged):
+
+- Lenc & Vedaldi 2015 describe the stitching layer as "a bank of linear filters" and state no filter size. The 1x1 form is explicit in Bansal et al. 2021 and Csiszárik et al. 2021. Read "1x1 convolution" in sections 1, 4.4 and 7 as resting on those two papers.
+- Stitchable Neural Networks (Pan et al. 2023) also train the stitched networks; only the stitching layers start from least squares. The precedent with frozen networks is Csiszárik et al. 2021.
+- Section 4.5 calls Lin et al. 2022 a "close analogy" for spatial mismatch. It is a loose analogy: their transformation uses teacher and student features for a distillation loss with a trained student.
+- Section 4.9 calls Pan et al. a direct precedent for one structure across pairs. It is a close analogy: they do not state it as a principle and stitch neighbouring sizes only by default.
+- Open items of section 8 are closed: Bansal et al.'s stitching layer is a 1x1 convolution with BatchNorm before and after, and a token-wise linear map for Transformers; Kornblith et al. ("increasing layer width leads to more similar representations between networks") and Morcos et al. ("larger networks converged to much more similar solutions") say what the text attributes to them; Pan et al. report that non-neighbouring stitches are worse (the exact sentence on DeiT-Ti with DeiT-B was seen only in a summary); Klabunde et al. appeared in ACM Computing Surveys 57(9), 2025 (search record, the ACM page was not opened).
+- The description of candidates A and B in this report refers to the old structure. The current structure is in `docs/translator_model_design.md`.
+
 How to read this file:
 
 - Sections 1 to 5, 7 and 8 use **LITERATURE** only, plus the SAM 2.1 configuration files and the translator code (the design itself). They were written before I opened any experiment record.
