@@ -40,7 +40,7 @@ def parser():
         cmd.add_argument('--root-map', type=Path, help='JSON object mapping original path prefixes to local roots')
         cmd.add_argument('--config', type=Path)
         cmd.add_argument('--output', type=Path, required=True)
-        cmd.add_argument('--model', choices=('transformer', 'residual_mlp', 'mlp_context', 'ridge') if name == 'evaluate' else ('transformer', 'residual_mlp', 'mlp_context'))
+        cmd.add_argument('--model', choices=('transformer', 'residual_mlp', 'ridge') if name == 'evaluate' else ('transformer', 'residual_mlp'))
         cmd.add_argument('--ridge-init', type=Path)
         if name in ('preflight', 'cpu-smoke', 'ridge-fit', 'evaluate'):
             cmd.add_argument('--sample-index', action='store_true', help='allow explicitly labelled CPU-only fixture indexes')
@@ -81,11 +81,12 @@ def main(argv=None):
         report['planned_world_size'] = args.world_size
         if args.ridge_init:
             ridge = load_ridge(args.ridge_init)
-            report['ridge_initialization_ready'] = (options.get('skip_mode', 'identity') == 'affine' and
+            report['ridge_initialization_ready'] = (
                 ridge['provenance']['data_identity'] == index.identity and
                 ridge['source_spec'] == report['source_spec'] and ridge['target_spec'] == report['source_spec'])
         else:
-            report['ridge_initialization_ready'] = options.get('skip_mode', 'identity') != 'affine'
+            # Both models start from the ridge solution, so a launch needs --ridge-init.
+            report['ridge_initialization_ready'] = False
         report['model_configuration'] = dict(name=name, options=options)
         if report['source_spec']:
             from ..state_schema import StateSpec

@@ -5,14 +5,16 @@ from typing import Any
 
 __all__ = [
     "ResidualMLPStateTranslator", "TransformerStateTranslator",
-    "MLPContextStateTranslator", "SpatialTransformerConfig", "build_translator",
+    "StitchedStateTranslator", "TranslatorConfig", "SAM21_MEMORY_SPEC",
+    "build_translator",
 ]
 
 _EXPORTS = {
     "ResidualMLPStateTranslator": (".residual_mlp", "ResidualMLPStateTranslator"),
     "TransformerStateTranslator": (".transformer", "TransformerStateTranslator"),
-    "MLPContextStateTranslator": (".mlp_context", "MLPContextStateTranslator"),
-    "SpatialTransformerConfig": ("._spatial", "SpatialTransformerConfig"),
+    "StitchedStateTranslator": ("._stitched", "StitchedStateTranslator"),
+    "TranslatorConfig": ("._stitched", "TranslatorConfig"),
+    "SAM21_MEMORY_SPEC": ("._stitched", "SAM21_MEMORY_SPEC"),
     "build_translator": (".registry", "build_translator"),
 }
 

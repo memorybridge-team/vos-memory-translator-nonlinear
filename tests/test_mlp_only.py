@@ -8,9 +8,9 @@ import sys
 
 import pytest
 import torch
-from torch import nn
 
 from vos_memory_inspector.paired_state_cache import write_paired_state_cache
+from vos_memory_inspector.models import TranslatorConfig
 from vos_memory_inspector.state_schema import StateSpec
 from vos_memory_inspector.translator_training import fit_gradient_translator, state_mse_loss
 from vos_memory_inspector.translators import ResidualMLPStateTranslator
@@ -19,10 +19,9 @@ from vos_memory_inspector.translators import ResidualMLPStateTranslator
 def test_default_mlp_identity_and_sam_memory_contract(make_state):
     spec = StateSpec(64, 64, 64, 256)
     model = ResidualMLPStateTranslator(spec, spec)
-    assert model.parameter_count() == 279_488
-    assert [type(m) for m in model.feature] == [nn.Linear, nn.GELU, nn.Linear]
-    assert [type(m) for m in model.pointer] == [nn.Linear, nn.GELU, nn.Linear]
-    assert (model.hidden_dim, model.pointer_hidden_dim) == (128, 512)
+    assert model.parameter_count() == 103_168
+    assert model.config == TranslatorConfig()
+    assert model.supports_position_sampling
     source = make_state(
         torch.randn(1, 1, 2, 64, 64, 64).bfloat16(),
         torch.randn(1, 1, 2, 256),
@@ -44,7 +43,7 @@ def test_default_mlp_identity_and_sam_memory_contract(make_state):
 
 
 @pytest.mark.parametrize("samples", [None, 12])
-def test_zero_initialized_mlp_learns_both_heads_and_reloads(tmp_path, make_state, samples):
+def test_untrained_mlp_learns_both_heads_and_reloads(tmp_path, make_state, samples):
     torch.manual_seed(7)
     valid = torch.tensor([[[True, True, False]]])
     spatial = torch.randn(1, 1, 3, 4, 3, 3)
@@ -57,16 +56,21 @@ def test_zero_initialized_mlp_learns_both_heads_and_reloads(tmp_path, make_state
         object_pointer=pointer * 0.7 - 0.3,
         presence_logits=source.presence_logits,
     )
-    model = ResidualMLPStateTranslator(source.spec, target.spec, hidden_dim=12, pointer_hidden_dim=16)
-    first_weights = [model.feature[0].weight.detach().clone(), model.pointer[0].weight.detach().clone()]
+    model = ResidualMLPStateTranslator(source.spec, target.spec, config=TranslatorConfig(mlp_ratio=3.0))
+    first_weights = [
+        model.spatial.blocks[0].mlp.fc1.weight.detach().clone(),
+        model.pointer.linear.weight.detach().clone(),
+    ]
     history = fit_gradient_translator(
         model, [(source, target)], epochs=35, learning_rate=0.02,
         device="cpu", spatial_samples_per_pair=samples,
     )
     assert history[-1] < history[0] * 0.2
-    for head, initial in zip((model.feature, model.pointer), first_weights):
-        assert not torch.equal(head[0].weight, initial)
-        assert torch.count_nonzero(head[-1].weight) > 0
+    for weight, initial in zip(
+        (model.spatial.blocks[0].mlp.fc1.weight, model.pointer.linear.weight), first_weights
+    ):
+        assert not torch.equal(weight, initial)
+    assert torch.count_nonzero(model.spatial.blocks[0].mlp.fc2.weight) > 0
     assert all(torch.isfinite(p).all() for p in model.parameters())
     path = tmp_path / "mlp.pt"
     torch.save(model.to_payload(), path)
@@ -81,10 +85,10 @@ def test_zero_initialized_mlp_learns_both_heads_and_reloads(tmp_path, make_state
 def test_mlp_positions_and_records_remain_independent_after_training(make_state):
     torch.manual_seed(7)
     source = make_state(torch.randn(1, 2, 2, 4, 3, 3), torch.randn(1, 2, 2, 5))
-    model = ResidualMLPStateTranslator(source.spec, source.spec, hidden_dim=8, pointer_hidden_dim=9)
+    model = ResidualMLPStateTranslator(source.spec, source.spec, config=TranslatorConfig(mlp_ratio=2.0))
     with torch.no_grad():
-        for head in (model.feature, model.pointer):
-            head[-1].weight.normal_()
+        for weight in (model.spatial.blocks[0].mlp.fc2.weight, model.pointer.linear.weight):
+            weight.normal_()
         before_s, before_p = model.translate_tensors(source.spatial_memory, source.object_pointer)
         spatial, pointer = source.spatial_memory.clone(), source.object_pointer.clone()
         spatial[0, 0, 0, :, 1, 1] += 4
@@ -114,7 +118,7 @@ def test_whole_frame_training_uses_fp32_before_handoff_cast(make_state):
         object_pointer=source.object_pointer,
         presence_logits=source.presence_logits,
     )
-    model = ResidualMLPStateTranslator(source.spec, source.spec, hidden_dim=4, pointer_hidden_dim=6)
+    model = ResidualMLPStateTranslator(source.spec, source.spec)
     fit_gradient_translator(model, [(source, target)], epochs=1, learning_rate=0.0001, device="cpu")
     with torch.no_grad():
         spatial, _ = model.translate_tensors(source.spatial_memory, source.object_pointer)
@@ -157,13 +161,13 @@ def test_collection_cli_trains_and_exports_mlp(tmp_path, make_state, sampling):
     assert completed.returncode == 0, completed.stderr
     report = json.loads((tmp_path / "output/paired_report.json").read_text())
     assert report["translator_names"] == ["residual_mlp"]
-    assert report["training"]["pointer_hidden_dim"] == 512
-    assert report["training"]["hidden_dim"] == 128
+    assert report["training"]["translator_config"] is None
+    assert "hidden_dim" not in report["training"] and "pointer_hidden_dim" not in report["training"]
     assert report["training"]["spatial_samples_per_pair"] == (5 if sampling == "sampled" else None)
     assert len(report["training"]["mlp_loss_history"]) == 2
     saved = torch.load(tmp_path / "output/paired_translators.pt", weights_only=True)
     model = ResidualMLPStateTranslator.from_payload(saved["residual_mlp"])
-    assert (model.hidden_dim, model.pointer_hidden_dim, model.output_dtype) == (128, 512, "source")
+    assert (model.config, model.output_dtype) == (TranslatorConfig(), "source")
     assert report["actual_sam2_injection"]["ran"] is False
     assert report["evaluation_split"] == "validation"
     assert report["test_pairs"] == 0

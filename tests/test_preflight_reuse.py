@@ -15,6 +15,7 @@ import torch
 from test_state_training import sample_index, cpu_config
 from vos_memory_inspector.state_training import preflight
 from vos_memory_inspector.state_training.data import load_index, load_pair
+from vos_memory_inspector.state_training.ridge import fit_ridge
 from vos_memory_inspector.state_training.storage import digest, save_json, sha256
 from vos_memory_inspector.state_training.trainer import train
 
@@ -70,12 +71,15 @@ def test_train_requires_receipt_and_never_repeats_inspect(sample_index, cpu_conf
     index = load_index(sample_index, allow_sample=True)
     report = preflight.inspect(index, cpu_config)
     monkeypatch.setattr(preflight, 'inspect', lambda *a, **k: pytest.fail('unexpected whole-data scan'))
+    fit_ridge(index, cpu_config, tmp_path / 'ridge.pth')
+    ridge_path = tmp_path / 'ridge.pth'
+    options = dict(num_layers=1, mlp_ratio=2.0)
     with pytest.raises(ValueError, match='preflight report required'):
-        train(index, cpu_config, 'residual_mlp', tmp_path / 'missing', allow_sample=True)
+        train(index, cpu_config, 'residual_mlp', tmp_path / 'missing', allow_sample=True, ridge_path=ridge_path)
     train(index, cpu_config, 'residual_mlp', tmp_path / 'trained', readiness=report, allow_sample=True,
-          options=dict(hidden_dim=8, pointer_hidden_dim=10))
+          options=options, ridge_path=ridge_path)
     train(index, replace(cpu_config, max_epochs=3), 'residual_mlp', tmp_path / 'trained',
-          readiness=report, allow_sample=True, options=dict(hidden_dim=8, pointer_hidden_dim=10),
+          readiness=report, allow_sample=True, options=options, ridge_path=ridge_path,
           resume=tmp_path / 'trained/last.ckpt')
 
 
@@ -102,7 +106,7 @@ def _official_cli_fixture(tmp_path, make_state):
     save_json(path, dict(schema_version='cmmt.official_state_training_index.v1', state='tensor_validated',
               entries=entries, identity=dict(expected_case_ids=['case0', 'case1'])))
     config = tmp_path / 'config.json'
-    save_json(config, dict(model='residual_mlp', model_options=dict(hidden_dim=8, pointer_hidden_dim=8),
+    save_json(config, dict(model='residual_mlp', model_options=dict(num_layers=1, mlp_ratio=2.0),
               training=dict(workers=0, global_batch=2, microbatch=1, max_epochs=1)))
     return path, config
 
@@ -110,6 +114,11 @@ def _official_cli_fixture(tmp_path, make_state):
 def test_actual_two_rank_cli_has_no_long_preflight_collective(tmp_path, make_state):
     index_path, config_path = _official_cli_fixture(tmp_path, make_state)
     report_path = tmp_path / 'readiness.json'
+    ridge_path = tmp_path / 'ridge.pth'
+    # Both models start from the ridge solution, so it is fitted before preflight.
+    from vos_memory_inspector.state_training import cli
+    assert cli.main(['ridge-fit', '--index', str(index_path), '--config', str(config_path),
+                     '--output', str(ridge_path)]) == 0
     # A deliberately slow scan takes longer than the following DDP timeout.
     # It runs in the standalone command, before a process group exists.
     slow = tmp_path / 'slow_preflight.py'
@@ -129,7 +138,8 @@ raise SystemExit(cli.main(sys.argv[1:]))
         env.setdefault('GLOO_SOCKET_IFNAME', 'lo0')
     started = time.monotonic()
     subprocess.run([sys.executable, str(slow), 'preflight', '--index', str(index_path),
-        '--config', str(config_path), '--output', str(report_path), '--world-size', '2'],
+        '--config', str(config_path), '--output', str(report_path), '--world-size', '2',
+        '--ridge-init', str(ridge_path)],
         check=True, capture_output=True, text=True, env=env, timeout=45)
     assert time.monotonic() - started >= 6
     # All startup tensor scans are forbidden in the actual CLI invocation.
@@ -158,7 +168,7 @@ raise SystemExit(cli.main(sys.argv[1:]))
         return [sys.executable, '-m', 'torch.distributed.run', '--nnodes=1', '--nproc-per-node=2',
                 '--master-addr=127.0.0.1', f'--master-port={port}', str(entrypoint), 'train',
                 '--index', str(index_path), '--config', str(config_path), '--output', str(output),
-                '--device', 'cpu', '--preflight-report', str(report_path),
+                '--device', 'cpu', '--preflight-report', str(report_path), '--ridge-init', str(ridge_path),
                 '--distributed-timeout-seconds', '5']
 
     first = _run_process_group(command(), env)

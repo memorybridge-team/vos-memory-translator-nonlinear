@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import torch
 
+from vos_memory_inspector.models import TranslatorConfig
 from vos_memory_inspector.paired_experiment import run_paired_experiment
 from vos_memory_inspector.sam2_state import (
     canonicalize_sam2_inference_state,
@@ -33,6 +34,13 @@ def _memory_mse(prediction: CanonicalState, target: CanonicalState) -> float:
         truth = getattr(target, name)[validity].float()
         losses.append(float((pred - truth).square().mean()))
     return sum(losses) / len(losses)
+
+
+def _perturb(model: torch.nn.Module, seed: int = 1) -> None:
+    generator = torch.Generator().manual_seed(seed)
+    with torch.no_grad():
+        for parameter in model.parameters():
+            parameter.add_(0.05 * torch.randn(parameter.shape, generator=generator))
 
 
 def _state(spatial: torch.Tensor, pointer: torch.Tensor, presence: torch.Tensor) -> CanonicalState:
@@ -392,21 +400,10 @@ def test_ridge_direct_presence_uses_ridge_for_memory_only() -> None:
     assert translated.metadata["translation"]["presence_logits"] == "direct"
 
 
-def test_mlp_residuals_are_only_enabled_for_equal_feature_dimensions() -> None:
-    source_spec = StateSpec(3, 2, 2, 5)
-    mismatched = ResidualMLPStateTranslator(source_spec, StateSpec(4, 2, 2, 2))
-    assert not mismatched.feature_residual
-    assert not mismatched.pointer_residual
-    matched = ResidualMLPStateTranslator(source_spec, source_spec)
-    assert matched.feature_residual
-    assert matched.pointer_residual
-    grid_mismatch = ResidualMLPStateTranslator(source_spec, StateSpec(3, 3, 2, 5))
-    assert not grid_mismatch.feature_residual
-
-
 def test_residual_mlp_payload_roundtrip_preserves_predictions() -> None:
     spec = StateSpec(3, 2, 2, 5)
-    translator = ResidualMLPStateTranslator(spec, spec, hidden_dim=7)
+    translator = ResidualMLPStateTranslator(spec, spec, config=TranslatorConfig(mlp_ratio=2.0))
+    _perturb(translator)
     source = _state(
         torch.randn(1, 1, 2, 3, 2, 2),
         torch.randn(1, 1, 2, 5),
@@ -415,7 +412,7 @@ def test_residual_mlp_payload_roundtrip_preserves_predictions() -> None:
 
     restored = ResidualMLPStateTranslator.from_payload(translator.to_payload())
 
-    assert restored.hidden_dim == 7
+    assert restored.config == translator.config
     assert restored.source_spec == spec
     assert restored.target_spec == spec
     expected = translator.translate(source)
@@ -427,7 +424,8 @@ def test_residual_mlp_payload_roundtrip_preserves_predictions() -> None:
 
 def test_learned_component_policy_uses_direct_for_unselected_components() -> None:
     spec = StateSpec(3, 2, 2, 5)
-    learned = ResidualMLPStateTranslator(spec, spec, hidden_dim=7)
+    learned = ResidualMLPStateTranslator(spec, spec, config=TranslatorConfig(mlp_ratio=2.0))
+    _perturb(learned)
     source = _state(
         torch.randn(1, 1, 2, 3, 2, 2),
         torch.randn(1, 1, 2, 5),
@@ -468,7 +466,7 @@ def test_paired_experiment_serializes_residual_mlp_contract(tmp_path: Path) -> N
         [(source, target)],
         tmp_path,
         epochs=1,
-        hidden_dim=6,
+        translator_config=TranslatorConfig(mlp_ratio=2.0),
         translator_names=("residual_mlp",),
         device="cpu",
         spatial_samples_per_pair=3,
@@ -481,8 +479,11 @@ def test_paired_experiment_serializes_residual_mlp_contract(tmp_path: Path) -> N
         tmp_path / "paired_translators.pt", map_location="cpu", weights_only=True
     )
     payload = saved["residual_mlp"]
-    assert payload["schema_version"] == "cmmt.residual_mlp_translator.v2"
-    assert payload["hidden_dim"] == 6
+    assert payload["schema_version"] == "cmmt.stitched_translator.v1"
+    assert payload["translator"] == "residual_mlp"
+    assert payload["config"] == TranslatorConfig(mlp_ratio=2.0).to_dict()
+    assert report["training"]["translator_config"] == TranslatorConfig(mlp_ratio=2.0).to_dict()
+    assert "hidden_dim" not in report["training"] and "pointer_hidden_dim" not in report["training"]
     assert payload["source_spec"] == source.spec.to_dict()
     assert payload["target_spec"] == target.spec.to_dict()
 

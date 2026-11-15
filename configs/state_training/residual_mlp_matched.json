@@ -1,9 +1,7 @@
 {
-  "model": "mlp_context",
+  "model": "residual_mlp",
   "model_options": {
-    "skip_mode": "affine",
-    "fusion_hidden_dim": 128,
-    "pointer_hidden_dim": 512
+    "mlp_ratio": 14.0
   },
   "training": {
     "lr": 0.0003,
